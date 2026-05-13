@@ -1,0 +1,162 @@
+#!/usr/bin/env bash
+# pi-epic-complete [--no-pr] [--draft]
+#
+# Final epic shipping ritual:
+#   1. Verifies all features are merged (or halted)
+#   2. Rebases epic branch onto latest default branch
+#   3. Runs full test suite
+#   4. Distills deviations.md → lessons.md (lessons-candidate.md for review first)
+#   5. Pushes the epic branch
+#   6. Opens PR via `gh pr create` (if available) or prints the manual command
+#   7. Archives epic to .pi/epics/done/
+
+set -euo pipefail
+# Resolve script dir through symlinks so we can source siblings reliably.
+__src="${BASH_SOURCE[0]}"
+while [ -L "$__src" ]; do
+    __dir="$(cd -P "$(dirname "$__src")" && pwd)"
+    __src="$(readlink "$__src")"
+    [[ $__src != /* ]] && __src="$__dir/$__src"
+done
+__SCRIPT_DIR="$(cd -P "$(dirname "$__src")" && pwd)"
+source "$__SCRIPT_DIR/_common.sh"
+
+no_pr=0; draft=0
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --no-pr) no_pr=1; shift ;;
+        --draft) draft=1; shift ;;
+        *) echo "unknown arg: $1" >&2; exit 1 ;;
+    esac
+done
+
+repo=$(repo_root)
+cd "$repo"
+epic_dir=$(active_epic_dir)
+epic_id=$(active_epic_id)
+epic_slug=${epic_id#*-}
+def=$(yaml_get "$epic_dir/meta.yaml" default_branch)
+
+# Check all features merged
+remaining=$(pi-epic-next-feature 2>/dev/null || true)
+if [[ "$remaining" != "DONE" ]]; then
+    echo "ERROR: epic not done — pi-epic-next-feature returned: $remaining" >&2
+    exit 1
+fi
+
+git checkout "epic/$epic_slug" --quiet
+[[ -z $(git status --porcelain) ]] || { echo "ERROR: working tree dirty on epic branch" >&2; exit 1; }
+
+log "fetching latest $def..."
+git fetch --quiet origin "$def" 2>/dev/null || true
+git rebase "origin/$def" --quiet || git rebase "$def" --quiet || {
+    echo "ERROR: rebase onto $def failed; resolve conflicts and retry" >&2
+    exit 1
+}
+
+# Detect + run full test suite
+detect_test_cmd() {
+    if [[ -f "$repo/package.json" ]]; then echo "npm test"; return; fi
+    if compgen -G "$repo/*.sln" > /dev/null; then echo "dotnet test"; return; fi
+    if [[ -f "$repo/pyproject.toml" ]]; then echo "pytest"; return; fi
+    if [[ -f "$repo/go.mod" ]]; then echo "go test ./..."; return; fi
+    if [[ -f "$repo/Cargo.toml" ]]; then echo "cargo test"; return; fi
+    echo ""
+}
+test_cmd=$(yaml_get "$epic_dir/epic-config.yaml" test_cmd)
+[[ -z "$test_cmd" ]] && test_cmd=$(detect_test_cmd)
+if [[ -n "$test_cmd" ]]; then
+    log "running full test suite: $test_cmd"
+    eval "$test_cmd" || { echo "ERROR: tests failed on epic branch" >&2; exit 1; }
+fi
+
+# Distill deviations into lessons-candidate.md
+candidate="$epic_dir/lessons-candidate.md"
+if [[ -f "$epic_dir/deviations.md" ]]; then
+    {
+        echo "# Lessons candidates from $epic_id"
+        echo
+        echo "> Pi reviews this file, removes epic-specific noise, and appends the"
+        echo "> generalizable rules to ~/.pi/agent/skills/epic-feature-workflow/lessons.md"
+        echo
+        echo "## Source deviations"
+        echo
+        cat "$epic_dir/deviations.md"
+    } > "$candidate"
+    log "distilled deviations → $candidate (review and append to global lessons.md)"
+fi
+
+# Auto-PR body
+pr_body=$(mktemp)
+{
+    echo "## Epic: $(yaml_get "$epic_dir/meta.yaml" title)"
+    echo
+    echo "Implements [\`design.md\`](.pi/epics/$epic_id/design.md)."
+    echo
+    echo "### Features merged"
+    echo
+    if [[ -d "$epic_dir/features/done" ]]; then
+        for sub in "$epic_dir/features/done"/*/; do
+            [[ -d "$sub" ]] || continue
+            t=$(yaml_get "$sub/meta.yaml" title)
+            sha=$(yaml_get "$sub/meta.yaml" merge_commit_sha)
+            id=$(basename "$sub")
+            echo "- **$id** — $t (\`${sha:0:8}\`)"
+        done
+    fi
+    echo
+    if [[ -s "$epic_dir/deviations.md" ]] && grep -q '^### ' "$epic_dir/deviations.md"; then
+        echo "### Deviations from plan"
+        echo
+        echo "See \`.pi/epics/$epic_id/deviations.md\` for the full log; lessons distilled to \`lessons-candidate.md\`."
+        echo
+    fi
+    echo "### Design decisions"
+    echo
+    sed -n '/^## 4. Decisions log/,/^## /p' "$epic_dir/design.md" | sed '$d' | tail -n +2 || true
+} > "$pr_body"
+
+# Push + PR
+if [[ $no_pr -eq 0 ]]; then
+    log "pushing epic/$epic_slug..."
+    git push --set-upstream origin "epic/$epic_slug" --quiet
+
+    if command -v gh >/dev/null 2>&1; then
+        log "opening PR with gh..."
+        args=(--base "$def" --head "epic/$epic_slug" --title "$(yaml_get "$epic_dir/meta.yaml" title)" --body-file "$pr_body")
+        [[ $draft -eq 1 ]] && args+=(--draft)
+        gh pr create "${args[@]}" || log "gh pr create failed; you can run it manually with the body in $pr_body"
+    else
+        log "gh CLI not available. Push complete; create PR manually:"
+        echo
+        echo "  Base: $def"
+        echo "  Head: epic/$epic_slug"
+        echo "  Body: $pr_body"
+        echo
+    fi
+fi
+
+# Archive epic folder
+mkdir -p "$repo/.pi/epics/done"
+yaml_set "$epic_dir/meta.yaml" status "done"
+yaml_bump_updated "$epic_dir/meta.yaml"
+mv "$epic_dir" "$repo/.pi/epics/done/"
+
+# Reset STATE.md
+cat > "$repo/.pi/STATE.md" <<EOF
+# Active feature: (none)
+
+Last shipped epic: \`.pi/epics/done/$epic_id/\`
+EOF
+
+cat <<EOF
+
+✓ Epic complete: $epic_id
+  Branch: epic/$epic_slug pushed; PR opened (if gh available).
+  Folder archived: .pi/epics/done/$epic_id/
+  Lessons candidate: .pi/epics/done/$epic_id/lessons-candidate.md
+
+Manually review lessons-candidate.md and append generalizable patterns to
+  ~/.pi/agent/skills/epic-feature-workflow/lessons.md
+
+EOF

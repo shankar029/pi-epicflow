@@ -1,0 +1,200 @@
+#!/usr/bin/env bash
+# pi-epic-validate-decomposition
+#
+# Validates the active epic's decomposition.yaml:
+#   - Every feature has required fields
+#   - Feature IDs sequential (F01, F02, ...)
+#   - depends_on references valid features
+#   - No cycles
+#   - estimated_hours <= 16
+#
+# Exit 0 + "OK" on success, non-zero with errors on failure.
+
+set -euo pipefail
+# Resolve script dir through symlinks so we can source siblings reliably.
+__src="${BASH_SOURCE[0]}"
+while [ -L "$__src" ]; do
+    __dir="$(cd -P "$(dirname "$__src")" && pwd)"
+    __src="$(readlink "$__src")"
+    [[ $__src != /* ]] && __src="$__dir/$__src"
+done
+__SCRIPT_DIR="$(cd -P "$(dirname "$__src")" && pwd)"
+source "$__SCRIPT_DIR/_common.sh"
+
+epic_dir=$(active_epic_dir)
+decomp="$epic_dir/decomposition.yaml"
+[[ -f "$decomp" ]] || { echo "ERROR: $decomp not found" >&2; exit 1; }
+
+python3 - "$decomp" <<'PY'
+import sys, re, os
+
+path = sys.argv[1]
+
+# Minimal YAML reader for the schema we use.
+def parse(p):
+    out = {'features': []}
+    cur = None
+    cur_field = None
+    cur_list = None
+    indent_stack = [0]
+    with open(p, encoding='utf-8') as f:
+        for raw in f:
+            line = raw.rstrip('\n')
+            if not line.strip() or line.lstrip().startswith('#'):
+                continue
+            ind = len(line) - len(line.lstrip(' '))
+            s = line.strip()
+
+            if ind == 0:
+                m = re.match(r'^([A-Za-z0-9_]+)\s*:\s*(.*)$', s)
+                if m and m.group(1) == 'features':
+                    cur = None
+                    continue
+                if m and m.group(1) == 'epic':
+                    out['epic'] = m.group(2).strip().strip('"').strip("'")
+                    continue
+
+            # Feature start: "- id: Fxx"
+            if s.startswith('- ') and 'id:' in s:
+                cur = {}
+                out['features'].append(cur)
+                rest = s[2:]
+                m = re.match(r'^id\s*:\s*(.*)$', rest)
+                if m:
+                    cur['id'] = m.group(1).strip().strip('"').strip("'")
+                cur_field = None
+                cur_list = None
+                continue
+
+            if cur is None:
+                continue
+
+            # List item
+            if s.startswith('- '):
+                if cur_list is not None:
+                    cur_list.append(s[2:].strip().strip('"').strip("'"))
+                continue
+
+            # Field line
+            m = re.match(r'^([A-Za-z0-9_]+)\s*:\s*(.*)$', s)
+            if not m:
+                continue
+            k, v = m.group(1), m.group(2).strip()
+            v = re.sub(r'\s+#.*$', '', v).strip()
+            cur_field = k
+            if v == '':
+                # list or block follows
+                cur[k] = []
+                cur_list = cur[k]
+            elif v == '[]':
+                cur[k] = []
+                cur_list = None
+            elif v.startswith('[') and v.endswith(']'):
+                inner = v[1:-1].strip()
+                cur[k] = [x.strip().strip('"').strip("'") for x in inner.split(',')] if inner else []
+                cur_list = None
+            else:
+                cur[k] = v.strip('"').strip("'")
+                cur_list = None
+
+    return out
+
+data = parse(path)
+errors = []
+warnings = []
+
+required = ['id','slug','summary','depends_on','scope_files','acceptance_criteria','estimated_hours']
+ids_seen = []
+import re
+
+_FID_RE = re.compile(r'^F(\d+)([a-z]?)$')
+expected_idx = 1
+seen_numeric = {}
+for i, ft in enumerate(data.get('features', [])):
+    fid = ft.get('id', f'<feature #{i+1}>')
+    for r in required:
+        if r not in ft:
+            errors.append(f"{fid}: missing field '{r}'")
+    # Sequential IDs (allow F06a/F06b sub-features sharing one numeric slot)
+    m = _FID_RE.match(ft.get('id', ''))
+    if not m:
+        if ft.get('id'):
+            errors.append(f"{fid}: id must match F<NN>[a-z]")
+    else:
+        n = int(m.group(1))
+        suf = m.group(2)
+        if n == expected_idx:
+            # First time we see this number -> any suffix is fine; advance afterward.
+            seen_numeric.setdefault(n, []).append(suf)
+            # If no suffix, no further sub-features allowed for this slot.
+            # Advance the expected counter only when the *next* feature has a different number.
+        elif n == expected_idx + 1 and seen_numeric.get(expected_idx):
+            # Previous slot is closed; advance.
+            expected_idx += 1
+            seen_numeric.setdefault(n, []).append(suf)
+        else:
+            errors.append(f"{fid}: expected id starting with F{expected_idx:02d} (or F{expected_idx+1:02d})")
+        # Look ahead to decide if this slot is closed: if next feature has a different
+        # numeric prefix, advance now so the next iteration's check works.
+        nxt = data.get('features', [])[i+1] if i + 1 < len(data.get('features', [])) else None
+        nxt_m = _FID_RE.match((nxt or {}).get('id', '')) if nxt else None
+        if nxt is None or (nxt_m and int(nxt_m.group(1)) != n):
+            # close this slot; expected advances on next iter via the elif branch above
+            pass
+    ids_seen.append(ft.get('id', ''))
+    # Hours sanity
+    try:
+        hrs = float(ft.get('estimated_hours', 0))
+        if hrs <= 0:
+            errors.append(f"{fid}: estimated_hours must be > 0")
+        if hrs > 16:
+            errors.append(f"{fid}: estimated_hours={hrs} exceeds 16 (split into smaller features)")
+        if hrs > 8:
+            warnings.append(f"{fid}: estimated_hours={hrs} is large; consider splitting")
+    except (ValueError, TypeError):
+        errors.append(f"{fid}: estimated_hours must be numeric")
+    # Non-empty scope/AC
+    if not ft.get('scope_files'):
+        errors.append(f"{fid}: scope_files is empty")
+    if not ft.get('acceptance_criteria'):
+        errors.append(f"{fid}: acceptance_criteria is empty")
+    # Self-dep
+    if ft.get('id') in (ft.get('depends_on') or []):
+        errors.append(f"{fid}: cannot depend on itself")
+
+# Unknown deps
+all_ids = {ft.get('id') for ft in data.get('features', [])}
+for ft in data.get('features', []):
+    fid = ft.get('id', '?')
+    for d in ft.get('depends_on') or []:
+        if d not in all_ids:
+            errors.append(f"{fid}: depends_on '{d}' is not a defined feature")
+
+# Cycle detection (DFS)
+graph = {ft.get('id'): list(ft.get('depends_on') or []) for ft in data.get('features', [])}
+WHITE, GRAY, BLACK = 0, 1, 2
+color = {n: WHITE for n in graph}
+def dfs(n, stack):
+    color[n] = GRAY
+    for m in graph.get(n, []):
+        if m not in color: continue
+        if color[m] == GRAY:
+            errors.append(f"cycle in DAG: {' → '.join(stack + [m])}")
+            return
+        if color[m] == WHITE:
+            dfs(m, stack + [m])
+    color[n] = BLACK
+for n in list(color.keys()):
+    if color[n] == WHITE:
+        dfs(n, [n])
+
+if warnings:
+    print("WARNINGS:")
+    for w in warnings: print(f"  - {w}")
+if errors:
+    print("ERRORS:")
+    for e in errors: print(f"  - {e}")
+    sys.exit(1)
+
+print(f"OK: {len(data.get('features', []))} features, DAG valid.")
+PY

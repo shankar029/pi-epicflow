@@ -1,0 +1,225 @@
+#!/usr/bin/env bash
+# pi-feature-start <feature-id>
+#
+# - Verifies feature deps are merged
+# - Creates feat/<epic-slug>/<feature-id>-<slug> branch off the epic branch
+# - Creates a git worktree at ../<repo>-<feature-id>/
+# - Creates .pi/epics/<epic>/features/<feature-id>-<slug>/{feature.md,meta.yaml}
+# - Updates STATE.md
+# - Echoes the worktree path so the caller can `cd` into it.
+
+set -euo pipefail
+# Resolve script dir through symlinks so we can source siblings reliably.
+__src="${BASH_SOURCE[0]}"
+while [ -L "$__src" ]; do
+    __dir="$(cd -P "$(dirname "$__src")" && pwd)"
+    __src="$(readlink "$__src")"
+    [[ $__src != /* ]] && __src="$__dir/$__src"
+done
+__SCRIPT_DIR="$(cd -P "$(dirname "$__src")" && pwd)"
+source "$__SCRIPT_DIR/_common.sh"
+
+[[ $# -eq 1 ]] || { echo "usage: pi-feature-start <feature-id>" >&2; exit 1; }
+fid=$1
+
+repo=$(repo_root)
+cd "$repo"
+
+epic_dir=$(active_epic_dir)
+epic_id=$(active_epic_id)
+epic_slug=${epic_id#*-}
+decomp="$epic_dir/decomposition.yaml"
+[[ -f "$decomp" ]] || { echo "ERROR: $decomp not found" >&2; exit 1; }
+
+skill=$(skill_root)
+
+# Pull feature spec from decomposition.yaml
+spec=$(python3 - "$decomp" "$fid" <<'PY'
+import sys, re, json
+path, want = sys.argv[1], sys.argv[2]
+out = {}
+cur = None
+cur_list = None
+with open(path, encoding='utf-8') as f:
+    for raw in f:
+        line = raw.rstrip('\n')
+        if not line.strip() or line.lstrip().startswith('#'): continue
+        s = line.strip()
+        if s.startswith('- ') and 'id:' in s:
+            cur = {}
+            m = re.match(r'^id\s*:\s*(.*)$', s[2:])
+            if m: cur['id'] = m.group(1).strip().strip('"').strip("'")
+            if cur['id'] == want: out = cur
+            cur_list = None
+            continue
+        if cur is None or cur is not out: continue
+        if s.startswith('- '):
+            if cur_list is not None:
+                cur_list.append(s[2:].strip().strip('"').strip("'"))
+            continue
+        m = re.match(r'^([A-Za-z0-9_]+)\s*:\s*(.*)$', s)
+        if not m: continue
+        k, v = m.group(1), re.sub(r'\s+#.*$', '', m.group(2).strip()).strip()
+        if v == '':
+            cur[k] = []; cur_list = cur[k]
+        elif v.startswith('[') and v.endswith(']'):
+            inner = v[1:-1].strip()
+            cur[k] = [x.strip().strip('"').strip("'") for x in inner.split(',')] if inner else []
+            cur_list = None
+        else:
+            cur[k] = v.strip('"').strip("'"); cur_list = None
+print(json.dumps(out))
+PY
+)
+
+[[ $(echo "$spec" | python3 -c 'import sys,json; print(len(json.load(sys.stdin)))') -gt 0 ]] || {
+    echo "ERROR: feature $fid not found in $decomp" >&2; exit 1
+}
+
+slug=$(echo "$spec" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("slug",""))')
+summary=$(echo "$spec" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("summary",""))')
+deps_str=$(echo "$spec" | python3 -c 'import sys,json; print(",".join(json.load(sys.stdin).get("depends_on") or []))')
+
+# Verify deps are merged
+IFS=',' read -ra deps <<< "$deps_str"
+for d in "${deps[@]:-}"; do
+    [[ -z "$d" ]] && continue
+    found_merged=0
+    for sub in "$epic_dir/features/done"/"$d"-*; do
+        [[ -d "$sub" ]] || continue
+        if grep -qE '^state:\s*merged' "$sub/meta.yaml" 2>/dev/null; then
+            found_merged=1; break
+        fi
+    done
+    if [[ $found_merged -ne 1 ]]; then
+        echo "ERROR: dependency $d is not merged; cannot start $fid" >&2; exit 1
+    fi
+done
+
+# Refuse if dirty—but auto-commit pending edits under .pi/epics/<epic>/ to the
+# epic branch first (humans naturally edit design.md / decomposition.yaml
+# between pi-epic-init and the first pi-feature-start).
+if [[ -n $(git status --porcelain) ]]; then
+    # Stage anything under the active epic folder + STATE.md, leave others alone.
+    git add ".pi/epics/$epic_id" .pi/STATE.md 2>/dev/null || true
+    # Halt reports are operator artifacts (the human reads them, then resumes).
+    # Don't sneak them onto the epic branch via this auto-commit; they'd
+    # pollute the eventual PR diff. (See lessons L-012.)
+    git reset --quiet HEAD -- ".pi/epics/$epic_id"/halt-*.md 2>/dev/null || true
+    if [[ -n $(git diff --cached --name-only) ]]; then
+        # Only the epic/STATE files were dirty? Commit them.
+        if [[ -z $(git status --porcelain | grep -v -E '^[ A-Z?]+ \.pi/(epics/'"$epic_id"'|STATE\.md)') ]]; then
+            git commit --quiet -m "chore(epic): pending edits before $fid"
+            log "auto-committed pending epic-folder edits to epic branch"
+        else
+            git reset --quiet HEAD .pi/ 2>/dev/null || true
+            echo "ERROR: working tree has changes outside .pi/epics/$epic_id/" >&2
+            git status --short >&2
+            exit 1
+        fi
+    fi
+fi
+
+# Switch to epic branch (where the new feature branch will fork from)
+git checkout "epic/$epic_slug" --quiet
+
+feat_branch="feat/$epic_slug/$fid-$slug"
+repo_basename=$(basename "$repo")
+worktree="$(cd "$repo/.." && pwd)/${repo_basename}-${fid}"
+
+# If branch already exists, reuse; otherwise create
+if git rev-parse --verify --quiet "$feat_branch" >/dev/null; then
+    log "branch $feat_branch already exists; reusing"
+else
+    git branch "$feat_branch" "epic/$epic_slug" --quiet
+fi
+
+# Create or reuse worktree
+if [[ -d "$worktree" ]]; then
+    log "worktree $worktree already exists; reusing"
+else
+    git worktree add "$worktree" "$feat_branch" --quiet
+fi
+
+# Create feature folder under epic
+feat_dir="$epic_dir/features/$fid-$slug"
+mkdir -p "$feat_dir"
+if [[ ! -f "$feat_dir/feature.md" ]]; then
+    cp "$skill/templates/feature.md" "$feat_dir/feature.md"
+fi
+if [[ ! -f "$feat_dir/meta.yaml" ]]; then
+    cp "$skill/templates/feature-meta.yaml" "$feat_dir/meta.yaml"
+fi
+
+today=$(date -u +%Y-%m-%d)
+# Use python for in-place YAML edits to avoid sed-delimiter collisions when
+# the title (or any other value) contains characters like `|`, `/`, or `&`.
+python3 - "$feat_dir/meta.yaml" "$fid-$slug" "$summary" "$feat_branch" "$worktree" "$today" <<'PY'
+import sys, re
+path, fid_slug, title, branch, worktree, today = sys.argv[1:7]
+updates = {
+    'id': fid_slug,
+    'title': title,
+    'state': 'in-progress',
+    'branch': branch,
+    'worktree': f'"{worktree}"',
+    'started': today,
+    'updated': today,
+}
+with open(path, encoding='utf-8') as f:
+    lines = f.readlines()
+for i, line in enumerate(lines):
+    m = re.match(r'^([A-Za-z0-9_]+)\s*:', line)
+    if not m: continue
+    k = m.group(1)
+    if k in updates:
+        lines[i] = f'{k}: {updates[k]}\n'
+with open(path, 'w', encoding='utf-8') as f:
+    f.writelines(lines)
+PY
+
+# Write depends_on
+if [[ -n "$deps_str" ]]; then
+    deps_yaml="[$deps_str]"
+    sed -i.bak -E "s|^depends_on:.*|depends_on: $deps_yaml|" "$feat_dir/meta.yaml"
+    rm -f "$feat_dir/meta.yaml.bak"
+fi
+
+# Advance epic status: design → in-progress on first feature start.
+# (pi-epic-complete sets it to done. We never overwrite a non-design state here.)
+epic_status=$(yaml_get "$epic_dir/meta.yaml" status 2>/dev/null || echo "")
+if [[ "$epic_status" == "design" || -z "$epic_status" ]]; then
+    yaml_set "$epic_dir/meta.yaml" status "in-progress"
+    yaml_bump_updated "$epic_dir/meta.yaml"
+fi
+
+# Update STATE.md
+def=$(yaml_get "$epic_dir/meta.yaml" default_branch)
+cat > "$repo/.pi/STATE.md" <<EOF
+# Active epic + feature
+
+Epic: \`.pi/epics/$epic_id/\`
+Branch: \`epic/$epic_slug\` → PR target \`$def\`
+
+Active feature: \`$fid-$slug\`
+Feature branch: \`$feat_branch\`
+Worktree: \`$worktree\`
+
+Feature journal: [\`feature.md\`](epics/$epic_id/features/$fid-$slug/feature.md)
+EOF
+
+runlog_append "$epic_dir" "\"event\":\"feature-start\",\"feature\":\"$fid-$slug\",\"branch\":\"$feat_branch\",\"worktree\":\"$worktree\""
+
+cat <<EOF
+
+✓ Feature started: $fid-$slug
+  Branch:   $feat_branch
+  Worktree: $worktree
+  Folder:   $feat_dir
+
+Next: cd "$worktree" and implement against acceptance criteria.
+
+EOF
+
+# Echo worktree path on its own line for easy capture by callers
+echo "$worktree"

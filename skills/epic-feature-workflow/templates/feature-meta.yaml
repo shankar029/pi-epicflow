@@ -1,0 +1,12 @@
+# Per-feature structured fields. Updated by pi as work proceeds.
+id: F<NN>-<slug>
+title: <feature title>
+state: pending                    # pending | in-progress | tests-passing | merged | halted
+branch: feat/<epic-slug>/F<NN>-<slug>
+worktree: ""                      # absolute path; populated by pi-feature-start
+depends_on: []                    # mirrored from decomposition.yaml
+started: ""
+updated: ""
+merged_at: ""
+merge_commit_sha: ""
+last_halt: ""                     # filename of most recent halt-report

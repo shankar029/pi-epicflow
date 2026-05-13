@@ -1,0 +1,14 @@
+# Epic-level structured fields. Updated by pi as work proceeds.
+id: NNNN-<slug>
+title: <Epic title>
+status: design                    # design | decomposed | in-progress | review | blocked | done | abandoned
+branch: epic/<slug>
+default_branch: main              # the branch to PR INTO at the end
+owner: <handle>
+started: YYYY-MM-DD
+updated: YYYY-MM-DD
+links:
+  pr:
+  issue:
+  design_doc: design.md
+tags: []

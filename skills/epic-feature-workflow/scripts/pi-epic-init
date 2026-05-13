@@ -1,0 +1,176 @@
+#!/usr/bin/env bash
+# pi-epic-init <slug> [--from <design-file>] [--title "<title>"]
+#
+# Bootstraps an epic:
+#   - .pi/epics/<NNNN>-<slug>/ from template
+#   - epic/<slug> branch off the default branch
+#   - Sets STATE.md
+#
+# Does NOT push the branch (push happens at pi-epic-complete).
+
+set -euo pipefail
+# Resolve script dir through symlinks so we can source siblings reliably.
+__src="${BASH_SOURCE[0]}"
+while [ -L "$__src" ]; do
+    __dir="$(cd -P "$(dirname "$__src")" && pwd)"
+    __src="$(readlink "$__src")"
+    [[ $__src != /* ]] && __src="$__dir/$__src"
+done
+__SCRIPT_DIR="$(cd -P "$(dirname "$__src")" && pwd)"
+source "$__SCRIPT_DIR/_common.sh"
+
+[[ $# -ge 1 ]] || { echo "usage: pi-epic-init <slug> [--from <file>] [--title \"<title>\"]" >&2; exit 1; }
+
+slug=$(slugify "$1"); shift
+from_file=""
+title=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --from) from_file=$2; shift 2 ;;
+        --title) title=$2; shift 2 ;;
+        *) echo "unknown arg: $1" >&2; exit 1 ;;
+    esac
+done
+
+repo=$(repo_root)
+cd "$repo"
+
+# Pre-add the well-known pi runtime + per-feature ephemeral patterns to
+# .gitignore BEFORE the clean-tree check, so users who installed
+# pi-subagents / pi-intercom locally (`pi install -l`) aren't blocked by the
+# resulting `.pi/npm/` and `.pi/settings.json` untracked files.
+gitignore_ensure() {
+    local path=$1
+    local gi="$repo/.gitignore"
+    [[ -f "$gi" ]] || touch "$gi"
+    grep -qxF "$path" "$gi" || echo "$path" >> "$gi"
+}
+gitignore_ensure ".pi/STATE.md"
+gitignore_ensure ".pi/npm/"
+gitignore_ensure ".pi/settings.json"
+gitignore_ensure ".pi/epics/*/run-log.jsonl"
+gitignore_ensure ".pi/epics/*/features/*/worker-report.md"
+gitignore_ensure ".pi/epics/*/features/*/review-report.md"
+gitignore_ensure ".pi/epics/*/features/*/progress.md"
+gitignore_ensure ".pi/epics/*/features/done/*/worker-report.md"
+gitignore_ensure ".pi/epics/*/features/done/*/review-report.md"
+gitignore_ensure ".pi/epics/*/features/done/*/progress.md"
+# Commit the .gitignore update if it actually changed something OR if it's
+# brand-new and untracked. (`git diff --quiet` reports clean for untracked
+# files, so we need to check status, not diff.)
+if [[ -n $(git status --porcelain -- .gitignore) ]]; then
+    git add .gitignore
+    git commit --quiet -m "chore: ignore pi runtime state (epic-feature-workflow)"
+fi
+
+# Refuse if STILL dirty after the gitignore pass.
+if [[ -n $(git status --porcelain) ]]; then
+    echo "ERROR: working tree not clean. Commit or stash first." >&2
+    git status --short >&2
+    exit 1
+fi
+
+def=$(default_branch)
+log "default branch: $def"
+
+# Update default branch to latest — only if we're currently on it.
+# In a bare-repo+worktrees layout the user may already have a dedicated
+# epic worktree checked out; in that case skip the checkout/pull.
+current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+if [[ "$current_branch" == "$def" ]]; then
+    git fetch --quiet origin "$def" 2>/dev/null || true
+    git pull --ff-only --quiet 2>/dev/null || log "(pull skipped — no upstream or offline)"
+elif [[ "$current_branch" == "epic/$slug" ]]; then
+    log "on dedicated epic worktree (epic/$slug); skipping default-branch refresh"
+else
+    git checkout "$def" --quiet
+    git pull --ff-only --quiet 2>/dev/null || log "(pull skipped — no upstream or offline)"
+fi
+
+epic_id="$(next_epic_id)-$slug"
+epic_dir="$repo/.pi/epics/$epic_id"
+[[ ! -d "$epic_dir" ]] || { echo "ERROR: $epic_dir already exists" >&2; exit 1; }
+
+skill=$(skill_root)
+mkdir -p "$epic_dir/features"
+cp "$skill/templates/design.md"          "$epic_dir/design.md"
+cp "$skill/templates/meta.yaml"          "$epic_dir/meta.yaml"
+cp "$skill/templates/epic-config.yaml"   "$epic_dir/epic-config.yaml"
+cp "$skill/templates/decomposition.yaml" "$epic_dir/decomposition.yaml"
+cp "$skill/templates/deviations.md"      "$epic_dir/deviations.md"
+touch "$epic_dir/run-log.jsonl"
+
+# Seed design.md from --from file if given (replaces template content)
+if [[ -n "$from_file" ]]; then
+    [[ -f "$from_file" ]] || { echo "ERROR: --from file not found: $from_file" >&2; exit 1; }
+    cp "$from_file" "$epic_dir/design.md"
+    log "seeded design.md from $from_file"
+fi
+
+# Fill meta.yaml
+today=$(date -u +%Y-%m-%d)
+owner=$(git config user.name 2>/dev/null || echo "unknown")
+title_use=${title:-$slug}
+sed -i.bak \
+    -e "s|^id:.*|id: $epic_id|" \
+    -e "s|^title:.*|title: $title_use|" \
+    -e "s|^status:.*|status: design|" \
+    -e "s|^branch:.*|branch: epic/$slug|" \
+    -e "s|^default_branch:.*|default_branch: $def|" \
+    -e "s|^owner:.*|owner: $owner|" \
+    -e "s|^started:.*|started: $today|" \
+    -e "s|^updated:.*|updated: $today|" \
+    "$epic_dir/meta.yaml"
+rm -f "$epic_dir/meta.yaml.bak"
+
+# Create epic branch (or reuse if already on it — supports the
+# bare-repo + worktrees pattern where the user creates a dedicated
+# epic worktree first: `git worktree add ../epic-<slug> -b epic/<slug> main`)
+current_branch=$(git rev-parse --abbrev-ref HEAD)
+if [[ "$current_branch" == "epic/$slug" ]]; then
+    log "already on epic/$slug (dedicated worktree); reusing"
+elif git rev-parse --verify --quiet "epic/$slug" >/dev/null; then
+    echo "ERROR: branch epic/$slug already exists in another worktree." >&2
+    echo "  cd into that worktree and re-run, OR delete the branch first." >&2
+    exit 1
+else
+    git checkout -b "epic/$slug" --quiet
+    log "created branch: epic/$slug"
+fi
+
+# Update STATE.md
+cat > "$repo/.pi/STATE.md" <<EOF
+# Active epic
+
+\`.pi/epics/$epic_id/\`
+
+Branch: \`epic/$slug\`
+Default (PR target): \`$def\`
+
+Design: [\`design.md\`](epics/$epic_id/design.md)
+Decomposition: [\`decomposition.yaml\`](epics/$epic_id/decomposition.yaml)
+Status: see [\`meta.yaml\`](epics/$epic_id/meta.yaml)
+
+No active feature yet. Run \`pi-epic-decompose\` next.
+EOF
+
+runlog_append "$epic_dir" "\"event\":\"epic-init\",\"epic\":\"$epic_id\",\"branch\":\"epic/$slug\""
+
+# Commit the scaffolding to the epic branch so the working tree is clean
+# before the first pi-feature-start. (gitignore was already committed above.)
+git add ".pi/epics/$epic_id"
+git commit --quiet -m "chore(epic): scaffold $epic_id" || true
+
+cat <<EOF
+
+✓ Epic initialized: $epic_id
+  Folder: $epic_dir
+  Branch: epic/$slug (off $def)
+
+Next steps:
+  1. Co-design with pi: edit $epic_dir/design.md
+  2. Pi proposes decomposition: $epic_dir/decomposition.yaml
+  3. You approve, then: pi-epic-run
+
+EOF

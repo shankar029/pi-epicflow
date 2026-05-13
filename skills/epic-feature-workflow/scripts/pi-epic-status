@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+# pi-epic-status
+#
+# Read-only status report for the active epic:
+#   - Epic meta
+#   - DAG with each feature's state
+#   - Recent run-log entries
+#   - Open halt-reports
+
+set -euo pipefail
+# Resolve script dir through symlinks so we can source siblings reliably.
+__src="${BASH_SOURCE[0]}"
+while [ -L "$__src" ]; do
+    __dir="$(cd -P "$(dirname "$__src")" && pwd)"
+    __src="$(readlink "$__src")"
+    [[ $__src != /* ]] && __src="$__dir/$__src"
+done
+__SCRIPT_DIR="$(cd -P "$(dirname "$__src")" && pwd)"
+source "$__SCRIPT_DIR/_common.sh"
+
+epic_dir=$(active_epic_dir)
+epic_id=$(active_epic_id)
+echo "Epic: $epic_id"
+echo "Folder: $epic_dir"
+echo
+
+echo "── meta ──"
+cat "$epic_dir/meta.yaml" | grep -vE '^\s*#'
+echo
+
+echo "── features ──"
+python3 - "$epic_dir/decomposition.yaml" "$epic_dir/features" <<'PY'
+import sys, os, re
+decomp_path, feats_dir = sys.argv[1], sys.argv[2]
+done_dir = os.path.join(feats_dir, 'done')
+
+def parse(p):
+    out=[]; cur=None; cur_list=None
+    with open(p, encoding='utf-8') as f:
+        for raw in f:
+            s=raw.rstrip('\n').strip()
+            if not s or s.startswith('#'): continue
+            if s.startswith('- ') and 'id:' in s:
+                cur={}
+                m=re.match(r'^id\s*:\s*(.*)$', s[2:])
+                if m: cur['id']=m.group(1).strip().strip('"').strip("'")
+                out.append(cur); cur_list=None; continue
+            if cur is None: continue
+            if s.startswith('- '):
+                if cur_list is not None: cur_list.append(s[2:].strip().strip('"').strip("'"))
+                continue
+            m=re.match(r'^([A-Za-z0-9_]+)\s*:\s*(.*)$', s)
+            if not m: continue
+            k=m.group(1); v=re.sub(r'\s+#.*$','',m.group(2).strip()).strip()
+            if v=='': cur[k]=[]; cur_list=cur[k]
+            elif v.startswith('[') and v.endswith(']'):
+                inner=v[1:-1].strip()
+                cur[k]=[x.strip().strip('"').strip("'") for x in inner.split(',')] if inner else []
+                cur_list=None
+            else: cur[k]=v.strip('"').strip("'"); cur_list=None
+    return out
+
+def state_of(fid):
+    for d in (feats_dir, done_dir):
+        if not os.path.isdir(d): continue
+        for sub in os.listdir(d):
+            if sub.startswith(fid):
+                meta=os.path.join(d, sub, 'meta.yaml')
+                if os.path.isfile(meta):
+                    with open(meta) as f:
+                        for line in f:
+                            m=re.match(r'^state\s*:\s*(\S+)', line.strip())
+                            if m: return m.group(1).strip().strip('"').strip("'")
+    return 'pending'
+
+ICON = {'pending':'⏳','in-progress':'⚙️ ','tests-passing':'✅','merged':'✓ ','halted':'⛔'}
+features = parse(decomp_path)
+for ft in features:
+    fid = ft.get('id','?')
+    st = state_of(fid)
+    deps = ','.join(ft.get('depends_on') or []) or '-'
+    hrs = ft.get('estimated_hours','?')
+    print(f"  {ICON.get(st,'? ')} {fid}  [{st:14}]  deps:{deps:10}  ~{hrs}h  {ft.get('summary','')}")
+PY
+echo
+
+echo "── recent run-log ──"
+if [[ -f "$epic_dir/run-log.jsonl" ]]; then
+    tail -n 10 "$epic_dir/run-log.jsonl"
+else
+    echo "  (empty)"
+fi
+echo
+
+halts=("$epic_dir"/halt-*.md)
+if [[ -e "${halts[0]}" ]]; then
+    echo "── open halt-reports ──"
+    for h in "${halts[@]}"; do
+        echo "  $h"
+    done
+fi

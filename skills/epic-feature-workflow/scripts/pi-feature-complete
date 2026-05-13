@@ -1,0 +1,179 @@
+#!/usr/bin/env bash
+# pi-feature-complete <feature-id> [--skip-tests]
+#
+# - Verifies we're in the feature's worktree on the feature branch
+# - Runs build/test (autodetected or from epic-config.yaml) unless --skip-tests
+# - Squash-merges the feature branch into the epic branch
+# - Deletes the feature branch and worktree
+# - Moves feature folder to features/done/
+# - Updates STATE.md back to epic-only
+# - Appends run-log entry
+
+set -euo pipefail
+# Resolve script dir through symlinks so we can source siblings reliably.
+__src="${BASH_SOURCE[0]}"
+while [ -L "$__src" ]; do
+    __dir="$(cd -P "$(dirname "$__src")" && pwd)"
+    __src="$(readlink "$__src")"
+    [[ $__src != /* ]] && __src="$__dir/$__src"
+done
+__SCRIPT_DIR="$(cd -P "$(dirname "$__src")" && pwd)"
+source "$__SCRIPT_DIR/_common.sh"
+
+[[ $# -ge 1 ]] || { echo "usage: pi-feature-complete <feature-id> [--skip-tests]" >&2; exit 1; }
+fid=$1; shift
+skip_tests=0
+[[ "${1:-}" == "--skip-tests" ]] && skip_tests=1
+
+repo=$(repo_root)
+cd "$repo"
+
+epic_dir=$(active_epic_dir)
+epic_id=$(active_epic_id)
+epic_slug=${epic_id#*-}
+
+# Find feature folder
+feat_dir=$(ls -d "$epic_dir/features/$fid"-* 2>/dev/null | head -1 || true)
+[[ -n "$feat_dir" && -d "$feat_dir" ]] || { echo "ERROR: feature folder for $fid not found" >&2; exit 1; }
+
+feat_branch=$(yaml_get "$feat_dir/meta.yaml" branch)
+worktree=$(yaml_get "$feat_dir/meta.yaml" worktree)
+
+[[ -n "$feat_branch" ]] || { echo "ERROR: meta.yaml missing branch" >&2; exit 1; }
+[[ -n "$worktree" && -d "$worktree" ]] || { echo "ERROR: worktree $worktree not found" >&2; exit 1; }
+
+# Detect test command
+detect_test_cmd() {
+    if [[ -f "$repo/package.json" ]]; then echo "npm test"; return; fi
+    if compgen -G "$repo/*.sln" > /dev/null || compgen -G "$repo/**/*.csproj" > /dev/null; then echo "dotnet test"; return; fi
+    if [[ -f "$repo/pyproject.toml" || -f "$repo/setup.py" ]]; then echo "pytest"; return; fi
+    if [[ -f "$repo/go.mod" ]]; then echo "go test ./..."; return; fi
+    if [[ -f "$repo/Cargo.toml" ]]; then echo "cargo test"; return; fi
+    echo ""
+}
+
+if [[ $skip_tests -eq 0 ]]; then
+    test_cmd=$(yaml_get "$epic_dir/epic-config.yaml" test_cmd)
+    [[ -z "$test_cmd" ]] && test_cmd=$(detect_test_cmd)
+    if [[ -z "$test_cmd" ]]; then
+        log "no test command detected; skipping (set test_cmd in epic-config.yaml)"
+    else
+        log "running tests in worktree: $test_cmd"
+        ( cd "$worktree" && eval "$test_cmd" ) || {
+            echo "ERROR: tests failed. Fix or pass --skip-tests to override." >&2
+            yaml_set "$feat_dir/meta.yaml" state "halted"
+            exit 1
+        }
+    fi
+fi
+
+# Commit any final pending changes in the worktree
+( cd "$worktree" && git add -A && git diff --cached --quiet || git commit --quiet -m "wip: $fid pre-complete" )
+
+# Switch to epic branch (in main repo) and squash-merge
+git checkout "epic/$epic_slug" --quiet
+
+# Get the feature's branch tip
+feat_tip=$(git rev-parse "$feat_branch")
+
+# Build squash commit message from feature meta + last commits
+title=$(yaml_get "$feat_dir/meta.yaml" title)
+commit_msg=$(mktemp)
+{
+    echo "feat($fid): $title"
+    echo
+    echo "Squash-merge of $feat_branch into epic/$epic_slug."
+    echo
+    echo "Original commits:"
+    git log --oneline "epic/$epic_slug..$feat_branch" | sed 's/^/  /'
+} > "$commit_msg"
+
+# Squash-merge.
+#
+# Common case for this skill: the only conflict path is the agent-authored
+# journal under .pi/epics/<epic>/features/<fid>-*/ (feature.md / meta.yaml).
+# The main-repo (epic-branch) version is canonical there — the agent updates
+# the journal in main, while the worktree may have a stale template copy.
+# Auto-resolve those paths with --ours and retry the commit. Any other
+# unmerged path is a genuine code conflict and must be resolved by hand.
+if ! git merge --squash "$feat_branch" --quiet; then
+    journal_glob=".pi/epics/$epic_id/features/$fid-"
+    unmerged=$(git diff --name-only --diff-filter=U)
+    other=$(echo "$unmerged" | grep -v "^$journal_glob" || true)
+    if [[ -n "$unmerged" && -z "$other" ]]; then
+        log "auto-resolving journal-only conflicts under $journal_glob* (taking epic-branch version)"
+        echo "$unmerged" | while IFS= read -r p; do
+            [[ -z "$p" ]] && continue
+            git checkout --ours -- "$p"
+            git add -- "$p"
+        done
+    else
+        echo "ERROR: squash-merge failed with conflicts outside the journal directory:" >&2
+        echo "$other" | sed 's/^/  /' >&2
+        echo "Resolve on epic branch (git status), commit, then re-run pi-feature-complete --skip-tests." >&2
+        yaml_set "$feat_dir/meta.yaml" state "halted"
+        exit 1
+    fi
+fi
+git commit --quiet -F "$commit_msg"
+rm -f "$commit_msg"
+
+merge_sha=$(git rev-parse HEAD)
+
+# Remove worktree + branch (older git versions don't support --quiet on these)
+git worktree remove "$worktree" --force
+git branch -D "$feat_branch" >/dev/null
+
+# Archive feature folder
+mkdir -p "$epic_dir/features/done"
+mv "$feat_dir" "$epic_dir/features/done/"
+moved_dir="$epic_dir/features/done/$(basename "$feat_dir")"
+
+today=$(date -u +%Y-%m-%d)
+if [[ ! -f "$moved_dir/meta.yaml" ]]; then
+    log "WARNING: $moved_dir/meta.yaml missing post-merge; reconstructing minimal record"
+    cat > "$moved_dir/meta.yaml" <<EOF
+id: $(basename "$moved_dir")
+state: merged
+branch: $feat_branch
+worktree: ""
+started: ""
+updated: $today
+merged_at: $today
+merge_commit_sha: $merge_sha
+last_halt: ""
+EOF
+else
+    sed -i.bak \
+        -e "s|^state:.*|state: merged|" \
+        -e "s|^updated:.*|updated: $today|" \
+        -e "s|^merged_at:.*|merged_at: $today|" \
+        -e "s|^merge_commit_sha:.*|merge_commit_sha: $merge_sha|" \
+        "$moved_dir/meta.yaml"
+    rm -f "$moved_dir/meta.yaml.bak"
+fi
+
+# Reset STATE.md to epic-only
+def=$(yaml_get "$epic_dir/meta.yaml" default_branch)
+cat > "$repo/.pi/STATE.md" <<EOF
+# Active epic
+
+\`.pi/epics/$epic_id/\`
+
+Branch: \`epic/$epic_slug\` → PR target \`$def\`
+
+Last completed feature: \`$fid\` (squash-merge $merge_sha)
+
+Run \`pi-epic-next-feature\` to pick up the next one.
+EOF
+
+runlog_append "$epic_dir" "\"event\":\"feature-complete\",\"feature\":\"$fid\",\"merge_sha\":\"$merge_sha\""
+
+cat <<EOF
+
+✓ Feature complete: $fid
+  Squash-merged into epic/$epic_slug as $merge_sha
+  Branch + worktree deleted
+  Folder archived: features/done/$(basename "$moved_dir")
+
+EOF

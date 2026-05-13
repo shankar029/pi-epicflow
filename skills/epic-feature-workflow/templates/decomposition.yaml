@@ -1,0 +1,40 @@
+# Feature decomposition for this epic.
+# Produced by `pi-epic-decompose`, reviewed and approved by the human ONCE,
+# then consumed by `pi-epic-next-feature` in the auto-mode loop.
+#
+# Rules enforced by `pi-epic-validate-decomposition`:
+#   - Every feature has: id, slug, summary, depends_on, scope_files,
+#     acceptance_criteria, estimated_hours.
+#   - Feature IDs are F01, F02, ... (zero-padded, sequential).
+#   - depends_on references valid feature IDs (no cycles, no self-deps).
+#   - estimated_hours <= 16 per feature (≤2 days; split if larger).
+#   - acceptance_criteria are test-shaped (each one implies a verifiable check).
+
+epic: NNNN-<slug>
+features:
+
+  - id: F01
+    slug: <kebab-slug>
+    summary: <one sentence>
+    depends_on: []                         # list of feature IDs that must be merged first
+    estimated_hours: 4
+    scope_files:                           # globs; pi tries to stay within these but may deviate (logged)
+      - path/to/file.cs
+      - path/to/dir/**
+    acceptance_criteria:                   # each one should imply a test or observable check
+      - <criterion 1>
+      - <criterion 2>
+    references:                            # links to design.md sections, external docs, etc.
+      - design.md#section
+    notes: |
+      Optional freeform context for pi at implementation time.
+
+  - id: F02
+    slug: <kebab-slug>
+    summary: <one sentence>
+    depends_on: [F01]
+    estimated_hours: 6
+    scope_files:
+      - path/to/other.cs
+    acceptance_criteria:
+      - <criterion>

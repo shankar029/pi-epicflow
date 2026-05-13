@@ -1,0 +1,32 @@
+# Per-epic configuration. Defaults can be overridden here.
+# All durations in seconds, budgets in tokens.
+
+# Test command. If empty, autodetected from repo (dotnet test, npm test, pytest, etc.).
+test_cmd: ""
+
+# Build command (run before tests if defined).
+build_cmd: ""
+
+# Halt budgets.
+budgets:
+  tokens_per_epic: 500000
+  wall_clock_per_feature_seconds: 28800   # 8h
+
+# Test retry attempts before halting on H1.
+test_retry_attempts: 3
+
+# Reviewer sub-agent retry attempts before halting.
+reviewer_retry_attempts: 3
+
+# Worktree location pattern. {repo} = repo basename, {feature} = feature id.
+worktree_pattern: "../{repo}-{feature}"
+
+# Whether to push the epic branch to a shared remote during work.
+# false = local only until pi-epic-complete opens the PR.
+push_epic_branch_during_work: false
+
+# PR options.
+pr:
+  draft: false
+  base: ""                                 # empty → use meta.default_branch
+  body_template: ""                        # empty → auto-generated from design.md + features

@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+# pi-epic-next-feature
+#
+# Prints the next ready feature ID for the active epic, or:
+#   "DONE"                     all features merged
+#   "HALT:<reason>"            something needs human attention
+#
+# A feature is ready iff:
+#   - state in {pending}
+#   - all depends_on are state=merged
+#
+# Picks the lowest ID among ready features (deterministic).
+
+set -euo pipefail
+# Resolve script dir through symlinks so we can source siblings reliably.
+__src="${BASH_SOURCE[0]}"
+while [ -L "$__src" ]; do
+    __dir="$(cd -P "$(dirname "$__src")" && pwd)"
+    __src="$(readlink "$__src")"
+    [[ $__src != /* ]] && __src="$__dir/$__src"
+done
+__SCRIPT_DIR="$(cd -P "$(dirname "$__src")" && pwd)"
+source "$__SCRIPT_DIR/_common.sh"
+
+epic_dir=$(active_epic_dir)
+decomp="$epic_dir/decomposition.yaml"
+features_dir="$epic_dir/features"
+done_dir="$features_dir/done"
+[[ -f "$decomp" ]] || { echo "HALT:no-decomposition"; exit 0; }
+
+mkdir -p "$features_dir" "$done_dir"
+
+python3 - "$decomp" "$features_dir" "$done_dir" <<'PY'
+import sys, os, re, glob
+
+decomp_path, feats_dir, done_dir = sys.argv[1], sys.argv[2], sys.argv[3]
+
+# Reuse the parser logic — minimal duplication
+def parse(p):
+    out = {'features': []}
+    cur = None
+    cur_list = None
+    with open(p, encoding='utf-8') as f:
+        for raw in f:
+            line = raw.rstrip('\n')
+            if not line.strip() or line.lstrip().startswith('#'):
+                continue
+            ind = len(line) - len(line.lstrip(' '))
+            s = line.strip()
+            if ind == 0 and re.match(r'^features\s*:', s):
+                continue
+            if s.startswith('- ') and 'id:' in s:
+                cur = {}
+                out['features'].append(cur)
+                m = re.match(r'^id\s*:\s*(.*)$', s[2:])
+                if m: cur['id'] = m.group(1).strip().strip('"').strip("'")
+                cur_list = None
+                continue
+            if cur is None: continue
+            if s.startswith('- '):
+                if cur_list is not None:
+                    cur_list.append(s[2:].strip().strip('"').strip("'"))
+                continue
+            m = re.match(r'^([A-Za-z0-9_]+)\s*:\s*(.*)$', s)
+            if not m: continue
+            k, v = m.group(1), re.sub(r'\s+#.*$', '', m.group(2).strip()).strip()
+            if v == '':
+                cur[k] = []; cur_list = cur[k]
+            elif v.startswith('[') and v.endswith(']'):
+                inner = v[1:-1].strip()
+                cur[k] = [x.strip().strip('"').strip("'") for x in inner.split(',')] if inner else []
+                cur_list = None
+            else:
+                cur[k] = v.strip('"').strip("'"); cur_list = None
+    return out
+
+# Read feature state from feature meta.yaml (in features/F.../ or features/done/F.../)
+def state_of(fid):
+    for d in (feats_dir, done_dir):
+        for sub in os.listdir(d) if os.path.isdir(d) else []:
+            if sub.startswith(fid):
+                meta = os.path.join(d, sub, 'meta.yaml')
+                if os.path.isfile(meta):
+                    with open(meta) as f:
+                        for line in f:
+                            m = re.match(r'^state\s*:\s*(\S+)', line.strip())
+                            if m: return m.group(1).strip().strip('"').strip("'")
+    return 'pending'  # not yet started → pending
+
+data = parse(decomp_path)
+features = data.get('features', [])
+if not features:
+    print("HALT:no-features-in-decomposition"); sys.exit(0)
+
+states = {ft['id']: state_of(ft['id']) for ft in features}
+
+# Halted feature blocks progress
+halted = [fid for fid, st in states.items() if st == 'halted']
+if halted:
+    print(f"HALT:feature-halted:{halted[0]}"); sys.exit(0)
+
+# All merged? → DONE
+if all(st == 'merged' for st in states.values()):
+    print("DONE"); sys.exit(0)
+
+# Resuming-first: if any feature is already in-progress (orchestrator was
+# halted/restarted mid-feature), resume it before opening a NEW worktree.
+# Otherwise we'd leak the partial worktree and risk DAG drift.
+in_progress = [fid for fid, st in states.items() if st == 'in-progress']
+if in_progress:
+    # Pick the lowest-numbered in-progress one for determinism.
+    print(sorted(in_progress)[0]); sys.exit(0)
+
+# Find ready: pending and all deps merged
+def is_ready(ft):
+    if states[ft['id']] != 'pending': return False
+    for d in ft.get('depends_on') or []:
+        if states.get(d) != 'merged': return False
+    return True
+
+ready = sorted([ft['id'] for ft in features if is_ready(ft)])
+if not ready:
+    print("HALT:no-ready-feature-and-none-in-progress"); sys.exit(0)
+
+print(ready[0])
+PY
