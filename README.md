@@ -27,8 +27,9 @@ serialization: **0 stalls, 0 retries, 0 conflicts, 119 tests green in ~87 min.**
 
 ## Table of contents
 - [Install](#install)
+- [Quickstart — the three-command flow](#quickstart--the-three-command-flow)
 - [Quickstart — manual mode](#quickstart--manual-mode)
-- [Quickstart — auto mode](#quickstart--auto-mode)
+- [Quickstart — auto mode (deep-dive)](#quickstart--auto-mode-deep-dive)
 - [What gets created on disk](#what-gets-created-on-disk)
 - [Scripts](#scripts)
 - [Halt codes](#halt-codes)
@@ -85,10 +86,41 @@ pi install npm:pi-intercom   # nicer in-chat prompts; optional but recommended
 
 ---
 
+## Quickstart — the three-command flow
+
+From your repo, on the branch you want to PR into:
+
+```bash
+# 1. Bootstrap the epic. Creates the epic branch + journal folder.
+pi-epic-init my-feature --from /path/to/design.md
+
+# 2. Open pi in the repo.
+pi
+```
+
+Then in the pi chat:
+
+```
+/epic-decompose          # pi proposes features, you approve, pi writes + validates + commits
+/epic-run-auto           # pi ships every feature, runs the reviewer, opens the PR
+```
+
+That's the whole workflow. Three commands, no file paths to memorize.
+
+`/epic-run-auto` is **self-bootstrapping**: if you skip `/epic-decompose`,
+it'll run that flow first automatically. Pass `--no-bootstrap` to force a
+halt instead if you'd rather decompose by hand.
+
+If you want to **drive the loop manually** (no subagents, no auto-mode), the
+manual-mode section below shows the bare shell commands behind each step.
+
+---
+
 ## Quickstart — manual mode
 
-Drive the workflow by hand from your shell. Best for first-time use or for
-features where you want pi in the loop only for parts of the work.
+Drive the workflow by hand from your shell. Best when you want pi in the
+loop only for parts of the work, or for environments where `pi-subagents`
+isn't available.
 
 ```bash
 # 0. one-time per repo: stand on the branch you want to PR into
@@ -122,7 +154,10 @@ point.
 
 ---
 
-## Quickstart — auto mode
+## Quickstart — auto mode (deep-dive)
+
+The three-command flow above is auto mode. This section explains what each
+slash command actually does so you can debug if anything goes sideways.
 
 After `pi install npm:pi-subagents`:
 
@@ -131,14 +166,12 @@ cd ~/code/myrepo
 git checkout main && git pull
 $EDITOR /tmp/my-design.md
 pi-epic-init my-feature --from /tmp/my-design.md
-$EDITOR .pi/epics/0001-my-feature/decomposition.yaml
-pi-epic-validate-decomposition
-git add .pi/ && git commit -m "decomp"
 
 # fresh pi session in the same dir
 pi
 # inside pi:
-/epic-run-auto
+/epic-decompose                  # propose + approve + commit decomposition.yaml
+/epic-run-auto                   # run the loop
 ```
 
 What you'll see in chat:
@@ -162,6 +195,12 @@ Optional flags after `/epic-run-auto`:
 - `--max-features=N` — stop after N features merged this run (useful for
   iterative review).
 - `--no-reviewer` — skip the per-feature `feature-reviewer` pass.
+- `--no-bootstrap` — halt instead of auto-running `/epic-decompose` when
+  decomposition.yaml is empty.
+
+Optional flags after `/epic-decompose`:
+- `--features=N` — ask pi to aim for N features (default 3–7).
+- `--auto-commit` — skip the "commit this?" prompt at the end.
 
 ---
 

@@ -6,6 +6,44 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-05-13
+
+UX polish. Same workflow contract — the *commands* the user types are now
+three, not seven.
+
+### Added
+- **`/epic-decompose` prompt template** — packaged slash command that
+  proposes + refines + validates + commits `decomposition.yaml`. No more
+  hand-writing YAML or remembering which validator script to run. Discovers
+  the active epic from `STATE.md`, reads design.md + lessons.md, presents
+  the YAML in chat with an ASCII dep-graph, iterates on user feedback, then
+  writes/validates/commits when approved. Also auto-sets `test_cmd` in
+  `epic-config.yaml` by sniffing the repo (`pyproject.toml` → pytest,
+  `Cargo.toml` → cargo test, etc.).
+  - Flags: `--features=N`, `--auto-commit`.
+- **`/epic-run-auto` self-bootstrap** — if `decomposition.yaml` is empty,
+  `/epic-run-auto` now inlines the `/epic-decompose` flow first instead of
+  halting. The whole pipeline runs from a single slash command.
+  - New flag: `--no-bootstrap` to opt out and halt with H3 instead.
+
+### Changed
+- **README quickstart** — collapsed to the three-command flow
+  (`pi-epic-init` → `/epic-decompose` → `/epic-run-auto`). Manual-mode and
+  auto-mode deep-dive sections retained for power users.
+- **SKILL.md** — added a top-level "three-command flow" section so when pi
+  is asked "how do I start a multi-feature change", it points at the slash
+  commands rather than the shell scripts.
+- **Lifecycle diagram** — step 2 is now `/epic-decompose`, not
+  `pi-epic-decompose` (there was never a script by that name).
+
+### Notes
+- No script changes — the underlying `pi-*` scripts are byte-identical to
+  v0.1.0. The decomposition slash command shells out to
+  `pi-epic-validate-decomposition` and `git` exactly as a human would have.
+- Postinstall behavior unchanged.
+- Upgrade path: `pi update git:github.com/shankar029/pi-epicflow`. Restart
+  any open pi session to pick up the new prompt template.
+
 ## [0.1.0] — 2026-05-13
 
 Initial public release. Carved out of the personal `epic-feature-workflow`
@@ -52,5 +90,6 @@ skill after end-to-end validation on two sample epics (4-feature and
   before epic-review, with one allowed retry on working-tree-only BLOCK
   verdicts.
 
-[Unreleased]: https://github.com/shankar029/pi-epicflow/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/shankar029/pi-epicflow/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/shankar029/pi-epicflow/releases/tag/v0.2.0
 [0.1.0]: https://github.com/shankar029/pi-epicflow/releases/tag/v0.1.0

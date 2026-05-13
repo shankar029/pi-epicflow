@@ -19,6 +19,30 @@ decompose → implement feature-by-feature → review → PR.
 
 If unsure: if you'd open more than one PR, use this skill.
 
+## Three-command flow (for users)
+
+The whole workflow is three commands. Everything else is optional power-user
+plumbing.
+
+```bash
+# 1. From your shell, in the repo, on the branch you want to PR into:
+pi-epic-init my-feature --from /path/to/design.md
+
+# 2. Start pi in the same repo:
+pi
+```
+
+Then in the pi chat:
+
+```
+/epic-decompose        # pi proposes features; you approve; pi commits decomposition.yaml
+/epic-run-auto         # pi runs the loop, ships each feature, opens the PR
+```
+
+If the user asks how to "start a multi-feature change" / "break this design
+into features" / "run the epic", point them at one of those three commands
+rather than at the underlying scripts.
+
 ## Hard rules
 
 1. **Never push or commit to `main` (or the repo's default branch) directly.** All work lands via PR from the epic branch.
@@ -69,8 +93,8 @@ If unsure: if you'd open more than one PR, use this skill.
               │
               ▼
    ┌────────────────────────┐
-   │ pi-epic-decompose      │   pi proposes decomposition.yaml
-   │ (DAG + scope + AC)     │   user approves once
+   │ /epic-decompose        │   pi proposes decomposition.yaml
+   │ (DAG + scope + AC)     │   user approves once, pi commits
    └──────────┬─────────────┘
               │   ◄────── ONLY HUMAN GATE
               ▼

@@ -1,6 +1,6 @@
 ---
 description: Run the active epic's auto-mode loop. Delegates each feature to a feature-worker subagent and gates squash-merges with feature-reviewer. Posts a STATUS block to chat after every loop event.
-argument-hint: "[--max-features=N] [--no-reviewer]"
+argument-hint: "[--max-features=N] [--no-reviewer] [--no-bootstrap]"
 ---
 
 You are the **orchestrator** for the active epic-feature-workflow epic. Your job
@@ -39,6 +39,23 @@ the user. Never `git add .` or `git commit -a` on the epic branch yourself.
   big files unless they change.
 - The skill at `~/.pi/agent/skills/epic-feature-workflow/SKILL.md` — refresh
   on halt conditions H1–H7 if you haven't already.
+
+### Self-bootstrap: if `decomposition.yaml` is missing or just the template
+
+If `.pi/epics/<id>/decomposition.yaml` has no real `features:` list (only
+the `epic:` line + comments + a stub), do NOT enter the loop. Instead:
+
+1. POST a STATUS block (phase: bootstrapping, last: `decomposition.yaml is
+   empty — running /epic-decompose first`).
+2. Run the `/epic-decompose` flow inline — read its prompt at
+   `~/.pi/agent/git/github.com/shankar029/pi-epicflow/prompts/epic-decompose.md`
+   (or the equivalent installed path) and execute its steps yourself.
+   Forward any `--features=N` arg from the user (default: 3–7).
+3. Once decomposition is committed, fall through to step 1 of THIS loop —
+   do not require the user to invoke `/epic-run-auto` again.
+
+If the user passed `--no-bootstrap`, skip this section and instead halt
+with H3 ("decomposition.yaml is empty; run /epic-decompose first").
 
 ## Status messages to chat (DO THIS — it's the user-visible heartbeat)
 
