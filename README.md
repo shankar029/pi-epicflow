@@ -315,6 +315,12 @@ pi install npm:pi-intercom   # nicer in-chat prompts; optional but recommended
 
 From your repo, on the branch you want to PR into:
 
+> **Using `git worktree`?** If your repo uses a bare-clone + worktrees
+> layout (e.g. created via `mkrepo.sh`), `cd` into the worktree subdir
+> first — the outer bare-clone dir isn't a working tree.
+> See [`docs/git-worktrees.md`](docs/git-worktrees.md) for the full
+> walkthrough.
+
 ```bash
 # 1. Bootstrap the epic. Creates the epic branch + journal folder.
 pi-epic-init my-feature --from /path/to/design.md
@@ -520,6 +526,16 @@ No. Manual mode is a first-class path — same scripts, same on-disk state,
 same halt codes, you're just the one calling `pi-feature-start` /
 `pi-feature-complete` from your shell. Use auto mode when you want to walk
 away; use manual mode when you want a human in the loop on every feature.
+
+**Q: Does pi-epicflow work with `git worktree`?**
+Yes — it uses worktrees automatically. Every feature gets its own
+per-feature worktree (`<repo>-F01-<slug>/`) created by `pi-feature-start`
+and removed by `pi-feature-complete`. You don't manage these directly.
+If your *own* checkout uses a bare-clone + worktrees layout (e.g. via
+`mkrepo.sh`), see [`docs/git-worktrees.md`](docs/git-worktrees.md) for
+the two valid setups (reuse default-branch worktree vs dedicated epic
+worktree) and the common gotchas (`not in a git repository` from the
+outer bare dir, seeding an epic from a non-default branch, etc.).
 
 **Q: What if pi proposes a bad decomposition?**
 You iterate. `/epic-decompose` shows the YAML in chat and asks for feedback
