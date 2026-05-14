@@ -27,13 +27,13 @@ const Navbar = () => (
         <span className="text-white">Pi-EpicFlow</span>
       </div>
       <nav className="hidden md:flex gap-8 items-center text-sm font-medium">
-        <a href="#" className="text-text-muted hover:text-vibrant-green transition-colors">GitHub</a>
-        <a href="#" className="text-text-muted hover:text-vibrant-green transition-colors">Documentation</a>
+        <a href="https://github.com/shankar029/pi-epicflow" className="text-text-muted hover:text-vibrant-green transition-colors">GitHub</a>
+        <a href="https://github.com/shankar029/pi-epicflow#readme" className="text-text-muted hover:text-vibrant-green transition-colors">Documentation</a>
       </nav>
       <div>
-        <button className="bg-vibrant-green hover:bg-vibrant-green-hover text-surface px-5 py-2 rounded-lg text-sm font-bold transition-all shadow-[0_0_20px_rgba(34,197,94,0.15)]">
+        <a href="https://github.com/shankar029/pi-epicflow#install" className="inline-block bg-vibrant-green hover:bg-vibrant-green-hover text-surface px-5 py-2 rounded-lg text-sm font-bold transition-all shadow-[0_0_20px_rgba(34,197,94,0.15)]">
           Install
-        </button>
+        </a>
       </div>
     </div>
   </header>
@@ -67,13 +67,13 @@ const Hero = () => (
       transition={{ duration: 0.6, delay: 0.4 }}
       className="flex flex-col sm:flex-row items-center justify-center gap-4"
     >
-      <button className="w-full sm:w-auto bg-vibrant-green hover:bg-vibrant-green-hover text-surface px-10 py-4 rounded-xl font-bold uppercase tracking-wider transition-colors">
+      <a href="https://github.com/shankar029/pi-epicflow#install" className="w-full sm:w-auto bg-vibrant-green hover:bg-vibrant-green-hover text-surface px-10 py-4 rounded-xl font-bold uppercase tracking-wider transition-colors text-center">
         Get Started
-      </button>
-      <button className="w-full sm:w-auto bg-slate-surface border border-slate-border text-white px-10 py-4 rounded-xl font-bold uppercase tracking-wider hover:border-vibrant-green/50 hover:bg-surface-container transition-all flex items-center justify-center gap-2">
+      </a>
+      <a href="https://github.com/shankar029/pi-epicflow" className="w-full sm:w-auto bg-slate-surface border border-slate-border text-white px-10 py-4 rounded-xl font-bold uppercase tracking-wider hover:border-vibrant-green/50 hover:bg-surface-container transition-all flex items-center justify-center gap-2">
         <Github className="w-5 h-5" />
         View on GitHub
-      </button>
+      </a>
     </motion.div>
   </section>
 );
@@ -301,10 +301,10 @@ const Footer = () => (
         © 2024 Pi-EpicFlow. Built for high-performance developer workflows.
       </p>
       <nav className="flex flex-wrap justify-center gap-x-8 gap-y-4 text-xs font-medium text-text-muted uppercase tracking-widest">
-        <a href="#" className="hover:text-vibrant-green transition-colors">Privacy</a>
-        <a href="#" className="hover:text-vibrant-green transition-colors">Terms</a>
-        <a href="#" className="hover:text-vibrant-green transition-colors">Security</a>
-        <a href="#" className="hover:text-vibrant-green transition-colors">Status</a>
+        <a href="https://github.com/shankar029/pi-epicflow/releases" className="hover:text-vibrant-green transition-colors">Releases</a>
+        <a href="https://github.com/shankar029/pi-epicflow/blob/main/CHANGELOG.md" className="hover:text-vibrant-green transition-colors">Changelog</a>
+        <a href="https://github.com/shankar029/pi-epicflow/issues" className="hover:text-vibrant-green transition-colors">Issues</a>
+        <a href="https://github.com/shankar029/pi-epicflow/blob/main/LICENSE" className="hover:text-vibrant-green transition-colors">License</a>
       </nav>
     </div>
   </footer>
