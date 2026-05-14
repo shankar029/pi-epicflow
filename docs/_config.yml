@@ -1,0 +1,46 @@
+remote_theme: pages-themes/cayman@v0.2.0
+plugins:
+  - jekyll-remote-theme
+  - jekyll-relative-links
+  - jekyll-seo-tag
+
+title: pi-epicflow
+description: >-
+  Ship multi-feature work as one clean PR. A pi extension that decomposes a
+  design.md into a DAG of small features, runs each on its own git worktree,
+  and squash-merges them back into a single reviewable PR.
+
+# Footer links on cayman come from these:
+github:
+  is_project_page: true
+  repository_url: https://github.com/shankar029/pi-epicflow
+  repository_nwo: shankar029/pi-epicflow
+  owner_url: https://github.com/shankar029
+  owner_name: shankar029
+show_downloads: false
+
+# SEO / social
+url: https://shankar029.github.io
+baseurl: /pi-epicflow
+author: shankar029
+twitter:
+  card: summary
+
+# Pretty URLs + render the docs/*.md files we already have
+permalink: pretty
+relative_links:
+  enabled: true
+  collections: true
+include:
+  - design.md
+  - RELEASE-CHECKLIST.md
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - vendor/
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default

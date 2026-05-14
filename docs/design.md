@@ -1,3 +1,10 @@
+---
+title: Design
+description: Why pi-epicflow is shaped the way it is — subagents, worktrees, YAML decomposition, halts.
+---
+
+[← back to pi-epicflow](./)
+
 # pi-epicflow — Design
 
 This document is the "why" behind the workflow. The "what" (commands,

@@ -1,3 +1,10 @@
+---
+title: Release checklist
+description: Explicit gates for each pi-epicflow release rung, plus the open ledger of outside-user epics that drive the 1.0 cut.
+---
+
+[← back to pi-epicflow](./)
+
 # Release checklist
 
 `pi-epicflow` follows [SemVer](https://semver.org/). The bar for each
