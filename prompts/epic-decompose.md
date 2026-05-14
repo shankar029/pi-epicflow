@@ -82,26 +82,146 @@ Build a decomposition with these properties:
 
 - **3–7 features** (or the count requested via `--features=N`). Each
   feature should be implementable in 20–60 minutes by a focused agent.
+  (Large epics on complex stacks may have 30–100+ features — don't try to
+  squeeze AGUI-scale work into 7 features.)
 - **Each feature has:**
-  - `id` — `F01`, `F02`, … in dependency order (lower id implies "could
-    be done earlier" but is not strictly required to come first).
+  - `id` — `F01`, `F02`, … in dependency order. **Spikes** use `S01`,
+    `S02`, … sharing the same numeric counter (see "Spike features"
+  below).
   - `slug` — kebab-case, ≤4 words, unique.
-  - `title` — short human title (≤60 chars).
+  - `kind` — `feature` (default) or `spike`. Omit for normal features.
   - `summary` — 3–8 lines of plain prose: what it does, how it does it,
     explicit non-goals.
-  - `depends_on` — list of earlier feature ids that MUST be merged before
-    this one starts. Be conservative: only true compile/import/test
+  - `depends_on` — list of earlier ids that MUST be merged before this
+    one starts. Be conservative: only true compile/import/test
     dependencies. Don't invent dependencies just to serialize work.
   - `estimated_hours` — fractional, e.g. `0.5` `1` `1.5`. Sum across all
-    features should be a believable total for the epic.
+    features should be a believable total for the epic. **Spikes capped
+    at 8h.**
   - `scope_files` — files this feature is allowed to create or modify.
     Must be **disjoint across features** unless a file is genuinely shared
     (test fixture, generated index, top-level README). If two features
     legitimately share a file, the later one inherits a dep on the earlier.
+    Spikes typically have `scope_files: []`.
   - `acceptance_criteria` — 3–6 bullets. Each bullet must be objectively
     checkable by `pi-feature-complete`'s test runner OR by file existence
     OR by a one-line `grep`. **No vague "the code is clean" bullets.**
     Quote exact command-line behavior when relevant.
+    - **L-018 / L-020 — literal samples for format-sensitive AC.** If an AC
+      mentions a `golden file`, `snapshot`, `wire format`, `wire shape`,
+      JSON schema, exit code, or exact output string, **include the
+      literal value inline as a fenced code block or quoted string**.
+      Workers WILL guess and guess wrong otherwise.
+    - **L-020 — quote unsafe-leading-char AC strings.** Any AC starting
+      with `*`, `&`, `!`, `|`, `>`, `%`, `@`, or a backtick MUST be
+      wrapped in double quotes. Otherwise strict YAML parsers reject the
+      file (the lenient parser the orchestrator uses tolerates it, but
+      that's a trap).
+  - `needs_planner` — `true` if this feature warrants a pre-implementation
+    planner pass by the `feature-planner` subagent. Apply the **trigger
+    checklist** below: tag if **≥2 of 7** triggers fire. Also record the
+    triggers that fired in `planner_triggers: [...]` for audit.
+  - `planner_triggers` — list of short codes from the checklist below.
+    Omit if `needs_planner: false`.
+
+#### Planner-tag trigger checklist (any 2 fire → `needs_planner: true`)
+
+| Code | Trigger |
+|---|---|
+| `unverified-callsites` | AC references an existing subsystem whose call sites you have NOT verified exist in the repo |
+| `format-sensitive-ac` | AC contains literal sample I/O, exit codes, schema shapes, or wire format |
+| `scope-crosses-modules` | `scope_files` crosses ≥2 module / package / language boundaries |
+| `deep-dep-chain` | `depends_on` chain depth ≥3 (this feature is deep in the graph) |
+| `large-estimate` | `estimated_hours` ≥ 10 |
+| `many-acs` | AC count ≥ 6 |
+| `cross-cutting-verb` | Description contains: `thread`, `wire`, `integrate`, `migrate`, `default`, `rollout`, `deprecate` |
+
+The threshold is tunable per epic via env `PI_EPICFLOW_PLANNER_THRESHOLD`
+(default `2`). Bias to over-tag on unfamiliar stacks — false positive cost
+is ~30% of a worker pass; false negative cost is a mid-implementation halt.
+
+#### Spike features
+
+A **spike** is a feature whose deliverable is a **decision artifact** in
+`deviations.md`, not production code. Use spikes for:
+
+- Resolving an open question that blocks 2+ downstream features (the
+  classic F06-class "AC assumes call sites that don't exist" failure).
+- Picking between library / API / pattern options where the right answer
+  requires reading code, not chat.
+- Benchmarking before committing to an approach.
+
+Spike conventions:
+- `id: S<NN>` (numeric counter shared with features).
+- `kind: spike`.
+- `estimated_hours` capped at 8.
+- `scope_files: []` (typically; spikes may drop demo code under
+  `spikes/<sid>/` in the worktree but it's not required).
+- `acceptance_criteria` are **decision-shaped**, not test-shaped. Default
+  shape (Option B):
+  ```
+  acceptance_criteria:
+    - Decision logged in deviations.md with chosen option.
+    - Evidence cited (call-site refs, prototype, benchmark, doc links).
+    - Impact on blocked features documented.
+  ```
+- `needs_planner` is implicitly `true` for spikes (the planner pass IS
+  the spike's investigation phase).
+
+Example spike:
+```yaml
+- id: S01
+  kind: spike
+  slug: maf-chatclient-seam
+  summary: Decide which MAF v1 seam to decorate (IChatClient vs MapAGUI wrapper). Blocks F14..F17.
+  depends_on: []
+  estimated_hours: 4
+  scope_files: []
+  acceptance_criteria:
+    - Decision logged in deviations.md with chosen seam (IChatClient | MapAGUI | other).
+    - Evidence cited (Microsoft.Agents.AI v1 source refs, POC code in samples/agui-poc/).
+    - Impact on F14..F17 documented in deviations.md.
+```
+
+#### Manifest / cross-cutting file fan-out
+
+When a feature edits a **manifest file** (build config, embedded
+resource, generated artifact, or single-source-of-truth file consumed by
+multiple downstream sites), automatically add the consumer files to its
+`scope_files`. Common patterns:
+
+| Manifest | Auto-add to scope |
+|---|---|
+| `manifest.json` / `index.ts` / `barrel.ts` (frontend) | every consumer file that imports from it |
+| `*.csproj`, `*.sln` (.NET) | the project's own root file + any downstream `*.csproj` references |
+| `pyproject.toml`, `setup.py` | nothing further (build only) |
+| A central validator (`ManifestValidator.cs`, `schema.py`, etc.) | always in scope when adding a new validation rule — even when the feature's intent is "new model field" |
+| A central engine (`StepExecutionEngine.cs`, similar) | always in scope when adding a cross-cutting flag, hook, or scope-wiring change |
+
+Lesson from partner-agent-sdk: F22–F35 deviated on `ManifestValidator.cs`
+in 11 features because the decomposition didn't list it. Don't repeat.
+
+#### `reference_paths` (epic-level field)
+
+If the epic has a reference POC, prior art directory, or findings
+document that EVERY tagged feature should consult, set
+`reference_paths:` at the **top of `decomposition.yaml`** (sibling of
+`epic:`, not per-feature). The planner-subagent reads these when
+planning any feature flagged `needs_planner: true`.
+
+```yaml
+epic: 0001-<slug>
+reference_paths:
+  - samples/<poc-name>/
+  - docs/<findings>.md
+features:
+  - id: F01
+    ...
+```
+
+Files >100KB are skipped (the planner notes them in §References but
+doesn't pull them into context). Use this for: reference implementations,
+POC code, findings docs, prior-art ADRs.
 
 - **DAG shape:** prefer a wide-then-narrow shape over a long chain. If F02,
   F03, F04 can all depend on F01 in parallel, model them that way — even

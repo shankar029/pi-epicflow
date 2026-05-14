@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# pi-epic-init <slug> [--from <design-file>] [--title "<title>"] [--base <branch>]
+# pi-epic-init <slug> [--from <design-file>] [--title "<title>"] [--base <branch>] [--no-planner]
 #
 # Bootstraps an epic:
 #   - .pi/epics/<NNNN>-<slug>/ from template
@@ -19,18 +19,20 @@ done
 __SCRIPT_DIR="$(cd -P "$(dirname "$__src")" && pwd)"
 source "$__SCRIPT_DIR/_common.sh"
 
-[[ $# -ge 1 ]] || { echo "usage: pi-epic-init <slug> [--from <file>] [--title \"<title>\"] [--base <branch>]" >&2; exit 1; }
+[[ $# -ge 1 ]] || { echo "usage: pi-epic-init <slug> [--from <file>] [--title \"<title>\"] [--base <branch>] [--no-planner]" >&2; exit 1; }
 
 slug=$(slugify "$1"); shift
 from_file=""
 title=""
 base_branch=""
+no_planner=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --from) from_file=$2; shift 2 ;;
         --title) title=$2; shift 2 ;;
         --base) base_branch=$2; shift 2 ;;
+        --no-planner) no_planner=1; shift ;;
         *) echo "unknown arg: $1" >&2; exit 1 ;;
     esac
 done
@@ -148,6 +150,19 @@ sed -i.bak \
     -e "s|^updated:.*|updated: $today|" \
     "$epic_dir/meta.yaml"
 rm -f "$epic_dir/meta.yaml.bak"
+
+# --no-planner: persist disable_planner: true into epic meta.yaml so that
+# the orchestrator's planning gate (epic-run-auto §3.5) skips the planner
+# subagent for every feature in this epic, regardless of needs_planner.
+if [[ $no_planner -eq 1 ]]; then
+    if grep -q '^disable_planner:' "$epic_dir/meta.yaml"; then
+        sed -i.bak 's|^disable_planner:.*|disable_planner: true|' "$epic_dir/meta.yaml"
+        rm -f "$epic_dir/meta.yaml.bak"
+    else
+        printf '\ndisable_planner: true\n' >> "$epic_dir/meta.yaml"
+    fi
+    log "--no-planner: disabled feature-planner subagent for this epic"
+fi
 
 # Create epic branch (or reuse if already on it — supports the
 # bare-repo + worktrees pattern where the user creates a dedicated

@@ -6,18 +6,45 @@
 #   - Every feature has: id, slug, summary, depends_on, scope_files,
 #     acceptance_criteria, estimated_hours.
 #   - Feature IDs are F01, F02, ... (zero-padded, sequential).
+#     Spikes use S01, S02, ... sharing the same numeric counter.
 #   - depends_on references valid feature IDs (no cycles, no self-deps).
 #   - estimated_hours <= 16 per feature (≤2 days; split if larger).
-#   - acceptance_criteria are test-shaped (each one implies a verifiable check).
+#     Spikes capped at 8h.
+#   - acceptance_criteria are test-shaped for features, decision-shaped
+#     for spikes (option B: decision / evidence / impact).
+#   - Acceptance-criterion strings starting with `*`, `&`, `!`, `|`, `>`,
+#     `%`, `@`, or backtick MUST be quoted (strict-YAML hygiene).
+#   - scope_files non-glob entries whose parent dir is missing produce a
+#     warning (likely stale paths from an earlier layout).
 
 epic: NNNN-<slug>
+
+# Optional: epic-level reference paths the planner-subagent will read when
+# planning any feature flagged `needs_planner: true`. Paths >100KB are
+# truncated. Same paths are advertised to feature workers as "prior art
+# worth skimming" but not made mandatory.
+reference_paths: []
+  # - samples/<reference-poc>/
+  # - docs/<findings-or-reference>.md
+
 features:
 
   - id: F01
     slug: <kebab-slug>
     summary: <one sentence>
+    kind: feature                          # feature | spike (default: feature)
     depends_on: []                         # list of feature IDs that must be merged first
     estimated_hours: 4
+    # Set needs_planner: true if ≥2 of these triggers fire (see prompts/epic-decompose.md):
+    #   - AC references an existing subsystem whose call sites are NOT verified
+    #   - AC contains literal sample I/O, exit codes, or schema shapes
+    #   - scope_files crosses ≥2 module/package boundaries
+    #   - depends_on chain depth ≥3
+    #   - estimated_hours ≥10
+    #   - AC count ≥6
+    #   - Description contains: thread/wire/integrate/migrate/default/rollout/deprecate
+    needs_planner: false
+    planner_triggers: []                   # audit trail of which triggers fired (when needs_planner=true)
     scope_files:                           # globs; pi tries to stay within these but may deviate (logged)
       - path/to/file.cs
       - path/to/dir/**
@@ -38,3 +65,20 @@ features:
       - path/to/other.cs
     acceptance_criteria:
       - <criterion>
+
+  # Example spike (uncomment if your epic has decision-shaped work that
+  # blocks downstream features). Spikes ship a decision artifact, not
+  # production code. AC is decision-shaped: decision + evidence + impact.
+  #
+  # - id: S01
+  #   kind: spike
+  #   slug: <kebab-slug>
+  #   summary: Decide <X> seam / approach before <F0N..F0M> can start
+  #   depends_on: []
+  #   estimated_hours: 4
+  #   scope_files: []                     # spikes typically have none
+  #   acceptance_criteria:
+  #     - Decision logged in deviations.md with chosen option
+  #     - Evidence cited (call sites, code refs, benchmark, prototype)
+  #     - Impact on blocked features documented
+  #   blocks: [F0N, F0M]                  # informational; advise downstream planning

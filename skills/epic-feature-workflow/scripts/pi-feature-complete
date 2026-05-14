@@ -39,6 +39,34 @@ feat_dir=$(ls -d "$epic_dir/features/$fid"-* 2>/dev/null | head -1 || true)
 feat_branch=$(yaml_get "$feat_dir/meta.yaml" branch)
 worktree=$(yaml_get "$feat_dir/meta.yaml" worktree)
 
+# Detect kind from decomposition.yaml (spike features skip tests by default
+# and may merge with no code diff — their deliverable is the deviations
+# entry, not a binary).
+kind=$(python3 - "$epic_dir/decomposition.yaml" "$fid" <<'PY' 2>/dev/null || echo feature
+import sys, re
+p, want = sys.argv[1], sys.argv[2]
+cur = None
+try:
+    f = open(p, encoding='utf-8')
+except Exception:
+    print("feature"); sys.exit(0)
+with f:
+    for raw in f:
+        s = raw.rstrip('\n').strip()
+        if not s or s.startswith('#'): continue
+        if s.startswith('- ') and 'id:' in s:
+            m = re.match(r'^id\s*:\s*(.*)$', s[2:])
+            cur = (m.group(1).strip().strip('"').strip("'") if m else None)
+            continue
+        if cur == want:
+            m = re.match(r'^kind\s*:\s*(.*)$', s)
+            if m:
+                print(m.group(1).strip().strip('"').strip("'")); sys.exit(0)
+print("feature")
+PY
+)
+kind=${kind:-feature}
+
 [[ -n "$feat_branch" ]] || { echo "ERROR: meta.yaml missing branch" >&2; exit 1; }
 [[ -n "$worktree" && -d "$worktree" ]] || { echo "ERROR: worktree $worktree not found" >&2; exit 1; }
 
@@ -52,7 +80,7 @@ detect_test_cmd() {
     echo ""
 }
 
-if [[ $skip_tests -eq 0 ]]; then
+if [[ $skip_tests -eq 0 && "$kind" != "spike" ]]; then
     test_cmd=$(yaml_get "$epic_dir/epic-config.yaml" test_cmd)
     [[ -z "$test_cmd" ]] && test_cmd=$(detect_test_cmd)
     if [[ -z "$test_cmd" ]]; then
@@ -65,6 +93,8 @@ if [[ $skip_tests -eq 0 ]]; then
             exit 1
         }
     fi
+elif [[ "$kind" == "spike" ]]; then
+    log "spike feature: skipping tests (deliverable is decision artifact)"
 fi
 
 # Commit any final pending changes in the worktree

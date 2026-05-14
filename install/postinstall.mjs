@@ -6,10 +6,11 @@
  *
  * Three side-effects:
  *
- *   1. Copies the two helper agents (feature-worker, feature-reviewer) to
- *      ~/.pi/agent/agents/ so that pi-subagents can find them. Pi-packages
- *      have no native "agents" resource type and pi-subagents only scans
- *      user/project agent dirs, so a postinstall copy is the cleanest path.
+ *   1. Copies the three helper agents (feature-worker, feature-reviewer,
+ *      feature-planner) to ~/.pi/agent/agents/ so that pi-subagents can
+ *      find them. Pi-packages have no native "agents" resource type and
+ *      pi-subagents only scans user/project agent dirs, so a postinstall
+ *      copy is the cleanest path.
  *
  *   2. Symlinks each pi-* CLI script from
  *      skills/epic-feature-workflow/scripts/  into
@@ -134,7 +135,7 @@ function symlinkScriptSafely(src, binDir) {
 // ── Step 1: agents ─────────────────────────────────────────────────────────
 out(`installing agents to ${AGENTS_DST}`);
 if (ensureDir(AGENTS_DST)) {
-  for (const f of ["feature-worker.md", "feature-reviewer.md"]) {
+  for (const f of ["feature-worker.md", "feature-reviewer.md", "feature-planner.md"]) {
     copyAgentSafely(path.join(AGENTS_SRC, f), AGENTS_DST);
   }
 }

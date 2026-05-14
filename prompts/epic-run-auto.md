@@ -105,6 +105,55 @@ a halt condition fires.
    (`.pi/STATE.md` → look for `worktree:`). If the script exits non-zero,
    goto HALT.
 
+3.5. **PLANNING GATE** (new in v0.5).
+
+   Read the feature's `kind` and `needs_planner` from
+   `EPIC_DIR/decomposition.yaml` for `<fid>`. Compute the **effective
+   planner flag**:
+
+   - If env `PI_EPICFLOW_NO_PLANNER=1` → effective = false.
+   - Else if `EPIC_DIR/meta.yaml` has `disable_planner: true` → false.
+   - Else if feature's `needs_planner: true` → effective = true.
+   - Else if feature's `kind: spike` → effective = true (spikes always plan).
+   - Else → effective = false.
+
+   **If effective is false**, skip to step 4 (worker-running). The worker's
+   built-in plan-first contract still applies (it writes the plan section
+   in `feature.md` §4 before any edits).
+
+   **If effective is true**, POST STATUS (phase: planning <fid>), then:
+
+   a. Resolve absolute paths (same MAIN_REPO/EPIC_DIR/FEATURE_DIR/WORKTREE
+      pattern as the worker).
+   b. Define `PLAN_PATH = $FEATURE_DIR/plan.md` (absolute).
+   c. Define `PLAN_REPORT_PATH = $FEATURE_DIR/planner-report.md` (absolute).
+   d. Spawn the planner:
+      - agent: "feature-planner"
+      - cwd: <WORKTREE>
+      - context: "fresh"
+      - output: <PLAN_REPORT_PATH>
+      - outputMode: "file-only"
+      - task:
+          ```
+          Plan feature <fid> per the feature-planner contract.
+          FEATURE_ID=<fid>
+          MAIN_REPO=<MAIN_REPO>
+          EPIC_DIR=<EPIC_DIR>
+          FEATURE_DIR=<FEATURE_DIR>
+          PLAN_PATH=<PLAN_PATH>
+          Write plan.md to PLAN_PATH. Return state READY or BLOCKED.
+          ```
+      Wait for it. Apply §STALL HANDLING if needed.
+   e. Read the planner report. Decide:
+      - `state: READY` and `plan.md` exists → continue to step 4. The
+        worker will see plan.md and treat it as binding.
+      - `state: BLOCKED` (planner surfaced an unresolvable ambiguity) →
+        **HALT (H9 — planner-blocked)**. Surface the planner's question to
+        the human in the halt report. Do NOT spawn the worker; the
+        decomposition needs human input first.
+      - Missing or malformed report → treat as BLOCKED, log to deviations,
+        HALT (H9).
+
 4. POST STATUS (phase: worker-running <fid>).
 
 5. Spawn the worker. Resolve absolute paths first:
@@ -128,6 +177,7 @@ a halt condition fires.
        FEATURE_DIR=<FEATURE_DIR>
        Worktree (your cwd) is on branch feat/<epic-slug>/<fid>-<slug>.
        Test command: from epic-config.yaml.
+       If FEATURE_DIR/plan.md exists, treat it as binding (see worker §1).
        Return when state is READY or BLOCKED.
        ```
    Wait for it (foreground). **Capture the run-id** that `subagent` returns —
@@ -395,6 +445,7 @@ Halt codes:
 - **H5** — environment fatal (disk full, git corrupt, missing toolchain, etc.)
 - **H6** — merge conflict on squash-merge into epic branch
 - **H7** — subagent stalled past the §STALL HANDLING budget (or 2nd respawn also stalled)
+- **H9** — planner-blocked: `feature-planner` surfaced an unresolvable ambiguity (missing call sites, contradictory AC, or undefined pattern). Decomposition needs human input before this feature can proceed. Surface the planner's exact question; do not retry without a decomposition.yaml edit.
 
 1. Write `.pi/epics/<id>/halt-<UTC-timestamp>.md` describing:
    - which step (1–14) failed

@@ -18,6 +18,26 @@ Each lesson:
 
 ## Lessons
 
+### L-019: `pi-feature-start` must auto-commit the scaffolded feature folder
+- **Added:** 2026-05-14 (epic 0001-partner-agent-sdk-hardening, all 42 done features)
+- **Pattern:** `pi-feature-start` writes `feature.md` and `meta.yaml` into the main repo's epic-branch worktree as **untracked** files. The worker (in its own feature worktree) later writes a populated `feature.md`. When `pi-feature-complete` squash-merges the feature branch, git refuses: `error: The following untracked working tree files would be overwritten by merge: .pi/epics/.../features/<fid>-<slug>/feature.md, meta.yaml`. Even worse on the second pass: pre-committing the *template* version creates a divergent add/add conflict against the worker's *populated* version on squash-merge (CONFLICT add/add in `feature.md`). Partner-agent-sdk hit this on every feature; user did manual git surgery 42 times.
+- **Lesson:** `pi-feature-start` commits the freshly-scaffolded feature folder + `STATE.md` to the epic branch immediately after creating them, as a `chore(epic): scaffold <fid> feature folder` commit. Then both branches share the same parent commit for those paths, and squash-merge's existing journal-auto-resolve path (taking `--ours`, the main-repo version) handles the natural divergence cleanly. Implemented in `pi-feature-start` 2026-05-14.
+
+### L-020: `pi-epic-validate-decomposition` must reject unsafe-leading-char AC strings
+- **Added:** 2026-05-14 (epic 0001-partner-agent-sdk-hardening)
+- **Pattern:** Partner-agent-sdk's `decomposition.yaml` had AC strings like `- *.invariants.yaml schema validated on load.` — the unquoted leading `*` makes strict YAML parsers (PyYAML, `yaml.safe_load`) interpret it as an alias reference and fail outright. The orchestrator and scripts use a lenient hand-rolled parser that tolerates this, so the file "worked" the entire epic. But it's a latent footgun: any future tooling that uses a real YAML library breaks. Eighteen AC entries had this shape.
+- **Lesson:** `pi-epic-validate-decomposition` errors on any unquoted AC entry whose first character is `*`, `&`, `!`, `|`, `>`, `%`, `@`, or backtick. Tells the user to quote it. Same rule belongs in `/epic-decompose` step 1 — propose quoted versions when these chars appear. Implemented 2026-05-14.
+
+### L-021: `scope_files` non-glob paths whose parent dir is missing are likely stale
+- **Added:** 2026-05-14 (epic 0001-partner-agent-sdk-hardening, F24)
+- **Pattern:** Partner-agent-sdk F24 listed `PartnerAgentSDK/PX.Partner.Agent.sln` in `scope_files`. The repo has no `PartnerAgentSDK/` directory; the actual file is `PX.Partner.Agent.sln` at the repo root. Stale carryover from an earlier layout proposal. Worker edited the right file and logged a deviation, but the noise compounds over 53 features.
+- **Lesson:** `pi-epic-validate-decomposition` walks every non-glob `scope_files` entry. If the file doesn't exist AND its parent dir doesn't exist, emit a warning (likely stale). If the parent exists but the file doesn't, skip silently (feature may create it). Same check applied to epic-level `reference_paths`. Implemented 2026-05-14.
+
+### L-022: known-flake handling — deferred to v0.5.1+
+- **Added:** 2026-05-14 (epic 0001-partner-agent-sdk-hardening, F19 + F21-F42 chain)
+- **Pattern:** F19 left a timing-sensitive test (`ThreeHundredMsLoad_RunsConcurrently_InUnder250Ms`) that passes in isolation but fails under solution-wide parallel test load. Every subsequent M3 feature paid the `--skip-tests` tax to merge, with a deviation entry each time. ~22 features paid that tax.
+- **Lesson:** Add a first-class `known_flakes:` array to `epic-config.yaml` that `pi-feature-complete` honors: each entry has `test_filter` (string passed to the test runner to exclude) + `reason` + `expires` (date). On every feature merge, log one deviation entry naming the flakes that were excluded. Deferred to v0.5.1 to keep v0.5.0 scope bounded; the current `--skip-tests` workaround still works.
+
 ### L-016: `python` vs `python3` — propose the interpreter that exists
 - **Added:** 2026-05-14 (epic 0001-taskq, sample run)
 - **Pattern:** Modern Debian / Fedora / Arch / many container images ship `python3` only — there's no `python` symlink. `/epic-decompose` Step 3 was hardcoded to propose `python -m pytest -q` whenever a `pyproject.toml` was found. `pi-feature-complete` runs `bash -c "$test_cmd"` literally, so the missing shim makes every feature halt at H1 even when the worker's tests pass cleanly under `python3`. The F01 worker on epic `0001-taskq` had to patch `epic-config.yaml` itself, log a deviation, and continue.

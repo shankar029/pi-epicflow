@@ -6,6 +6,109 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-05-14
+
+**Hybrid planner architecture.** Every feature now writes a plan section
+before any code edits (always-on baseline). Features flagged
+`needs_planner: true` in `decomposition.yaml` additionally get a dedicated
+`feature-planner` subagent pass that produces a binding `plan.md`. New
+halt code **H9** (planner-blocked) surfaces unresolvable ambiguities to
+the human BEFORE worker time burns. New `kind: spike` for decision-only
+features. Three v0.4-baseline decomp-quality fixes (L-019/L-020/L-021)
+landed in the same release.
+
+Motivated by partner-agent-sdk's F06 halt (AC assumed engine call sites
+that didn't exist) and by readiness for the Harmony GenUI v2 epic
+(~75-100 features, cross-language, 19 open questions).
+
+### Added
+
+- **`feature-planner` subagent** (`agents/feature-planner.md`). Runs
+  before `feature-worker` when the orchestrator's planning gate fires
+  (§3.5 in `prompts/epic-run-auto.md`). Reads design + decomposition +
+  `reference_paths` + repo code; produces `FEATURE_DIR/plan.md` listing
+  files-to-touch, AC interpretations with literal expected behavior,
+  ambiguities, and anti-scope. Worker treats `plan.md` as a binding
+  contract; deviations require a `deviations.md` entry. Reviewer
+  validates plan-vs-impl alignment.
+- **Always-on worker plan-first contract.** `feature.md` §4 is now a
+  structured Plan section (files-to-touch, AC interpretations,
+  ambiguities, anti-scope). Worker fills it BEFORE first edit, even for
+  features without a dedicated planner pass. Reviewer enforces.
+- **`kind: feature|spike`** in `decomposition.yaml`. Spikes ship a
+  decision artifact in `deviations.md` instead of code; `pi-feature-start`
+  uses a different journal template (`feature-spike.md`);
+  `pi-feature-complete` skips test runs for spikes. Spike IDs use
+  `S<NN>` prefix sharing the same numeric counter as features. Capped at
+  8 estimated hours.
+- **`needs_planner: bool` + `planner_triggers: [list]`** per-feature
+  fields in `decomposition.yaml`. Trigger checklist in
+  `prompts/epic-decompose.md`: tag if ≥2 of 7 triggers fire
+  (unverified-callsites, format-sensitive-ac, scope-crosses-modules,
+  deep-dep-chain, large-estimate, many-acs, cross-cutting-verb).
+  Threshold tunable via `PI_EPICFLOW_PLANNER_THRESHOLD`.
+- **`reference_paths:` epic-level field** in `decomposition.yaml`. Paths
+  the planner-subagent always reads when planning a tagged feature.
+  Files >100KB are noted but not pulled into context. Generic mechanism;
+  the user populates with project-specific paths (POC code, findings
+  docs, prior-art ADRs).
+- **Halt code H9 — planner-blocked.** Fired when `feature-planner`
+  surfaces an unresolvable ambiguity (missing call sites, contradictory
+  AC, undefined pattern). Decomposition needs human input before the
+  feature can proceed.
+- **`pi-epic-init --no-planner`** escape hatch. Persists
+  `disable_planner: true` to epic `meta.yaml`; planning gate honors it.
+- **`feature-spike.md` journal template** with structured decision
+  shape: Options Considered / Decision / Evidence / Impact / Plan.
+- **L-019: `pi-feature-start` auto-commits scaffolded feature folder**
+  to the epic branch immediately after creating it. Fixes the F01/F02
+  add/add merge conflict class hit on every feature of
+  partner-agent-sdk. Idempotent.
+- **L-020: validator rejects unsafe-leading-char AC strings.**
+  `pi-epic-validate-decomposition` errors on any unquoted AC starting
+  with `*`, `&`, `!`, `|`, `>`, `%`, `@`, or backtick. Strict-YAML
+  parsers reject these; the lenient parser tolerated them silently in
+  partner-agent-sdk's decomposition.yaml the entire epic.
+- **L-021: validator warns on stale `scope_files` paths.** Non-glob
+  entries whose parent dir doesn't exist produce a warning (likely
+  carryover from an earlier layout). Same check applied to
+  `reference_paths`.
+- **L-018-stronger: validator warns on golden/snapshot/wire-shape AC
+  without inline literal sample.** AC mentioning "golden", "snapshot",
+  "wire shape", "wire format" must include a fenced code block or quoted
+  literal with the expected value.
+
+### Changed
+
+- `prompts/epic-run-auto.md`: new step 3.5 — planning gate; new STATUS
+  phase `planning <fid>`; halt codes section updated with H9.
+- `prompts/epic-decompose.md`: trigger checklist, spike-feature
+  conventions, `reference_paths` field, manifest fan-out hint,
+  L-018/L-020 literal-sample rules.
+- `agents/feature-worker.md`: §1 reads `plan.md` if present; §2
+  mandatory Plan section; §3 spike-mode loop; §7 deviations triggers
+  expanded to include plan-vs-impl drift.
+- `agents/feature-reviewer.md`: plan-vs-impl validation block;
+  spike-mode validation; new output `## Plan-vs-impl` section.
+- `skills/epic-feature-workflow/templates/decomposition.yaml`: documents
+  new fields, trigger list, spike example.
+- `skills/epic-feature-workflow/templates/feature.md`: §4 restructured
+  into mandatory Plan.
+- `pi-feature-start`: reads `kind` from decomposition; selects journal
+  template; commits scaffold to epic branch (L-019).
+- `pi-feature-complete`: spikes skip the test run.
+- `pi-epic-validate-decomposition`: see "Added" items above.
+- `install/postinstall.mjs`: copies `feature-planner.md` alongside
+  worker/reviewer.
+
+### Migration
+
+Legacy `decomposition.yaml` files without the new fields (`kind`,
+`needs_planner`, `reference_paths`) validate cleanly — fields default to
+`feature` / `false` / `[]`. No schema migration required for in-flight
+epics. Mid-epic upgrades are safe: the planning gate is a no-op for
+features without `needs_planner: true`.
+
 ## [0.3.1] — 2026-05-14
 
 Small additive feature plus the new Vite/React marketing site.

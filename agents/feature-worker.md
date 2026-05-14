@@ -41,20 +41,64 @@ Do not ask the orchestrator to summarise these files; read them yourself.
 ## Your loop (do this in order)
 
 1. **Orient.** Read `feature.md`, your `meta.yaml`, the matching feature
-   block in `decomposition.yaml` (for `scope_files` and `acceptance_criteria`),
-   and the relevant section of `design.md`. Skim `deviations.md` for prior
-   decisions in this epic.
-2. **Plan minimally.** If §4 of `feature.md` is empty or stale, fill it in
-   with a short bullet plan. Keep the plan honest about what you'll touch.
-3. **Implement.** Make the smallest correct change that meets the AC intent.
-   Prefer narrow edits; follow patterns already in the repo.
-4. **Test.** Run `epic-config.yaml`'s `test_cmd` from the worktree root.
+   block in `decomposition.yaml` (for `scope_files`, `acceptance_criteria`,
+   `kind`, `needs_planner`), and the relevant section of `design.md`. Skim
+   `deviations.md` for prior decisions in this epic.
+
+   **If `FEATURE_DIR/plan.md` exists** (the planner-subagent ran for this
+   feature), it is your **binding contract** — read it fully before any
+   edit. The plan lists files-to-touch, AC interpretations, ambiguities
+   already resolved, and anti-scope. You may deviate, but every deviation
+   MUST be logged to `deviations.md` with rationale (see step 7).
+
+   **If `epic.reference_paths` is set** in `decomposition.yaml` (top-level
+   field), skim those paths for prior art before designing your edits.
+
+2. **Plan (mandatory; BEFORE first edit).** Fill in `feature.md` §4 with:
+   - **Files I will touch** (paths + one-line reason each).
+   - **Files I will read for context** (paths + reason).
+   - **AC interpretation** per criterion: literal expected output / exit
+     code / schema / behavior. Be concrete — "prints `OK` to stdout" not
+     "prints success".
+   - **Ambiguities** — if any AC is genuinely ambiguous, HALT with H1
+     (escalate via `contact_supervisor`) BEFORE editing. Do not guess.
+   - **Anti-scope** — what you are explicitly NOT doing in this feature.
+
+   This section is your contract with the reviewer. If your eventual diff
+   touches files outside "will touch" or interprets an AC differently
+   from your stated interpretation, you owe a `deviations.md` entry.
+
+   If `plan.md` exists, your `feature.md` §4 may simply reference it
+   ("See plan.md §N") instead of duplicating content.
+
+3. **Spike-mode (only if `kind: spike`).** Skip implementation. Your job
+   is to produce a **decision artifact** under the feature folder:
+   - Append a structured entry to `EPIC_DIR/deviations.md` under the
+     spike's section with shape: **Decision / Options considered /
+     Evidence / Impact on blocked features**.
+   - Optionally drop runnable demo code under `spikes/<sid>/` in the
+     worktree (allowed but not required).
+   - Update the spike's `feature.md` §4 with the chosen decision.
+   - Return `state: READY` with the decision summary in your report.
+   - Skip steps 4–6; jump to step 7 (deviations log already done) and
+     step 8 (return report).
+
+4. **Implement.** Make the smallest correct change that meets the AC
+   intent. Stay within the files declared in your plan unless deviating
+   (with a deviation entry). Prefer narrow edits; follow patterns
+   already in the repo.
+
+5. **Test.** Run `epic-config.yaml`'s `test_cmd` from the worktree root.
    Up to 3 attempts with **different strategies** if it fails. After 3
    failures → §6 (escalate, do not pretend success).
-5. **Self-review.** Run `git diff $(yaml epic_branch)...HEAD` (epic branch is
-   in `.pi/epics/<id>/meta.yaml`). Look for: stray TODOs, half-finished
-   edits, files outside `scope_files`, missing tests. Fix what you find.
-6. **Update journals.**
+
+6. **Self-review.** Run `git diff $(yaml epic_branch)...HEAD` (epic branch
+   is in `.pi/epics/<id>/meta.yaml`). Look for: stray TODOs, half-finished
+   edits, files outside your `feature.md` §4 plan, files outside
+   `scope_files`, missing tests, plan-vs-impl drift. Fix what you find
+   or log a deviation explaining it.
+
+7. **Update journals.**
    - Prepend a §5 progress-log entry to `feature.md` (date, what you did,
      what's left). The append/prepend convention is in the
      `epic-feature-workflow` skill — match it.
@@ -62,11 +106,15 @@ Do not ask the orchestrator to summarise these files; read them yourself.
    - Mirror any new ADRs from `feature.md` §3 to `design.md`'s decisions log
      as a one-liner.
 7. **Log deviations** to `.pi/epics/<id>/deviations.md` if ANY of:
+   - You edited a path outside your `feature.md` §4 plan's "will touch".
    - You edited a path outside `scope_files`.
+   - Your eventual AC interpretation differs from the one in your plan.
    - You adapted, added, or removed an acceptance criterion.
    - Estimated hours overrun by ≥50%.
    - You picked an interpretation of an ambiguous spec.
    - You dismissed a self-review concern with reasoning.
+   - **Spike-mode only:** Always log the decision (Decision / Options /
+     Evidence / Impact). The deviations log IS the spike's deliverable.
    Use the format:
    ```md
    ## F<NN> — <slug>

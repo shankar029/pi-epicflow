@@ -22,21 +22,36 @@ __SCRIPT_DIR="$(cd -P "$(dirname "$__src")" && pwd)"
 source "$__SCRIPT_DIR/_common.sh"
 
 epic_dir=$(active_epic_dir)
+repo=$(repo_root)
 decomp="$epic_dir/decomposition.yaml"
 [[ -f "$decomp" ]] || { echo "ERROR: $decomp not found" >&2; exit 1; }
 
-python3 - "$decomp" <<'PY'
-import sys, re, os
+python3 - "$decomp" "$repo" <<'PY'
+import sys, re, os, glob
 
 path = sys.argv[1]
+repo_root = sys.argv[2] if len(sys.argv) > 2 else os.getcwd()
 
-# Minimal YAML reader for the schema we use.
+# YAML chars that, when leading an unquoted scalar, change semantics or fail
+# strict parsers (L-020). Backtick is added because it crashes PyYAML.
+UNSAFE_LEADING = set(['*', '&', '!', '|', '>', '%', '@', '`'])
+GLOB_CHARS = set('*?[]{}')
+
+# Sentinel values for AC strings that fall back to test-shaped checks even
+# when the AC mentions a 'golden' / 'snapshot' / 'wire shape' but the
+# literal sample is intentionally inline (fenced or quoted). The decomp
+# prompt enforces inline samples; the validator only requires the term.
+LITERAL_SAMPLE_TERMS = ('golden', 'snapshot', 'wire shape', 'wire format')
+
+# Minimal YAML reader for the schema we use. Tolerates the unsafe-leading
+# chars (parser-friendly) so we can surface them as ERRORS rather than
+# crashing.
 def parse(p):
     out = {'features': []}
     cur = None
     cur_field = None
     cur_list = None
-    indent_stack = [0]
+    top_list = None    # top-level list value (e.g. reference_paths)
     with open(p, encoding='utf-8') as f:
         for raw in f:
             line = raw.rstrip('\n')
@@ -48,10 +63,23 @@ def parse(p):
             if ind == 0:
                 m = re.match(r'^([A-Za-z0-9_]+)\s*:\s*(.*)$', s)
                 if m and m.group(1) == 'features':
-                    cur = None
+                    cur = None; top_list = None
                     continue
                 if m and m.group(1) == 'epic':
                     out['epic'] = m.group(2).strip().strip('"').strip("'")
+                    top_list = None
+                    continue
+                if m:
+                    k = m.group(1); v = m.group(2).strip()
+                    if v == '':
+                        out[k] = []; top_list = out[k]
+                    elif v.startswith('[') and v.endswith(']'):
+                        inner = v[1:-1].strip()
+                        out[k] = [x.strip().strip('"').strip("'") for x in inner.split(',')] if inner else []
+                        top_list = None
+                    else:
+                        out[k] = v.strip('"').strip("'"); top_list = None
+                    cur = None
                     continue
 
             # Feature start: "- id: Fxx"
@@ -64,15 +92,27 @@ def parse(p):
                     cur['id'] = m.group(1).strip().strip('"').strip("'")
                 cur_field = None
                 cur_list = None
+                top_list = None
+                continue
+
+            # List item (raw string AC or path)
+            if s.startswith('- '):
+                val = s[2:].strip()
+                # Strip outer quoting if present; otherwise keep literal.
+                if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
+                    val_stripped = val[1:-1]
+                    was_quoted = True
+                else:
+                    val_stripped = val
+                    was_quoted = False
+                target = cur_list if cur is not None else top_list
+                if target is not None:
+                    # Tag the entry with its unquoted status so AC-safety check
+                    # can distinguish 'starts with *' (unsafe) from 'literal *'.
+                    target.append({'value': val_stripped, 'was_quoted': was_quoted})
                 continue
 
             if cur is None:
-                continue
-
-            # List item
-            if s.startswith('- '):
-                if cur_list is not None:
-                    cur_list.append(s[2:].strip().strip('"').strip("'"))
                 continue
 
             # Field line
@@ -83,7 +123,6 @@ def parse(p):
             v = re.sub(r'\s+#.*$', '', v).strip()
             cur_field = k
             if v == '':
-                # list or block follows
                 cur[k] = []
                 cur_list = cur[k]
             elif v == '[]':
@@ -91,12 +130,24 @@ def parse(p):
                 cur_list = None
             elif v.startswith('[') and v.endswith(']'):
                 inner = v[1:-1].strip()
-                cur[k] = [x.strip().strip('"').strip("'") for x in inner.split(',')] if inner else []
+                cur[k] = [{'value': x.strip().strip('"').strip("'"), 'was_quoted': False} for x in inner.split(',')] if inner else []
                 cur_list = None
             else:
                 cur[k] = v.strip('"').strip("'")
                 cur_list = None
 
+    return out
+
+def _vals(lst):
+    """Extract raw values from a list-of-dicts (our tagged list format)."""
+    if not lst:
+        return []
+    out = []
+    for entry in lst:
+        if isinstance(entry, dict):
+            out.append(entry.get('value', ''))
+        else:
+            out.append(str(entry))
     return out
 
 data = parse(path)
@@ -105,73 +156,151 @@ warnings = []
 
 required = ['id','slug','summary','depends_on','scope_files','acceptance_criteria','estimated_hours']
 ids_seen = []
-import re
 
 _FID_RE = re.compile(r'^F(\d+)([a-z]?)$')
+_SID_RE = re.compile(r'^S(\d+)([a-z]?)$')
 expected_idx = 1
 seen_numeric = {}
 for i, ft in enumerate(data.get('features', [])):
     fid = ft.get('id', f'<feature #{i+1}>')
+    kind = (ft.get('kind') or 'feature').strip()
+    if kind not in ('feature', 'spike'):
+        errors.append(f"{fid}: kind must be 'feature' or 'spike' (got '{kind}')")
+        kind = 'feature'
+
+    # Required fields. Spikes may have empty scope_files (warning).
     for r in required:
+        if r == 'scope_files' and kind == 'spike':
+            continue   # check separately below
         if r not in ft:
             errors.append(f"{fid}: missing field '{r}'")
-    # Sequential IDs (allow F06a/F06b sub-features sharing one numeric slot)
-    m = _FID_RE.match(ft.get('id', ''))
+
+    # Sequential IDs. Spikes use S-prefix; features use F-prefix. Both share
+    # the same numeric counter for ordering but live in separate namespaces.
+    rid = ft.get('id', '')
+    m_f = _FID_RE.match(rid)
+    m_s = _SID_RE.match(rid)
+    m = m_f or m_s
     if not m:
-        if ft.get('id'):
-            errors.append(f"{fid}: id must match F<NN>[a-z]")
+        if rid:
+            errors.append(f"{fid}: id must match F<NN>[a-z] or S<NN>[a-z]")
     else:
         n = int(m.group(1))
         suf = m.group(2)
         if n == expected_idx:
-            # First time we see this number -> any suffix is fine; advance afterward.
             seen_numeric.setdefault(n, []).append(suf)
-            # If no suffix, no further sub-features allowed for this slot.
-            # Advance the expected counter only when the *next* feature has a different number.
         elif n == expected_idx + 1 and seen_numeric.get(expected_idx):
-            # Previous slot is closed; advance.
             expected_idx += 1
             seen_numeric.setdefault(n, []).append(suf)
         else:
-            errors.append(f"{fid}: expected id starting with F{expected_idx:02d} (or F{expected_idx+1:02d})")
-        # Look ahead to decide if this slot is closed: if next feature has a different
-        # numeric prefix, advance now so the next iteration's check works.
+            errors.append(f"{fid}: expected id starting with F{expected_idx:02d}/S{expected_idx:02d} (or F{expected_idx+1:02d}/S{expected_idx+1:02d})")
         nxt = data.get('features', [])[i+1] if i + 1 < len(data.get('features', [])) else None
-        nxt_m = _FID_RE.match((nxt or {}).get('id', '')) if nxt else None
+        nxt_id = (nxt or {}).get('id', '') if nxt else ''
+        nxt_m = _FID_RE.match(nxt_id) or _SID_RE.match(nxt_id)
         if nxt is None or (nxt_m and int(nxt_m.group(1)) != n):
-            # close this slot; expected advances on next iter via the elif branch above
             pass
-    ids_seen.append(ft.get('id', ''))
-    # Hours sanity
+    ids_seen.append(rid)
+
+    # Hours sanity. Spikes capped at 8h (decision spikes shouldn't be larger).
     try:
         hrs = float(ft.get('estimated_hours', 0))
         if hrs <= 0:
             errors.append(f"{fid}: estimated_hours must be > 0")
-        if hrs > 16:
-            errors.append(f"{fid}: estimated_hours={hrs} exceeds 16 (split into smaller features)")
-        if hrs > 8:
-            warnings.append(f"{fid}: estimated_hours={hrs} is large; consider splitting")
+        max_hrs = 8 if kind == 'spike' else 16
+        if hrs > max_hrs:
+            errors.append(f"{fid}: estimated_hours={hrs} exceeds {max_hrs} ({'spikes capped at 8h' if kind=='spike' else 'features capped at 16h; split if larger'})")
+        if hrs > (max_hrs // 2):
+            warnings.append(f"{fid}: estimated_hours={hrs} is large for a {kind}")
     except (ValueError, TypeError):
         errors.append(f"{fid}: estimated_hours must be numeric")
-    # Non-empty scope/AC
-    if not ft.get('scope_files'):
-        errors.append(f"{fid}: scope_files is empty")
-    if not ft.get('acceptance_criteria'):
+
+    # Scope_files / AC presence
+    sf = ft.get('scope_files') or []
+    ac = ft.get('acceptance_criteria') or []
+    if kind == 'spike':
+        if sf:
+            warnings.append(f"{fid} (spike): scope_files listed; spikes typically have none")
+    else:
+        if not sf:
+            errors.append(f"{fid}: scope_files is empty")
+    if not ac:
         errors.append(f"{fid}: acceptance_criteria is empty")
+    if kind == 'spike' and len(_vals(ac)) < 1:
+        errors.append(f"{fid} (spike): needs at least 1 decision-shaped acceptance criterion")
+
     # Self-dep
-    if ft.get('id') in (ft.get('depends_on') or []):
+    deps = ft.get('depends_on') or []
+    deps_vals = _vals(deps) if (deps and isinstance(deps[0], dict)) else list(deps)
+    if rid in deps_vals:
         errors.append(f"{fid}: cannot depend on itself")
+
+    # L-020: AC strings starting with unsafe YAML chars must be quoted.
+    for j, entry in enumerate(ac):
+        if not isinstance(entry, dict):
+            continue
+        val = entry.get('value', '')
+        if not val: continue
+        if entry.get('was_quoted'):
+            continue
+        first = val[0]
+        if first in UNSAFE_LEADING:
+            errors.append(
+                f"{fid}: acceptance_criteria[{j}] starts with reserved YAML char '{first}' "
+                f"and is unquoted. This breaks strict YAML parsers. Quote it: '\"{val}\"'.")
+
+    # L-018 (stronger): if AC mentions a golden/snapshot/wire-shape concept,
+    # check that *some* literal sample is inline (fenced ``` block, or a
+    # quoted string, or an equals/colon-leading exact-value). Warn only.
+    ac_blob = ' '.join(_vals(ac)).lower()
+    if any(t in ac_blob for t in LITERAL_SAMPLE_TERMS):
+        has_sample = any(
+            '```' in (e.get('value','') if isinstance(e, dict) else '') or
+            (isinstance(e, dict) and e.get('was_quoted') and len((e.get('value') or ''))>3)
+            for e in ac
+        )
+        if not has_sample:
+            warnings.append(
+                f"{fid}: AC mentions golden/snapshot/wire-shape but no literal sample inline. "
+                f"Add a fenced code block with the expected output, or quote the literal.")
+
+    # L-021: scope_files non-glob entries should exist on the filesystem (warning).
+    for j, entry in enumerate(sf):
+        val = entry.get('value', '') if isinstance(entry, dict) else str(entry)
+        if not val: continue
+        if any(c in val for c in GLOB_CHARS):
+            continue
+        abs_path = val if os.path.isabs(val) else os.path.join(repo_root, val)
+        if not os.path.exists(abs_path):
+            parent = os.path.dirname(abs_path) or repo_root
+            if not os.path.isdir(parent):
+                warnings.append(
+                    f"{fid}: scope_files[{j}] '{val}' does not exist AND its parent dir is missing. "
+                    f"Likely a stale path from an earlier layout.")
+            else:
+                # Parent exists → probably a file the feature creates. Skip.
+                pass
+
+    # needs_planner validation
+    np_val = ft.get('needs_planner')
+    if np_val is not None and str(np_val).strip().lower() not in ('true','false'):
+        errors.append(f"{fid}: needs_planner must be true or false (got '{np_val}')")
 
 # Unknown deps
 all_ids = {ft.get('id') for ft in data.get('features', [])}
 for ft in data.get('features', []):
     fid = ft.get('id', '?')
-    for d in ft.get('depends_on') or []:
+    deps = ft.get('depends_on') or []
+    deps_vals = _vals(deps) if (deps and isinstance(deps[0], dict)) else list(deps)
+    for d in deps_vals:
         if d not in all_ids:
             errors.append(f"{fid}: depends_on '{d}' is not a defined feature")
 
 # Cycle detection (DFS)
-graph = {ft.get('id'): list(ft.get('depends_on') or []) for ft in data.get('features', [])}
+graph = {}
+for ft in data.get('features', []):
+    deps = ft.get('depends_on') or []
+    deps_vals = _vals(deps) if (deps and isinstance(deps[0], dict)) else list(deps)
+    graph[ft.get('id')] = deps_vals
 WHITE, GRAY, BLACK = 0, 1, 2
 color = {n: WHITE for n in graph}
 def dfs(n, stack):
@@ -188,6 +317,17 @@ for n in list(color.keys()):
     if color[n] == WHITE:
         dfs(n, [n])
 
+# Epic-level reference_paths existence check (warning)
+rp = data.get('reference_paths') or []
+rp_vals = _vals(rp) if (rp and isinstance(rp[0], dict)) else list(rp)
+for p in rp_vals:
+    if not p: continue
+    if any(c in p for c in GLOB_CHARS):
+        continue
+    abs_path = p if os.path.isabs(p) else os.path.join(repo_root, p)
+    if not os.path.exists(abs_path):
+        warnings.append(f"reference_paths: '{p}' does not exist on disk")
+
 if warnings:
     print("WARNINGS:")
     for w in warnings: print(f"  - {w}")
@@ -196,5 +336,10 @@ if errors:
     for e in errors: print(f"  - {e}")
     sys.exit(1)
 
-print(f"OK: {len(data.get('features', []))} features, DAG valid.")
+# Summary stats
+feats = data.get('features', [])
+n_feat = sum(1 for f in feats if (f.get('kind') or 'feature') == 'feature')
+n_spike = sum(1 for f in feats if (f.get('kind') or 'feature') == 'spike')
+n_tagged = sum(1 for f in feats if str(f.get('needs_planner','')).lower() == 'true')
+print(f"OK: {len(feats)} entries ({n_feat} features, {n_spike} spikes, {n_tagged} need planner), DAG valid.")
 PY

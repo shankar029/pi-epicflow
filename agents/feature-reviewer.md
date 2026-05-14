@@ -31,19 +31,37 @@ knowledge of how the worker got here. That independence is the point.
 
 ## What to do
 
-1. Read `feature.md`, the worker report, and the decomposition entry.
+1. Read `feature.md` (especially §4 Plan), the worker report, the
+   decomposition entry, and — **if it exists** — `FEATURE_DIR/plan.md`
+   (the planner-subagent's output). Note the feature's `kind` field:
+   `feature` (normal) or `spike` (decision artifact, code optional).
 2. Inspect the diff: `git diff <epic_branch>...HEAD --stat` then drill into
    suspicious files with `git diff <epic_branch>...HEAD -- <path>`.
 3. Verify, with evidence:
+   - **Plan-vs-impl alignment** (`feature.md` §4 and `plan.md` if present):
+     - Every file in the diff is listed under "Files I will touch" — OR
+       there is a corresponding `deviations.md` entry with rationale.
+     - Implementation matches the worker's stated AC interpretation.
+     - Anti-scope items are NOT in the diff.
+     - Silent deviations (unlogged) → REQUEST_CHANGES (not APPROVE).
+     - Logged deviations with a rationale → OK, mention in your report.
    - Each acceptance criterion is met (cite file:line or a passing test name).
    - Edits stay within `scope_files` (deviations should already be logged in
      `deviations.md` — confirm they are).
    - No stray TODOs, debug prints, commented-out blocks, half-finished code.
    - No accidental edits to unrelated files (lockfiles, configs, other
      features' code).
-4. Run `test_cmd` once to confirm green. Do not fix failing tests; that's a
+4. **Spike-mode (only if `kind: spike`):**
+   - The deliverable is a **decision artifact** in `deviations.md`, not code.
+   - Validate the entry has: chosen decision, options considered, evidence
+     (call sites / refs / benchmark / prototype), impact on blocked
+     features.
+   - If the spike landed runnable demo code under `spikes/<sid>/`, that's
+     OK but not required — do not REQUEST_CHANGES for code absence.
+   - Skip step 5 (no test_cmd required for spikes).
+5. Run `test_cmd` once to confirm green. Do not fix failing tests; that's a
    blocker the worker must address.
-5. If you find small mechanical issues (typo, missing import, leftover log)
+6. If you find small mechanical issues (typo, missing import, leftover log)
    you can fix them in-place — note the fix in your report. Otherwise, raise
    a Blocker and stop.
 
@@ -61,11 +79,18 @@ knowledge of how the worker got here. That independence is the point.
 ```
 verdict: APPROVE | REQUEST_CHANGES | BLOCK
 feature: F<NN>-<slug>
+kind: feature | spike
 
 ## Acceptance criteria
 - [x] <AC1> — evidence: <file:line or test name>
 - [x] <AC2> — evidence: ...
 - [ ] <AC3> — NOT MET because ...
+
+## Plan-vs-impl
+- plan.md present: yes | no
+- files-in-plan vs files-in-diff: <N matches, M deviations — all logged | unlogged>
+- AC interpretation drift: <none | <AC#>: planned X, implemented Y; logged? yes/no>
+- anti-scope respected: yes | no (<what leaked>)
 
 ## Scope
 - in-scope edits: N files, all within scope_files
@@ -78,7 +103,7 @@ feature: F<NN>-<slug>
 - Note: <non-blocking observation>
 
 ## Tests
-- test_cmd exit: 0 / N
+- test_cmd exit: 0 / N (n/a for spikes)
 - summary: <pass count, key failures>
 
 Recommendation:
@@ -88,3 +113,7 @@ Recommendation:
 ```
 
 If everything is clean, say so plainly and APPROVE. Don't invent issues.
+
+**Silent plan-vs-impl drift is a REQUEST_CHANGES, not an APPROVE.** Either
+the worker updates the plan (or logs a deviation) or the diff comes back
+into alignment.

@@ -32,14 +32,34 @@ the epic's `design.md` §4.
 - **Consequences:** Trade-offs accepted.
 -->
 
-## 4. Plan / TODO
+## 4. Plan (mandatory; fill BEFORE first edit)
 
-Optional sub-task checklist if the feature has internal steps worth tracking.
+Worker must populate this section before making ANY code edits. Reviewer
+validates the diff against this plan. If reality diverges, log to
+`deviations.md` with rationale.
+
+**Files I will touch:**
+- `<path>` — <why>
+
+**Files I will read for context (not edit):**
+- `<path>` — <why>
+
+**AC interpretation (literal expected behavior per criterion):**
+- AC 1: <literal expected output / behavior — exact string, exact exit code, exact schema>
+- AC 2: ...
+
+**Ambiguities (HALT with H1 if any are blocking):**
+- _(none)_  OR  - <question for orchestrator>
+
+**Anti-scope (explicitly NOT in this feature):**
+- _(none)_  OR  - <out-of-scope item, deferred to F0N>
+
+## 5. TODO checklist (optional)
 
 - [ ] Step 1
 - [ ] Step 2
 
-## 5. Progress log (append-only, newest on top)
+## 6. Progress log (append-only, newest on top)
 
 <!-- Add new entries on top.
 
@@ -49,10 +69,10 @@ Optional sub-task checklist if the feature has internal steps worth tracking.
 - next: <what to pick up next session>
 -->
 
-## 6. Open questions
+## 7. Open questions
 
 - _(none)_
 
-## 7. Out of scope (for this feature)
+## 8. Out of scope (for this feature)
 
 - Anything explicitly deferred to another feature in the DAG.

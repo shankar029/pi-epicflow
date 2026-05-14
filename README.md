@@ -66,14 +66,17 @@ decomposing the next one.
                                    │
       ┌────────────────┬───────┴───────┬───────────────────┐
       ▼                  ▼               ▼                      ▼
-  worktree+branch    feature-worker    feature-reviewer       squash-merge
-  spawned            subagent (fresh   subagent (fresh        into epic branch
-  off epic branch    context, isolated context, reads diff)   delete branch+wt
-                     impl + tests)                            archive feature
+  worktree+branch    [feature-planner]  feature-worker         feature-reviewer
+  spawned            subagent (only     subagent (fresh        subagent (fresh
+  off epic branch    when needs_planner context, reads plan.md context, validates
+                     :true; writes      if present, mandatory  plan-vs-impl +
+                     plan.md)           plan section in §4)    AC + scope)
                                                               │
                                                               ▼
-                                                       deviations.md
-                                                       (auto-logged)
+                                                       squash-merge into
+                                                       epic branch, delete
+                                                       branch+wt, archive
+                                                       feature, deviations.md
                                    │
                                    ▼
                           all features merged?
@@ -248,7 +251,7 @@ pi install -l git:github.com/shankar029/pi-epicflow
 1. Registers the skill (`epic-feature-workflow`) and prompt (`/epic-run-auto`)
    so pi loads them in any session.
 2. Runs `install/postinstall.mjs` which:
-   - Copies `feature-worker.md` and `feature-reviewer.md` into
+   - Copies `feature-worker.md`, `feature-reviewer.md`, and `feature-planner.md` into
      `~/.pi/agent/agents/` so `pi-subagents` can discover them.
    - Symlinks `pi-epic-*` and `pi-feature-*` from the package into
      `~/.local/bin` so you can call them from any shell.
@@ -449,7 +452,7 @@ Branches:
 
 | Script | Job |
 |---|---|
-| `pi-epic-init <slug> [--from <design-file>] [--base <branch>]` | Create the epic folder + branch + STATE.md. `--base` overrides the parent branch (default: repo's default branch); recorded in `meta.yaml` and used by `pi-epic-complete` as the PR target. Auto-commits a `.gitignore` for pi runtime state. |
+| `pi-epic-init <slug> [--from <design-file>] [--base <branch>] [--no-planner]` | Create the epic folder + branch + STATE.md. `--base` overrides the parent branch (default: repo's default branch); recorded in `meta.yaml` and used by `pi-epic-complete` as the PR target. `--no-planner` disables the `feature-planner` subagent for every feature in this epic (`disable_planner: true` in meta.yaml). Auto-commits a `.gitignore` for pi runtime state. |
 | `pi-epic-validate-decomposition` | Sanity-check `decomposition.yaml`: no cycles, no unknown deps, IDs unique, scope_files unique, etc. |
 | `pi-epic-next-feature` | Print the next feature id to work on. Prefers any **in-progress** feature (resume) over the lowest-numbered **ready** one. Prints `DONE` when all merged, `HALT:<reason>` on DAG corruption. |
 | `pi-feature-start <fid>` | Create the feature worktree + branch, write `feature.md` / `meta.yaml`, auto-commit any pending `.pi/epics/<id>/` edits (except `halt-*.md`) on the epic branch, advance epic `status: design → in-progress` on first call. |
@@ -600,7 +603,7 @@ script is deliberately non-destructive. Remove them by hand if desired:
 
 ```bash
 rm ~/.local/bin/pi-epic-* ~/.local/bin/pi-feature-*
-rm ~/.pi/agent/agents/feature-worker.md ~/.pi/agent/agents/feature-reviewer.md
+rm ~/.pi/agent/agents/feature-worker.md ~/.pi/agent/agents/feature-reviewer.md ~/.pi/agent/agents/feature-planner.md
 ```
 
 ---

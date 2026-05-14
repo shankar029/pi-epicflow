@@ -79,6 +79,8 @@ PY
 slug=$(echo "$spec" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("slug",""))')
 summary=$(echo "$spec" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("summary",""))')
 deps_str=$(echo "$spec" | python3 -c 'import sys,json; print(",".join(json.load(sys.stdin).get("depends_on") or []))')
+kind=$(echo "$spec" | python3 -c 'import sys,json; print((json.load(sys.stdin).get("kind") or "feature").strip())')
+needs_planner=$(echo "$spec" | python3 -c 'import sys,json; print(str(json.load(sys.stdin).get("needs_planner","")).strip().lower())')
 
 # Verify deps are merged
 IFS=',' read -ra deps <<< "$deps_str"
@@ -144,8 +146,13 @@ fi
 # Create feature folder under epic
 feat_dir="$epic_dir/features/$fid-$slug"
 mkdir -p "$feat_dir"
+# Select template by kind (spike features have a different journal shape).
+feature_template="$skill/templates/feature.md"
+if [[ "$kind" == "spike" && -f "$skill/templates/feature-spike.md" ]]; then
+    feature_template="$skill/templates/feature-spike.md"
+fi
 if [[ ! -f "$feat_dir/feature.md" ]]; then
-    cp "$skill/templates/feature.md" "$feat_dir/feature.md"
+    cp "$feature_template" "$feat_dir/feature.md"
 fi
 if [[ ! -f "$feat_dir/meta.yaml" ]]; then
     cp "$skill/templates/feature-meta.yaml" "$feat_dir/meta.yaml"
@@ -209,6 +216,21 @@ Feature journal: [\`feature.md\`](epics/$epic_id/features/$fid-$slug/feature.md)
 EOF
 
 runlog_append "$epic_dir" "\"event\":\"feature-start\",\"feature\":\"$fid-$slug\",\"branch\":\"$feat_branch\",\"worktree\":\"$worktree\""
+
+# L-019: commit the freshly-scaffolded feature folder + STATE.md to the epic
+# branch RIGHT NOW so it's tracked-with-identical-content when the worker
+# later mirrors / appends to feature.md inside the worktree. Without this
+# commit, `pi-feature-complete`'s squash-merge hits an add/add conflict on
+# feature.md (the main repo's epic-branch worktree has the untracked
+# template; the feature worktree has the populated version). See
+# lessons.md L-019 + partner-agent-sdk deviations F01/F02.
+if [[ -n $(git status --porcelain ".pi/epics/$epic_id/features/$fid-$slug" .pi/STATE.md 2>/dev/null) ]]; then
+    git add ".pi/epics/$epic_id/features/$fid-$slug" .pi/STATE.md 2>/dev/null || true
+    if [[ -n $(git diff --cached --name-only) ]]; then
+        git commit --quiet -m "chore(epic): scaffold $fid feature folder"
+        log "committed scaffolded feature folder to epic branch (L-019)"
+    fi
+fi
 
 cat <<EOF
 
