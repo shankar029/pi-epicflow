@@ -1,0 +1,40 @@
+/* Rouge syntax highlighter — Kinetic Terminal palette
+   Based on the design spec: primary green + secondary teal,
+   muted slate for comments/punctuation, error red for errors. */
+
+.highlight .c, .highlight .c1, .highlight .cm, .highlight .cs { color: #64748b; font-style: italic; }  /* comment */
+.highlight .cp { color: #94a3b8; }                                  /* preprocessor */
+
+.highlight .k, .highlight .kc, .highlight .kd, .highlight .kn,
+.highlight .kp, .highlight .kr, .highlight .kt { color: #4be277; font-weight: 600; }   /* keyword */
+
+.highlight .o, .highlight .ow { color: #81d5d4; }                   /* operator */
+.highlight .p { color: #94a3b8; }                                   /* punctuation */
+
+.highlight .n  { color: #dae2fd; }                                  /* name */
+.highlight .nf, .highlight .nd { color: #6bff8f; }                  /* function / decorator */
+.highlight .nc, .highlight .nn { color: #81d5d4; font-weight: 600; } /* class / namespace */
+.highlight .nb, .highlight .bp { color: #80d4d4; }                  /* builtin */
+.highlight .nv, .highlight .vi, .highlight .vc, .highlight .vg { color: #69dd93; } /* variable */
+.highlight .na { color: #80d4d4; }                                  /* attribute */
+.highlight .nt { color: #69dd93; }                                  /* tag */
+
+.highlight .s, .highlight .s1, .highlight .s2, .highlight .sb,
+.highlight .sc, .highlight .sd, .highlight .se, .highlight .sh,
+.highlight .si, .highlight .sx, .highlight .sr, .highlight .ss { color: #9cf1f0; }  /* string */
+.highlight .se { color: #4be277; }                                  /* escape */
+
+.highlight .m, .highlight .mb, .highlight .mf, .highlight .mh,
+.highlight .mi, .highlight .il, .highlight .mo { color: #ffb4ab; }  /* number */
+
+.highlight .err { color: #ef4444; background: rgba(239, 68, 68, 0.10); }
+
+/* Diff */
+.highlight .gd { color: #ef4444; background: rgba(239, 68, 68, 0.06); }
+.highlight .gi { color: #22c55e; background: rgba(34, 197, 94, 0.06); }
+.highlight .gh { color: #94a3b8; font-weight: 600; }
+.highlight .gu { color: #81d5d4; }
+
+/* Generic strong / emph in code */
+.highlight .gs { font-weight: 600; }
+.highlight .ge { font-style: italic; }
