@@ -6,6 +6,27 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.1] — 2026-05-14
+
+Small additive feature plus the new Vite/React marketing site.
+
+### Added
+- **`pi-epic-init --base <branch>`.** Override the parent branch the epic
+  branches off from (default: repo's auto-detected default branch).
+  Resolves against `refs/heads/<branch>` first, then `refs/remotes/origin/<branch>`,
+  and fetches before checkout so a clean tracking branch is created. The
+  override is persisted in `meta.yaml` as `default_branch:` so downstream
+  scripts (`pi-feature-start` worktree base, `pi-epic-complete` PR target)
+  use the right branch. Unknown branch → fast-fail with a clear error
+  listing the refs checked; no side-effects on the working tree.
+  Use case: epics that target a release branch instead of `main`.
+- **Vite/React marketing site** under `site/` deployed to GitHub Pages via
+  `.github/workflows/deploy-site.yml`. Replaces the prior Jekyll layout
+  under `docs/`. Source = GitHub Actions, base path `/pi-epicflow/`.
+
+### Changed
+- README script reference now lists `--base` on the `pi-epic-init` row.
+
 ## [0.3.0] — 2026-05-14
 
 First end-to-end run by an outside user (`taskq`, 5 features). Three real

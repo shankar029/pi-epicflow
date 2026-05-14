@@ -449,7 +449,7 @@ Branches:
 
 | Script | Job |
 |---|---|
-| `pi-epic-init <slug> [--from <design-file>]` | Create the epic folder + branch + STATE.md. Auto-commits a `.gitignore` for pi runtime state. |
+| `pi-epic-init <slug> [--from <design-file>] [--base <branch>]` | Create the epic folder + branch + STATE.md. `--base` overrides the parent branch (default: repo's default branch); recorded in `meta.yaml` and used by `pi-epic-complete` as the PR target. Auto-commits a `.gitignore` for pi runtime state. |
 | `pi-epic-validate-decomposition` | Sanity-check `decomposition.yaml`: no cycles, no unknown deps, IDs unique, scope_files unique, etc. |
 | `pi-epic-next-feature` | Print the next feature id to work on. Prefers any **in-progress** feature (resume) over the lowest-numbered **ready** one. Prints `DONE` when all merged, `HALT:<reason>` on DAG corruption. |
 | `pi-feature-start <fid>` | Create the feature worktree + branch, write `feature.md` / `meta.yaml`, auto-commit any pending `.pi/epics/<id>/` edits (except `halt-*.md`) on the epic branch, advance epic `status: design → in-progress` on first call. |

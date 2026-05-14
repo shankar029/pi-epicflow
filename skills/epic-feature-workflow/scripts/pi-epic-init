@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# pi-epic-init <slug> [--from <design-file>] [--title "<title>"]
+# pi-epic-init <slug> [--from <design-file>] [--title "<title>"] [--base <branch>]
 #
 # Bootstraps an epic:
 #   - .pi/epics/<NNNN>-<slug>/ from template
-#   - epic/<slug> branch off the default branch
+#   - epic/<slug> branch off the default branch (override with --base)
 #   - Sets STATE.md
 #
 # Does NOT push the branch (push happens at pi-epic-complete).
@@ -19,16 +19,18 @@ done
 __SCRIPT_DIR="$(cd -P "$(dirname "$__src")" && pwd)"
 source "$__SCRIPT_DIR/_common.sh"
 
-[[ $# -ge 1 ]] || { echo "usage: pi-epic-init <slug> [--from <file>] [--title \"<title>\"]" >&2; exit 1; }
+[[ $# -ge 1 ]] || { echo "usage: pi-epic-init <slug> [--from <file>] [--title \"<title>\"] [--base <branch>]" >&2; exit 1; }
 
 slug=$(slugify "$1"); shift
 from_file=""
 title=""
+base_branch=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --from) from_file=$2; shift 2 ;;
         --title) title=$2; shift 2 ;;
+        --base) base_branch=$2; shift 2 ;;
         *) echo "unknown arg: $1" >&2; exit 1 ;;
     esac
 done
@@ -78,7 +80,24 @@ if [[ -n $(git status --porcelain) ]]; then
 fi
 
 def=$(default_branch)
-log "default branch: $def"
+if [[ -n "$base_branch" ]]; then
+    # Resolve --base: prefer existing local branch, then origin/<name>.
+    # If only origin/<name> exists, fetch it so a later checkout can create
+    # a tracking branch cleanly.
+    if git rev-parse --verify --quiet "refs/heads/$base_branch" >/dev/null; then
+        :  # local branch exists, use as-is
+    elif git rev-parse --verify --quiet "refs/remotes/origin/$base_branch" >/dev/null; then
+        git fetch --quiet origin "$base_branch" 2>/dev/null || true
+    else
+        echo "ERROR: --base branch '$base_branch' not found locally or on origin/." >&2
+        echo "  Checked: refs/heads/$base_branch and refs/remotes/origin/$base_branch" >&2
+        exit 1
+    fi
+    def="$base_branch"
+    log "base branch (--base override): $def"
+else
+    log "default branch: $def"
+fi
 
 # Update default branch to latest — only if we're currently on it.
 # In a bare-repo+worktrees layout the user may already have a dedicated
