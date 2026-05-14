@@ -400,13 +400,15 @@ a:focus-visible {
 }
 .prose h2 {
   font-size: 32px;
+  line-height: 40px;
+  letter-spacing: -0.01em;
   padding-top: 24px;
   border-top: 1px solid var(--slate-border);
 }
 @media (max-width: 767px) {
   .prose h2 { font-size: 24px; line-height: 32px; }
 }
-.prose h3 { font-size: 22px; }
+.prose h3 { font-size: 22px; line-height: 28px; letter-spacing: -0.01em; }
 .prose h4 { font-size: 18px; color: var(--on-surface); }
 
 .prose h2::before {
