@@ -56,6 +56,12 @@ gitignore_ensure ".pi/epics/*/features/*/progress.md"
 gitignore_ensure ".pi/epics/*/features/done/*/worker-report.md"
 gitignore_ensure ".pi/epics/*/features/done/*/review-report.md"
 gitignore_ensure ".pi/epics/*/features/done/*/progress.md"
+# L-012 belt: halt reports are signals to the human, NOT branch history.
+# pi-feature-start, the orchestrator's closeout, and pi-epic-complete all
+# carry their own `git reset HEAD halt-*.md` suspenders, but a top-level
+# .gitignore rule is the only thing that survives a stray `git add` typo.
+gitignore_ensure ".pi/epics/*/halt-*.md"
+gitignore_ensure ".pi/epics/done/*/halt-*.md"
 # Commit the .gitignore update if it actually changed something OR if it's
 # brand-new and untracked. (`git diff --quiet` reports clean for untracked
 # files, so we need to check status, not diff.)

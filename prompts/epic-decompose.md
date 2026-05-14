@@ -134,9 +134,24 @@ dependency graph:
 
 Then ask: *"Looks good, or want changes? You can say things like 'merge
 F03 and F04', 'split F02 into model + cli', 'F05 doesn't depend on F03',
-'add a feature for the README update'. Or 'looks good, write it'."*
+'add a feature for the README update'. Or just say 'looks good / approved
+/ write it' and I'll proceed."*
 
-Iterate until the user approves or asks to abort.
+**CRITICAL:** when the user replies with any approval signal — *"looks
+good"*, *"approved"*, *"yes"*, *"ship it"*, *"lgtm"*, *"go ahead"*,
+*"write it"*, or similar — do NOT stop or wait for further input. The
+approval is your trigger to **continue to steps 3, 4, 5, and 6 in the
+same turn**. The deliverable of this prompt is *"decomposition.yaml
+committed to the epic branch"*, NOT *"YAML displayed in chat"*. If you
+stop after the user approves, you have failed the contract.
+
+Only stop on:
+- An explicit "wait" / "hold on" / "let me think" from the user.
+- An explicit abort ("forget it" / "cancel" / "I'll do it manually").
+- A change request — in which case you revise the YAML and re-present.
+
+Iterate until the user approves or aborts. **On approval, immediately
+proceed to Step 3** in the same response.
 
 ### Step 3 — set the test_cmd
 
@@ -147,13 +162,31 @@ propose a real one:
 
 | Detect | Propose |
 |---|---|
-| `pyproject.toml` or `setup.py` or `*.py` in repo | `python -m pytest -q` |
+| `pyproject.toml` or `setup.py` or `*.py` in repo | see Python row below |
 | `package.json` with a `test` script | `npm test --silent` |
 | `package.json` without a `test` script | `node --test` |
 | `Cargo.toml` | `cargo test --quiet` |
 | `go.mod` | `go test ./...` |
 | `Gemfile` | `bundle exec rspec --fail-fast` |
 | (nothing recognized) | leave the placeholder + warn the user |
+
+**Python interpreter detection (L-016).** Modern Debian / Fedora / Arch /
+many container images ship `python3` only — there's no `python` symlink.
+Propose the interpreter that actually exists, in this order:
+
+```bash
+if command -v python3 >/dev/null 2>&1; then
+  echo "python3 -m pytest -q"
+elif command -v python  >/dev/null 2>&1; then
+  echo "python  -m pytest -q"
+else
+  echo "# no python found — install python3 first"
+fi
+```
+
+Don't propose `python -m pytest -q` blindly: `pi-feature-complete` runs
+`bash -c "$test_cmd"` literally, and a missing `python` shim turns every
+feature into an H1 halt even when the worker's tests pass under `python3`.
 
 POST a STATUS, show the user the line you intend to put in
 `epic-config.yaml`, and wait for confirmation. They may have a different

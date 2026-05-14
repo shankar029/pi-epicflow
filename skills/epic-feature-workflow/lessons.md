@@ -18,6 +18,16 @@ Each lesson:
 
 ## Lessons
 
+### L-016: `python` vs `python3` — propose the interpreter that exists
+- **Added:** 2026-05-14 (epic 0001-taskq, sample run)
+- **Pattern:** Modern Debian / Fedora / Arch / many container images ship `python3` only — there's no `python` symlink. `/epic-decompose` Step 3 was hardcoded to propose `python -m pytest -q` whenever a `pyproject.toml` was found. `pi-feature-complete` runs `bash -c "$test_cmd"` literally, so the missing shim makes every feature halt at H1 even when the worker's tests pass cleanly under `python3`. The F01 worker on epic `0001-taskq` had to patch `epic-config.yaml` itself, log a deviation, and continue.
+- **Lesson:** `/epic-decompose` Step 3 must check `command -v python3 || command -v python` (in that order) and propose the interpreter that actually exists. The same logic belongs in any future `pi-epic-init`-side autodetect. (Prompt updated in `prompts/epic-decompose.md` 2026-05-14.)
+
+### L-017: `.gitignore` must exclude `halt-*.md` (belt for L-012's suspenders)
+- **Added:** 2026-05-14 (epic 0001-taskq, sample run)
+- **Pattern:** L-012 fixed the most common halt-file leak path (`pi-feature-start`'s auto-commit train) with a targeted `git reset HEAD halt-*.md`. But the orchestrator's BLOCK-recovery step in FINALIZE re-stages `.pi/epics/<id>/` after the epic-reviewer flags issues, and the prompt was ambiguous enough that the orchestrator interpreted "stale halt report" as "file to archive into the commit" rather than "file to delete." Result on the taskq run: `halt-2026-05-14T0400Z.md` rode the `chore(epic): epic review + archived halt report` commit straight onto `epic/taskq` and would have been in the PR diff.
+- **Lesson:** Defense in depth. (a) `pi-epic-init` adds `.pi/epics/*/halt-*.md` and `.pi/epics/done/*/halt-*.md` to `.gitignore` so even a stray `git add` typo can't stage one. (b) The orchestrator's FINALIZE step explicitly says "stale halt = `git rm` + `rm`, never `git add`" with a worked example. (c) The closeout-retry block carries the same `git reset HEAD halt-*.md` belt as the main closeout. (Implemented in `pi-epic-init` + `prompts/epic-run-auto.md` 2026-05-14.)
+
 ### L-001: pre-populate `.gitignore` with pi runtime artifacts at epic-init
 - **Added:** 2026-05-12 (epic 0001-task-cli)
 - **Pattern:** Repos using `pi install -l` for `pi-subagents` / `pi-intercom` create `.pi/npm/` and `.pi/settings.json`. The orchestrator's per-feature `worker-report.md`, `review-report.md`, `progress.md` are also runtime state, not source.
@@ -89,3 +99,8 @@ Each lesson:
 - **Added:** 2026-05-13 (epic 0001-minikv, epic-review forced the issue)
 - **Pattern:** After the last `feature-merged`, integration features (especially the capstone like F12) often leave straggling writes under `.pi/epics/<id>/` \u2014 final deviation entries, lessons-candidate.md from `pi-epic-complete`'s upcoming distillation, ADR additions to design.md, the just-archived `done/<lastFid>-<slug>/` tree. None of these are "code"; they're epic record. The orchestrator was implicitly relying on the next `pi-feature-start` (which won't fire \u2014 we're done) to sweep them up, leaving them un-staged when the epic-reviewer ran. Reviewer correctly BLOCK'd with "uncommitted F12 closeout artifacts."
 - **Lesson:** FINALIZE in the orchestrator template now has an explicit step 2: `cd MAIN_REPO && git add .pi/epics/<id>/ && git reset HEAD -- halt-*.md && git commit -m "chore(epic): closeout"` before spawning the epic-reviewer. Plus a one-shot retry rule: if the reviewer BLOCKs on a purely-`.pi/epics/<id>/` working-tree issue, one additional closeout commit + one re-review is allowed; anything beyond that or any code-side blocker is a HALT. (Implemented 2026-05-13 in `epic-run-auto.md`.)
+
+### L-015: approval is "continue", not "stop"
+- **Added:** 2026-05-13 (epic 0001-todoq dry-run, /epic-decompose prompt-template bug)
+- **Pattern:** A prompt template designed as a multi-step pipeline (propose → present → approve → write → validate → commit) had a natural stopping point right after the user typed *"approved"*. Model interpreted approval as end-of-conversation rather than as the trigger to proceed through steps 3+; user thought the YAML was committed, exited pi, returned to find decomposition.yaml untouched.
+- **Lesson:** When a prompt template has an approval gate followed by mandatory continuation steps, the template must say so loudly. Words to include: *"CRITICAL: approval is your trigger to continue to step N in the same turn. The deliverable is X, not Y. If you stop after the user approves, you have failed the contract."* Apply to every approval gate in every prompt. (Implemented 2026-05-13 in `prompts/epic-decompose.md` steps 2 and 6.)

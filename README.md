@@ -1,31 +1,217 @@
 # pi-epicflow
 
-> Decompose a `design.md` into a dependency-ordered DAG of small features.
-> Work each one on its own git worktree + branch off a long-lived **epic
-> branch**, squash-merge it back, then open a **single PR to main** when the
-> whole epic is done. Halt only when truly blocked.
+> **Ship multi-feature work as one clean PR.** A [pi](https://pi.dev)
+> extension that decomposes a `design.md` into a DAG of small features, runs
+> each on its own git worktree + short-lived branch, squash-merges back into
+> a long-lived **epic branch**, and opens a **single reviewable PR to main**
+> when the whole epic is done. Halts only when truly blocked.
 
-A pi skill + orchestrator prompt + helper agents that turn the otherwise
-manual "design → decompose → implement → review → merge → repeat" loop into
-something you can drive in one of two modes:
+[![smoke](https://github.com/shankar029/pi-epicflow/actions/workflows/smoke.yml/badge.svg)](https://github.com/shankar029/pi-epicflow/actions/workflows/smoke.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![pi >= 0.74](https://img.shields.io/badge/pi-%E2%89%A50.74-5f87ff.svg)](https://pi.dev)
 
-- **Manual mode** — you call the `pi-*` CLI scripts from your shell or from
-  a regular pi session, doing the implementation work yourself or in pi's
-  main context. The scripts handle the bookkeeping (branches, worktrees,
-  squash-merge, state, lessons).
-- **Auto mode** — `/epic-run-auto` turns the main pi session into a thin
-  orchestrator that delegates each feature's implementation to a
-  `feature-worker` subagent and each pre-merge review to a
+---
+
+## The problem this solves
+
+When you ask an AI coding agent to ship a non-trivial change end-to-end —
+5–20 features, multiple files, real tests — the day-1 workflow falls apart:
+
+- **Context budget.** Implementing a dozen features in one context window
+  burns tokens, slows every turn, and makes the agent fragile to long-tail
+  errors. Each new line of code makes every prior line more expensive to
+  re-read.
+- **Unreviewable PRs.** A 5,000-line single-PR change-set is a rubber-stamp
+  request, not a review. You spot the problems three weeks later in prod.
+- **No checkpoint.** When a test breaks at hour 3, or the agent
+  misinterprets a spec, or your laptop runs out of battery, the run
+  restarts from zero. There's no "resume from feature 7".
+- **Silent scope drift.** Without an explicit per-feature scope, the agent
+  helpfully edits files no one asked about. The reviewer can't separate
+  intentional changes from drift.
+- **No memory across runs.** Mistakes the agent made on epic N — the
+  ambiguous spec, the misunderstood acceptance criterion, the test-fixture
+  trap — get made *again* on epic N+1 because nothing fed back into the
+  agent's instructions.
+
+**pi-epicflow** is the workflow + tooling that fixes all five. The shape is
+straightforward: human + agent co-design → agent decomposes into a DAG of
+20–60-minute features → each feature runs on its own git worktree →
+squash-merges into a long-lived epic branch → single PR to main when the
+whole epic completes. Halts are explicit, deviations are logged, and a
+`lessons.md` grows after every epic so the agent literally gets better at
+decomposing the next one.
+
+## How it works — the mental model
+
+```
+  design.md  ────────────────────┐
+  (you write this, in pi or alone)  │
+                                    │
+                                    ▼
+                          ┌───────────────┐
+                          │ /epic-decompose │    pi proposes 3–7 features
+                          │ (one turn)      │    with deps, scope, ACs
+                          └────────┬────────┘    you approve once
+                                   │
+                                   ▼
+           decomposition.yaml (committed)
+                                   │
+                                   ▼
+                          ┌───────────────┐
+                          │ /epic-run-auto  │   orchestrator loop
+                          └────────┬────────┘
+                                   │
+              for each ready feature in DAG order:
+                                   │
+      ┌────────────────┬───────┴───────┬───────────────────┐
+      ▼                  ▼               ▼                      ▼
+  worktree+branch    feature-worker    feature-reviewer       squash-merge
+  spawned            subagent (fresh   subagent (fresh        into epic branch
+  off epic branch    context, isolated context, reads diff)   delete branch+wt
+                     impl + tests)                            archive feature
+                                                              │
+                                                              ▼
+                                                       deviations.md
+                                                       (auto-logged)
+                                   │
+                                   ▼
+                          all features merged?
+                                   │
+                                   ▼
+                          ┌───────────────┐
+                          │ epic-reviewer  │    final pre-PR pass over
+                          │ subagent       │    the cumulative diff
+                          └────────┬───────┘
+                                   ▼
+                          ┌───────────────┐
+                          │ pi-epic-complete│   rebase epic onto main,
+                          │                 │   distill deviations →
+                          └────────┬────────┘   global lessons.md,
+                                   ▼                push, open ONE PR
+                          single PR → main
+                          (one clean, reviewable diff)
+```
+
+Four keys to why this scales where naive "agent in one big context" doesn't:
+
+1. **Each feature gets a fresh subagent context.** A worker that spends 80 KB
+   of tokens implementing F03 doesn't pollute the orchestrator's context or
+   F04's worker's context. The orchestrator's own context grows only by the
+   size of each feature's 1 KB worker-report.
+2. **Each feature gets its own git worktree.** No `git stash` dance. No
+   branch-switching mid-implementation. Workers can in principle run in
+   parallel; today they're serialized for atomic squash-merge into the
+   epic branch.
+3. **The decomposition is YAML, not chat.** Once approved, it's the
+   contract. Any departure goes into `deviations.md` with a reason.
+   Reviewable. Diffable. Version-controlled.
+4. **Halts, not guesses.** When the agent is unsure (test fails 3x,
+   merge conflict, ambiguous spec), it writes a halt report with the
+   exact resume command and stops. A bad guess at hour 3 wastes hours; a
+   halt loses minutes.
+
+Deeper rationale lives in [`docs/design.md`](docs/design.md).
+
+## Two modes
+
+- **Auto mode** (default, recommended) — the three slash commands above.
+  `/epic-decompose` and `/epic-run-auto` drive the whole pipeline, delegating
+  each feature to a `feature-worker` subagent and each pre-merge review to a
   `feature-reviewer` subagent. Requires
-  [`pi-subagents`](https://github.com/nicobailon/pi-subagents). Posts STATUS
-  heartbeats to chat. Handles stalls, retries, and halts per the contract.
+  [`pi-subagents`](https://www.npmjs.com/package/pi-subagents).
+- **Manual mode** — you call the `pi-*` CLI scripts from your shell or from a
+  regular pi session, doing the implementation yourself or in pi's main
+  context. Same scripts, same state on disk, same halt codes — just no
+  subagent delegation. Useful when subagents aren't available, when you want
+  to inspect every step, or when one of the features genuinely needs a human.
 
-Validated end-to-end on a 12-feature, 7-level DAG with shared-scope
-serialization: **0 stalls, 0 retries, 0 conflicts, 119 tests green in ~87 min.**
+Mix freely: start in auto mode, drop to manual for a tricky feature, hop
+back into auto. The on-disk state in `.pi/epics/<id>/` is the single source
+of truth and doesn't care which mode wrote it.
+
+## A worked example: shipping `todoq` (a tiny Python CLI)
+
+Given a `design.md` that specifies a four-command todo CLI (`add`, `list`,
+`done`, `rm`) with JSON-backed storage, here's the full transcript:
+
+```bash
+# 1. Bootstrap the epic from your shell.
+$ cd ~/code/todoq && git checkout main && git pull
+$ pi-epic-init todoq --from /tmp/todoq-design.md
+[epic-workflow] created branch: epic/todoq
+[epic-workflow] seeded design.md from /tmp/todoq-design.md
+
+# 2. Open pi in the repo.
+$ pi
+```
+
+Then in pi:
+
+```
+you ▸ /epic-decompose
+pi  ▸ [reads design.md + lessons.md + epic-config.yaml]
+      [proposes the YAML below + ASCII dep-graph]
+      F01 storage          ──┐
+      F02 add-and-list      ├── F03 done-and-rm
+      F01 storage          ──┘
+      Looks good, or want changes?
+you ▸ approved, write it and commit
+pi  ▸ [detects pyproject.toml → proposes test_cmd: python -m pytest -q]
+      [writes decomposition.yaml + epic-config.yaml]
+      [runs pi-epic-validate-decomposition → OK, 3 features, DAG valid]
+      [git commit -m "decomp: 0001-todoq into F01..F03"]
+      decomposition.yaml committed as 49a2071.
+      next: /epic-run-auto
+
+you ▸ /epic-run-auto
+pi  ▸ ─── EPIC STATUS ───
+      epic: 0001-todoq  branch: epic/todoq
+      phase: spawning F01
+      ...
+      ───────────────────
+      [spawns feature-worker on ../todoq-F01]
+      [worker implements + tests → pytest -q green]
+      [spawns feature-reviewer → APPROVE]
+      [pi-feature-complete F01 → squash-merge into epic/todoq]
+      ─── EPIC STATUS ───
+      phase: spawning F02
+      done: F01 ✓
+      ...
+```
+
+…repeating for F02 and F03, finishing with an epic-wide review pass and a
+push of `epic/todoq`. The PR step opens `gh pr create` if `gh` is on your
+PATH; otherwise it prints the command for you to run.
+
+**Total wall-clock for 3 small features: ~15 minutes.** Two STATUS
+heartbeats per feature, zero attention required between them.
+
+Want something bigger? The 12-feature `minikv` validation epic (an in-memory
+KV server with snapshots, expiry, and an admin CLI) ran end-to-end in ~87
+minutes — 7-level DAG, four features touching the same `server.js`, zero
+stalls, zero merge conflicts, 119/119 tests green.
+
+## When NOT to use this
+
+- **Single-PR changes.** If the work fits in one PR, just open it. The
+  workflow's overhead pays off starting at ~3 features.
+- **Cross-repo work.** One epic = one repo. For polyrepo changes, run
+  parallel epics and coordinate via PRs.
+- **Multi-user concurrent.** Two humans on one epic branch is not
+  supported — there's no locking on `.pi/epics/<id>/`. Coordinate via PR
+  review or work on different epics.
+- **Throwaway exploration.** Spelunking, prototyping, "what if we tried…"
+  — just run pi without ceremony. Use this when you've decided to ship.
 
 ---
 
 ## Table of contents
+- [The problem this solves](#the-problem-this-solves)
+- [How it works — the mental model](#how-it-works--the-mental-model)
+- [Two modes](#two-modes)
+- [A worked example](#a-worked-example-shipping-todoq-a-tiny-python-cli)
+- [When NOT to use this](#when-not-to-use-this)
 - [Install](#install)
 - [Quickstart — the three-command flow](#quickstart--the-three-command-flow)
 - [Quickstart — manual mode](#quickstart--manual-mode)
@@ -33,6 +219,7 @@ serialization: **0 stalls, 0 retries, 0 conflicts, 119 tests green in ~87 min.**
 - [What gets created on disk](#what-gets-created-on-disk)
 - [Scripts](#scripts)
 - [Halt codes](#halt-codes)
+- [FAQ](#faq)
 - [Design](#design)
 - [Lessons](#lessons)
 - [Uninstall](#uninstall)
@@ -65,19 +252,38 @@ pi install -l git:github.com/shankar029/pi-epicflow
      `~/.pi/agent/agents/` so `pi-subagents` can discover them.
    - Symlinks `pi-epic-*` and `pi-feature-*` from the package into
      `~/.local/bin` so you can call them from any shell.
+   - Auto-installs `npm:pi-subagents` (required for auto mode) and
+     `npm:pi-intercom` (recommended) at the same scope you installed
+     pi-epicflow — so the first `/epic-run-auto` doesn't have to stop and
+     install them mid-run. Already-installed packages are detected and
+     skipped. Set `PI_EPICFLOW_NO_AUTOINSTALL_DEPS=1` to skip this step.
 3. Prints a hint if `~/.local/bin` isn't on your `PATH` yet.
 
-Both side-effects are **idempotent** and **defensive** — they never clobber
-your local edits; on conflict they write `*.new` siblings and warn.
+All side-effects are **idempotent** and **defensive** — they never clobber
+your local edits; on conflict they write `*.new` siblings and warn. If the
+auto-install of pi-subagents/pi-intercom fails (offline, registry down,
+etc.) the pi-epicflow install itself still succeeds and prints the exact
+manual command.
 
 Verify:
 
 ```bash
 which pi-epic-init pi-feature-start pi-feature-complete   # all should resolve
 ls ~/.pi/agent/agents/feature-*                            # both files present
+pi list | grep -E 'pi-subagents|pi-intercom'               # both should appear
 ```
 
-### Optional: install pi-subagents (only needed for auto mode)
+### Skipping the auto-install of pi-subagents / pi-intercom
+
+Auto mode needs `pi-subagents`; manual mode does not. If you only ever
+intend to drive the workflow from your shell (no `/epic-run-auto`), you can
+opt out of the auto-install:
+
+```bash
+PI_EPICFLOW_NO_AUTOINSTALL_DEPS=1 pi install git:github.com/shankar029/pi-epicflow
+```
+
+You can install them later by hand whenever you want auto mode:
 
 ```bash
 pi install npm:pi-subagents
@@ -274,6 +480,80 @@ guess when:
 Every halt writes `.pi/epics/<id>/halt-<UTC>.md` with the failing step, the
 worker/review reports involved, what the human needs to decide, and the exact
 resume command.
+
+---
+
+## FAQ
+
+**Q: How is this different from just opening a feature branch and asking pi to implement it?**
+The single-branch approach works for changes that fit in one context window
+(~one PR's worth). pi-epicflow buys you (a) **context isolation per feature**
+via subagents, (b) **resumability** — you can crash, switch machines, or come
+back tomorrow and `/epic-run-auto` again, (c) **review-friendly history** —
+the epic branch is one squash-commit per feature, not one bag of agent
+intermediates, and (d) **cross-epic learning** via `lessons.md`. Below ~3
+features it's not worth the ceremony; above ~5 it pays for itself many
+times over.
+
+**Q: Do I have to use auto mode?**
+No. Manual mode is a first-class path — same scripts, same on-disk state,
+same halt codes, you're just the one calling `pi-feature-start` /
+`pi-feature-complete` from your shell. Use auto mode when you want to walk
+away; use manual mode when you want a human in the loop on every feature.
+
+**Q: What if pi proposes a bad decomposition?**
+You iterate. `/epic-decompose` shows the YAML in chat and asks for feedback
+*before* writing to disk. You can say things like *"merge F03 and F04"*,
+*"split F02 into model + CLI"*, *"F05 doesn't really depend on F03"*. Pi
+revises and re-presents. Only on your explicit approval does it write +
+validate + commit. Then `/epic-run-auto` is bound by that contract — any
+departure goes into `deviations.md` with a reason.
+
+**Q: What if a feature's tests fail?**
+The `feature-worker` retries up to 3 times with different strategies. After
+that it returns `BLOCKED`. The orchestrator escalates: spawns a fresh
+worker once, and if still BLOCKED, halts with **H1** and writes
+`.pi/epics/<id>/halt-<UTC>.md` with the failing tests, the worker's notes,
+and the exact resume command. You fix the underlying issue (bad AC,
+misunderstood spec, flaky test) and re-run `/epic-run-auto` — it picks up
+exactly where it left off.
+
+**Q: Can I run features in parallel?**
+Not today. The orchestrator serializes feature execution so that
+`pi-feature-complete`'s squash-merge into the epic branch is atomic.
+Worktrees support parallel execution structurally — lifting the
+serialization requires a per-feature lock around the merge, which is on
+the roadmap.
+
+**Q: What happens if I close pi mid-run?**
+Nothing breaks. All state is on disk in `.pi/epics/<id>/`. Open pi again,
+type `/epic-run-auto`, and it picks up from the next ready feature. If a
+worker was mid-flight when you closed, the in-progress feature's worktree
+is still there — the dispatcher prefers in-progress features over starting
+new ones (lesson L-010), so the same feature resumes.
+
+**Q: Does this work on Windows?**
+WSL only. The scripts assume Unix paths, symlinks, and standard `git
+worktree`. Native Windows is untested and likely broken.
+
+**Q: Does it work with `pi -p` / non-interactive sessions?**
+Manual mode does — the `pi-*` scripts are pure CLI. Auto mode is built
+around a chat session because the orchestrator posts STATUS heartbeats and
+handles stall notices. You *can* run `/epic-run-auto` non-interactively
+but you lose the visibility into what's happening; not recommended.
+
+**Q: How do I update?**
+```bash
+pi update git:github.com/shankar029/pi-epicflow
+```
+Restart any open pi session to pick up new prompts/skills (they're loaded
+at session start). The bin symlinks update automatically.
+
+**Q: Does this lock me in?**
+No. Everything pi-epicflow produces is plain git — branches, worktrees,
+squash commits, and a `.pi/` directory of YAML/markdown state. If you
+stop using it tomorrow, nothing in your repo breaks. You can also drive
+the entire workflow manually from your shell with no pi at all.
 
 ---
 

@@ -324,12 +324,66 @@ Decision tree:
      under `.pi/epics/<id>/` and doesn't touch code, you MAY make ONE
      additional closeout commit and re-run the epic-reviewer. Max 1 retry.
      If still BLOCK → HALT.
+
+     **Halt-file rule (L-012).** "Stale halt reports" are fixed by
+     **deleting** them, not by committing them. The reviewer flags them
+     because they leak operator-only context into PR history. Recovery:
+     ```bash
+     git rm -f .pi/epics/<id>/halt-*.md 2>/dev/null || true
+     rm    -f .pi/epics/<id>/halt-*.md 2>/dev/null || true
+     git add .pi/epics/<id>/
+     git reset --quiet HEAD -- .pi/epics/<id>/halt-*.md 2>/dev/null || true   # belt
+     git commit --quiet -m "chore(epic): closeout retry for <id>"
+     ```
+     Do NOT `git add` a halt file under any circumstance. The halt-files
+     are also covered by `.gitignore` since v0.3, but the explicit
+     `git rm` + `rm` here handles halt files that were tracked by an older
+     pi-epicflow before the gitignore rule landed.
    - **BLOCK with code/test issues** → HALT (H1 or H4 depending on cause).
      Do NOT proceed to PR.
 
-6. Run `pi-epic-complete`. POST FINAL STATUS with the PR URL (or, if `gh`
-   is missing or the repo has no `origin`, the manual `git push` + PR
-   command and an explicit note that the PR step was skipped).
+6. **Run `pi-epic-complete`.** This step is mandatory — the epic is NOT
+   finished until this script returns 0. It rebases onto the default
+   branch, runs the full test suite, distills `deviations.md` →
+   `lessons-candidate.md` → the global `lessons.md`, flips
+   `meta.status` to `done`, archives `.pi/epics/<id>/` to
+   `.pi/epics/done/<id>/`, pushes the epic branch (if a remote exists),
+   and (if `gh` is on PATH and a remote exists) opens the PR.
+
+   ```bash
+   cd "$MAIN_REPO"
+   if git remote get-url origin >/dev/null 2>&1; then
+     pi-epic-complete
+   else
+     # Local-only repo (e.g. fresh sample / testing): skip push+PR
+     # but still rebase, test, distill lessons, flip status, archive.
+     pi-epic-complete --no-pr
+   fi
+   ```
+
+   If `pi-epic-complete` exits non-zero, treat the failure mode:
+   - rebase conflict on default branch → HALT (H6, but on the epic branch)
+   - tests red post-rebase → HALT (H1)
+   - push rejected (non-fast-forward) → HALT (H5; user must reconcile)
+   - any other non-zero → HALT (H5)
+
+   POST FINAL STATUS only after `pi-epic-complete` succeeds:
+   ```
+   ─── EPIC COMPLETE ───
+   epic:    <id>
+   features: N merged (N/N)
+   tests:    ✓ green on epic tip
+   lessons:  K candidate(s) distilled to ~/.pi/.../lessons.md
+   archive: .pi/epics/done/<id>/
+   pr:      <URL>   (or: "skipped — no remote" / "manual: <git push + gh pr create command>")
+   ────────────────────
+   ```
+
+   Do NOT stop the orchestrator after the epic-review APPROVE without
+   running step 6. The `epic-review.md` commit alone leaves the epic in
+   `status: in-progress` with the journal folder un-archived and the
+   deviations un-distilled — the user has to know to run
+   `pi-epic-complete` themselves, defeating the point of auto mode.
 
 ## HALT
 
