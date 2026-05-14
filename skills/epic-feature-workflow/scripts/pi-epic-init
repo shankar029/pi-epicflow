@@ -66,6 +66,21 @@ gitignore_ensure ".pi/epics/*/features/done/*/progress.md"
 # .gitignore rule is the only thing that survives a stray `git add` typo.
 gitignore_ensure ".pi/epics/*/halt-*.md"
 gitignore_ensure ".pi/epics/done/*/halt-*.md"
+# L-026 (v0.5.1): glob patterns above match only `.pi/epics/<id>/...`
+# (one segment after `epics/`). After `pi-epic-complete` archives the epic
+# into `.pi/epics/done/<id>/...`, the path gains an extra segment and the
+# original patterns stop matching — so worker/review/progress reports + the
+# run-log become un-ignored and any `git add -A` tracks them. Add the
+# deeper patterns explicitly. See smoke epic 0001-smoke epic-review note.
+gitignore_ensure ".pi/epics/done/*/run-log.jsonl"
+gitignore_ensure ".pi/epics/done/*/features/done/*/worker-report.md"
+gitignore_ensure ".pi/epics/done/*/features/done/*/review-report.md"
+gitignore_ensure ".pi/epics/done/*/features/done/*/progress.md"
+# L-026 (v0.5.1): bytecode caches universally — cheap noise on non-Python
+# repos, real hygiene win on Python ones (smoke epic shipped 11 .pyc files
+# into the epic branch because the template didn't cover this).
+gitignore_ensure "__pycache__/"
+gitignore_ensure "*.pyc"
 # Commit the .gitignore update if it actually changed something OR if it's
 # brand-new and untracked. (`git diff --quiet` reports clean for untracked
 # files, so we need to check status, not diff.)

@@ -117,6 +117,19 @@ Build a decomposition with these properties:
       wrapped in double quotes. Otherwise strict YAML parsers reject the
       file (the lenient parser the orchestrator uses tolerates it, but
       that's a trap).
+    - **L-024 — symbol-path scope rule.** When an AC names a
+      fully-qualified symbol path (e.g. `kvstore.errors.LockedError`,
+      `pkg.module.ClassName`, `lib/foo.bar`), the file owning that
+      symbol MUST appear in this feature's `scope_files` — OR the
+      symbol must already exist on the epic branch (added by a merged
+      dependency feature). Walk every AC bullet, extract each
+      `dotted.path.X` token, resolve to a likely file (e.g.
+      `pkg.module.Class` → `pkg/module.py` or `pkg/module/__init__.py`),
+      verify the path is in scope or in a dep's done-state
+      `scope_files`. Without this, the worker is FORCED into an
+      out-of-scope edit at implementation time (e.g. F03 of
+      `0001-smoke` added `LockedError` to `errors.py` despite
+      `scope_files: [engine.py, test_engine.py]`).
   - `needs_planner` — `true` if this feature warrants a pre-implementation
     planner pass by the `feature-planner` subagent. Apply the **trigger
     checklist** below: tag if **≥2 of 7** triggers fire. Also record the

@@ -3,8 +3,9 @@
 **Goal:** Fix the 6 bugs the kvstore smoke epic surfaced. Patch-level
 release on top of v0.5.0. Architecture stays; tooling gets sharper.
 
-**Status:** drafted
+**Status:** **done** — v0.5.1 tagged + pushed 2026-05-14 (see CHANGELOG).
 **Started:** 2026-05-14 (right after v0.5.0 tag)
+**Completed:** 2026-05-14 (same day)
 **Triggered by:** end-to-end smoke run on `kvstore` epic (4 features, 40
 tests, 0 halts, but 6 bugs caught by the workflow itself — exactly the
 outside-user signal we needed).
@@ -170,19 +171,20 @@ Estimates are rough; the whole release is ~1–1.5 days of focused work.
 
 ## Steps
 
-- [ ] 1. Write `install/fixtures/spike-only-epic/` (decomp with 1 spike,
-        no features) for L-023 regression test.
-- [ ] 2. Fix L-023 (3 script changes); add `install/smoke-test.sh` cases.
-- [ ] 3. Fix L-024 (decompose prompt rule + validator warning).
-- [ ] 4. Fix L-025 (pi-epic-complete git mv + commit).
-- [ ] 5. Fix L-026 (`.gitignore` template + universal Python ignores).
-- [ ] 6. Fix L-027 (template header comment + decompose prompt one-liner).
-- [ ] 7. (Optional) L-028 recovery doc.
-- [ ] 8. Bump version, write CHANGELOG.
-- [ ] 9. Append lessons L-023..L-028.
-- [ ] 10. Run a fresh synthetic smoke epic end-to-end with zero manual
-         intervention; confirm `git status --short` is empty at end.
-- [ ] 11. Tag `v0.5.1`, push.
+- [x] 1. Smoke test extended (step 7 spike + step 8 clean-tree) ✅
+- [x] 2. L-023 spike path — `pi-feature-start` reorder + `pi-feature-complete`
+        spike journal commit + `--allow-empty` squash ✅
+- [x] 3. L-024 symbol-scope rule — prompt + validator warning ✅
+- [x] 4. L-025 clean-tree fix — `git mv` in both `pi-feature-complete`
+        and `pi-epic-complete` ✅
+- [x] 5. L-026 `.gitignore` template gaps + universal `__pycache__/` ✅
+- [x] 6. L-027 template header comment (AC normative; summary informative) ✅
+- [ ] 7. L-028 recovery playbook — **deferred to v0.5.2** (decision in
+        CHANGELOG: L-023 fix makes this hygiene rather than blocker).
+- [x] 8. `package.json` 0.5.0 → 0.5.1; CHANGELOG `[0.5.1]` section ✅
+- [x] 9. lessons.md L-023..L-027 appended ✅
+- [x] 10. `install/smoke-test.sh` all 8 phases pass locally ✅
+- [x] 11. Tag `v0.5.1`, push ✅
 
 ## Risks & rollback
 

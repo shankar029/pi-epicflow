@@ -136,11 +136,42 @@ if [[ $no_pr -eq 0 ]]; then
     fi
 fi
 
-# Archive epic folder
+# Archive epic folder. We use `git mv` so the rename is staged + committed
+# as a single tree-rename in git's view (preserves history). L-025: prior
+# to v0.5.1 this was a plain `mv`, which left the working tree dirty
+# (epic-branch closeout commit references the old path; filesystem has the
+# new path; nothing staged). Now the rename ships as its own commit and the
+# epic ends with a clean tree.
 mkdir -p "$repo/.pi/epics/done"
 yaml_set "$epic_dir/meta.yaml" status "done"
 yaml_bump_updated "$epic_dir/meta.yaml"
-mv "$epic_dir" "$repo/.pi/epics/done/"
+
+# Stage any pending meta.yaml status flip first.
+if [[ -n $(git status --porcelain -- ".pi/epics/$epic_id/meta.yaml") ]]; then
+    git add ".pi/epics/$epic_id/meta.yaml"
+fi
+
+# Move the epic dir. Prefer `git mv` (stages the rename); fall back to a
+# plain `mv` + `git add -A` if the source has any untracked files git mv
+# refuses to handle.
+if git mv "$epic_dir" "$repo/.pi/epics/done/$epic_id" 2>/dev/null; then
+    :
+else
+    mv "$epic_dir" "$repo/.pi/epics/done/$epic_id"
+    git add -A ".pi/epics/$epic_id" 2>/dev/null || true
+fi
+# Always sweep the destination for newly-written siblings (lessons-candidate.md,
+# any epic-review artifact, etc.) that the rename didn't stage.
+git add -A ".pi/epics/done/$epic_id" 2>/dev/null || true
+
+# Defensive: drop any stray halt-*.md the move may have staged. They are
+# operator artifacts, not branch history (L-012 / L-017).
+git reset --quiet HEAD -- ".pi/epics/done/$epic_id/halt-*.md" 2>/dev/null || true
+
+if [[ -n $(git diff --cached --name-only) ]]; then
+    git commit --quiet -m "chore(epic): archive $epic_id to .pi/epics/done/"
+    log "committed epic archive rename (L-025)"
+fi
 
 # Reset STATE.md
 cat > "$repo/.pi/STATE.md" <<EOF

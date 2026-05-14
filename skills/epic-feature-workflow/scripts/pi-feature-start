@@ -129,19 +129,20 @@ feat_branch="feat/$epic_slug/$fid-$slug"
 repo_basename=$(basename "$repo")
 worktree="$(cd "$repo/.." && pwd)/${repo_basename}-${fid}"
 
-# If branch already exists, reuse; otherwise create
-if git rev-parse --verify --quiet "$feat_branch" >/dev/null; then
-    log "branch $feat_branch already exists; reusing"
-else
-    git branch "$feat_branch" "epic/$epic_slug" --quiet
-fi
-
-# Create or reuse worktree
-if [[ -d "$worktree" ]]; then
-    log "worktree $worktree already exists; reusing"
-else
-    git worktree add "$worktree" "$feat_branch" --quiet
-fi
+# L-023 (v0.5.1): SCAFFOLD FIRST, BRANCH SECOND.
+#
+# Prior order was: branch feat off epic → worktree add → scaffold files →
+# commit scaffold to epic. That left the feat branch pointing at epic's
+# pre-scaffold tip; the scaffold commit lived only on epic. For SPIKES
+# (worker writes journal to MAIN_REPO, not the worktree) the feat branch
+# ended up with zero new commits relative to epic and `git merge --squash`
+# produced an empty diff ("empty squash" failure in 0001-smoke S01).
+#
+# Fix: create + populate the feature folder on the epic branch, commit it,
+# THEN branch feat from the post-scaffold epic tip. Feat inherits the
+# scaffold; spike workers later writing journal to MAIN_REPO are
+# squash-mergeable; non-spike workers behave identically (the scaffold is
+# the same files they'd be writing on top of anyway).
 
 # Create feature folder under epic
 feat_dir="$epic_dir/features/$fid-$slug"
@@ -217,19 +218,31 @@ EOF
 
 runlog_append "$epic_dir" "\"event\":\"feature-start\",\"feature\":\"$fid-$slug\",\"branch\":\"$feat_branch\",\"worktree\":\"$worktree\""
 
-# L-019: commit the freshly-scaffolded feature folder + STATE.md to the epic
-# branch RIGHT NOW so it's tracked-with-identical-content when the worker
-# later mirrors / appends to feature.md inside the worktree. Without this
-# commit, `pi-feature-complete`'s squash-merge hits an add/add conflict on
-# feature.md (the main repo's epic-branch worktree has the untracked
-# template; the feature worktree has the populated version). See
-# lessons.md L-019 + partner-agent-sdk deviations F01/F02.
-if [[ -n $(git status --porcelain ".pi/epics/$epic_id/features/$fid-$slug" .pi/STATE.md 2>/dev/null) ]]; then
-    git add ".pi/epics/$epic_id/features/$fid-$slug" .pi/STATE.md 2>/dev/null || true
+# L-019: commit the freshly-scaffolded feature folder + STATE.md to the
+# epic branch BEFORE creating the feat branch + worktree. This way feat
+# inherits the scaffold (fixes the L-023 spike empty-squash failure).
+if [[ -n $(git status --porcelain ".pi/epics/$epic_id/features/$fid-$slug" .pi/STATE.md ".pi/epics/$epic_id/meta.yaml" 2>/dev/null) ]]; then
+    git add ".pi/epics/$epic_id/features/$fid-$slug" .pi/STATE.md ".pi/epics/$epic_id/meta.yaml" 2>/dev/null || true
+    # Halt reports never ride the auto-commit train (L-012).
+    git reset --quiet HEAD -- ".pi/epics/$epic_id"/halt-*.md 2>/dev/null || true
     if [[ -n $(git diff --cached --name-only) ]]; then
         git commit --quiet -m "chore(epic): scaffold $fid feature folder"
         log "committed scaffolded feature folder to epic branch (L-019)"
     fi
+fi
+
+# Now create the feat branch from the post-scaffold epic tip and the
+# worktree on top of it. Worktree inherits the scaffold cleanly.
+if git rev-parse --verify --quiet "$feat_branch" >/dev/null; then
+    log "branch $feat_branch already exists; reusing"
+else
+    git branch "$feat_branch" "epic/$epic_slug" --quiet
+fi
+
+if [[ -d "$worktree" ]]; then
+    log "worktree $worktree already exists; reusing"
+else
+    git worktree add "$worktree" "$feat_branch" --quiet
 fi
 
 cat <<EOF

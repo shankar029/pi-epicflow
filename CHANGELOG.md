@@ -6,6 +6,98 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.1] — 2026-05-14
+
+**Bug-fix release.** Six tooling sharpenings traced to specific artifacts
+in the kvstore v0.5.0 smoke epic (`0001-smoke`). No schema changes; no
+new halt codes; no breaking changes. Epics produced under v0.5.0 keep
+working.
+
+### Fixed
+
+- **L-023 — `pi-feature-complete` spike path.** Spike completion was
+  broken in three interlocking ways. The smoke epic's S01 spike
+  required manual `git reflog` recovery. Now fixed structurally:
+  - `pi-feature-start` writes + commits the scaffold to the epic
+    branch **before** creating the feat branch, so feat inherits the
+    scaffold commit (was: branched first, committed scaffold later —
+    feat had nothing).
+  - `pi-feature-complete` for `kind: spike`: commits the worker's
+    MAIN_REPO journal edits (`feature.md`, `meta.yaml`,
+    `deviations.md`) to the epic branch first as `spike(<id>):
+    decision + journal`, then proceeds. The subsequent
+    `git merge --squash $feat_branch` produces an empty diff (feat
+    has only scaffold); allowed via `--allow-empty` for spikes only.
+  - Smoke test step 7 added: end-to-end spike workflow with no manual
+    intervention.
+- **L-024 — decomposer + validator catch symbol-path scope holes.**
+  When an AC names a fully-qualified symbol path
+  (`module.errors.X`, `pkg.module.Class`), the file owning that
+  symbol must appear in this feature's `scope_files` — or in an
+  upstream merged dependency's scope. v0.5.0 silently allowed this
+  (smoke epic F03 added `LockedError` to `errors.py` despite
+  `scope_files: [engine.py, test_engine.py]`).
+  - `prompts/epic-decompose.md` Step 1: new L-024 callout requires the
+    decomposer to walk every AC bullet, extract dotted symbol paths,
+    and include the owning file in scope_files.
+  - `pi-epic-validate-decomposition`: new warning when an AC mentions
+    `dotted.module.ClassName` and no `scope_files` entry (this
+    feature's or a dep's) heuristically maps to that module. Strips
+    leading `src/`, `lib/`, `app/`, `source/`; matches
+    `pkg/module.py` and `pkg/module/__init__.py`. Heuristic +
+    warn-only — false positives don't block.
+- **L-025 — `pi-epic-complete` commits the archive rename.** Previous
+  behavior: `mv .pi/epics/<id> .pi/epics/done/<id>` on the
+  filesystem, no `git mv`, no commit — epic ended with a dirty
+  working tree (smoke epic needed a manual `git add -A && git commit`
+  to clean up). Now: prefer `git mv` (stages the rename), fall back
+  to `mv` + `git add -A` for repos with untracked siblings; sweep the
+  destination for newly-written files (`lessons-candidate.md`,
+  `epic-review.md`); commit as
+  `chore(epic): archive <id> to .pi/epics/done/`.
+  - Same fix applied at the per-feature level in
+    `pi-feature-complete`: the `mv features/<fid> features/done/<fid>`
+    now commits as `chore(epic): archive <fid> to features/done/`,
+    independent of the next `pi-feature-start`'s pending-edits sweep.
+  - Smoke test step 8 added: `git status --short` is empty after
+    `pi-epic-complete`.
+- **L-026 — `.gitignore` template gaps closed.** The v0.5.0 patterns
+  matched only `.pi/epics/*/...` (one segment), so after
+  `pi-epic-complete` archived the epic to `.pi/epics/done/<id>/`,
+  worker/review/progress reports + the run-log became un-ignored
+  (smoke epic shipped 11 `.pyc` files into the epic branch as a
+  side-effect). `pi-epic-init` now adds:
+  - `.pi/epics/done/*/run-log.jsonl`
+  - `.pi/epics/done/*/features/done/*/worker-report.md`
+  - `.pi/epics/done/*/features/done/*/review-report.md`
+  - `.pi/epics/done/*/features/done/*/progress.md`
+  - `__pycache__/` (universal — noise on non-Python repos, real
+    hygiene win on Python repos)
+  - `*.pyc`
+- **L-027 — decomposition.yaml template clarifies AC vs summary.** The
+  smoke epic's F03 `summary` said compaction preserved order via
+  "latest surviving SET" while the AC + design required first-
+  occurrence order. Code correctly followed the AC; epic-reviewer
+  caught the drift post-hoc. Template now has a header comment
+  stating `acceptance_criteria` is normative; `summary` is
+  informative; on conflict, implementation follows AC.
+
+### Changed
+
+- `pi-feature-start` reorders the scaffold commit to happen before feat
+  branch creation. Non-spike features behave identically (the scaffold
+  is the same files they'd write on top of); spike features now
+  produce a usable feat branch.
+- `install/smoke-test.sh` extended from 6 to 8 phases. New phases:
+  - **[7/8]** L-023 spike workflow end-to-end (no manual recovery).
+  - **[8/8]** L-025 clean tree after `pi-epic-complete`.
+
+### Deferred
+
+- L-028 (orchestrator recovery playbook for L-019/L-004 collisions) —
+  the underlying bugs are fixed by L-023, so the recovery doc is
+  hygiene rather than blocker. Tracked for v0.5.2.
+
 ## [0.5.0] — 2026-05-14
 
 **Hybrid planner architecture.** Every feature now writes a plan section

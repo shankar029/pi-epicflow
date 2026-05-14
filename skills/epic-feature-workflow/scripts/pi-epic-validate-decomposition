@@ -285,6 +285,66 @@ for i, ft in enumerate(data.get('features', [])):
     if np_val is not None and str(np_val).strip().lower() not in ('true','false'):
         errors.append(f"{fid}: needs_planner must be true or false (got '{np_val}')")
 
+# Build a global "symbols owned by scope_files" map for L-024 lookups.
+# A scope_file like `src/pkg/errors.py` is taken to own the dotted prefix
+# `pkg.errors` (we strip a leading `src/` / `lib/` / `app/` for ergonomics).
+# This is a heuristic — false positives only produce warnings, never errors.
+_SCOPE_PREFIX_STRIP = ('src/', 'lib/', 'app/', 'source/')
+def _scope_to_modpath(p):
+    s = p
+    for pre in _SCOPE_PREFIX_STRIP:
+        if s.startswith(pre):
+            s = s[len(pre):]
+            break
+    s = re.sub(r'\.(py|ts|js|tsx|jsx|cs|go|rs|java|kt)$', '', s)
+    s = s.rstrip('/').replace('/__init__', '').replace('/', '.')
+    return s
+
+_AC_SYMBOL_RE = re.compile(r'\b([a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*)+)\.([A-Z]\w+)\b')
+# L-024: when an AC names a dotted.module.ClassName path, the module file
+# should be in scope_files (for this feature, or for an already-done dep).
+# Warning-only: heuristic resolution to file path is fragile and we don't
+# want to error on prose like "the foo.bar.Baz pattern in design.md".
+_TYPING_BUILTINS = {'typing', 'collections', 'os', 'sys', 're', 'json',
+                    'pathlib', 'subprocess', 'datetime', 'asyncio',
+                    'unittest', 'pytest', 'logging', 'argparse', 'functools',
+                    'itertools', 'dataclasses', 'enum', 'time', 'math'}
+for ft in data.get('features', []):
+    fid = ft.get('id', '?')
+    kind = (ft.get('kind') or 'feature').strip()
+    if kind == 'spike':
+        continue  # spikes have no code scope to check
+    ac = ft.get('acceptance_criteria') or []
+    sf = _vals(ft.get('scope_files') or [])
+    own_mods = {_scope_to_modpath(p) for p in sf if p}
+    # Also collect dep-owned modules (deps must be earlier in the list).
+    dep_mods = set()
+    deps_vals = _vals(ft.get('depends_on') or [])
+    for dft in data.get('features', []):
+        if dft.get('id') in deps_vals:
+            for p in _vals(dft.get('scope_files') or []):
+                if p:
+                    dep_mods.add(_scope_to_modpath(p))
+    seen_syms = set()
+    for entry in ac:
+        s = entry.get('value', '') if isinstance(entry, dict) else str(entry)
+        for m in _AC_SYMBOL_RE.finditer(s):
+            modpath = m.group(1)
+            if modpath in seen_syms:
+                continue
+            seen_syms.add(modpath)
+            top = modpath.split('.', 1)[0]
+            if top in _TYPING_BUILTINS:
+                continue
+            owned = any(om == modpath or om.startswith(modpath + '.') or
+                        modpath.startswith(om + '.') for om in own_mods | dep_mods)
+            if not owned:
+                warnings.append(
+                    f"{fid}: AC mentions symbol path '{modpath}.{m.group(2)}' but no "
+                    f"scope_files entry (or dep's scope) maps to module '{modpath}'. "
+                    f"L-024: add the owning file to scope_files, or you'll force "
+                    f"an out-of-scope edit at implementation time.")
+
 # Unknown deps
 all_ids = {ft.get('id') for ft in data.get('features', [])}
 for ft in data.get('features', []):

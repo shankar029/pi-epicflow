@@ -2,6 +2,14 @@
 # Produced by `pi-epic-decompose`, reviewed and approved by the human ONCE,
 # then consumed by `pi-epic-next-feature` in the auto-mode loop.
 #
+# Contract (L-027): `acceptance_criteria` is NORMATIVE — it's what
+# `pi-feature-complete` and the reviewer measure against. `summary` is
+# INFORMATIVE — prose context for humans and the planner. When the two
+# disagree, the implementation MUST follow `acceptance_criteria`.
+# Decomposers: when proposing this file, re-read each feature's summary
+# against its AC list before finalizing; if they conflict, rewrite the
+# summary as a one-line restatement of the AC + design references.
+#
 # Rules enforced by `pi-epic-validate-decomposition`:
 #   - Every feature has: id, slug, summary, depends_on, scope_files,
 #     acceptance_criteria, estimated_hours.

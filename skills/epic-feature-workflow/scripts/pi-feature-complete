@@ -100,6 +100,26 @@ fi
 # Commit any final pending changes in the worktree
 ( cd "$worktree" && git add -A && git diff --cached --quiet || git commit --quiet -m "wip: $fid pre-complete" )
 
+# L-023 (v0.5.1): spike epic-branch journal commit.
+#
+# Spike workers write journal artifacts (populated feature.md, deviations.md)
+# directly to MAIN_REPO's epic-branch working tree because there's no code
+# work in the worktree. Those edits are uncommitted at this point and would
+# trip the `git checkout epic/<slug>` below ("local changes would be
+# overwritten"). Commit them to the epic branch as the spike's deliverable.
+# The feat-branch squash that follows will be empty — we allow that.
+if [[ "$kind" == "spike" ]]; then
+    if [[ -n $(git status --porcelain -- ".pi/epics/$epic_id") ]]; then
+        git add ".pi/epics/$epic_id"
+        # Halt files never ride the auto-commit train (L-012).
+        git reset --quiet HEAD -- ".pi/epics/$epic_id"/halt-*.md 2>/dev/null || true
+        if [[ -n $(git diff --cached --name-only) ]]; then
+            git commit --quiet -m "spike($fid): decision + journal"
+            log "spike: committed MAIN_REPO journal to epic branch"
+        fi
+    fi
+fi
+
 # Switch to epic branch (in main repo) and squash-merge
 git checkout "epic/$epic_slug" --quiet
 
@@ -122,8 +142,9 @@ commit_msg=$(mktemp)
 #
 # Common case for this skill: the only conflict path is the agent-authored
 # journal under .pi/epics/<epic>/features/<fid>-*/ (feature.md / meta.yaml).
-# The main-repo (epic-branch) version is canonical there — the agent updates
-# the journal in main, while the worktree may have a stale template copy.
+# The main-repo (epic-branch) version is canonical there — the orchestrator
+# (and the spike worker, see L-023 above) updates the journal on epic
+# mid-feature, while the worktree may have a stale scaffold copy.
 # Auto-resolve those paths with --ours and retry the commit. Any other
 # unmerged path is a genuine code conflict and must be resolved by hand.
 if ! git merge --squash "$feat_branch" --quiet; then
@@ -145,9 +166,20 @@ if ! git merge --squash "$feat_branch" --quiet; then
         exit 1
     fi
 fi
-git commit --quiet -F "$commit_msg"
+# L-023: spikes commit their deliverable directly to the epic branch (the
+# block above) and the feat branch carries only the L-019 scaffold, so the
+# squash produces an empty diff. Allow that with --allow-empty; the merge
+# commit serves as a marker that the spike landed.
+if ! git diff --cached --quiet; then
+    git commit --quiet -F "$commit_msg"
+elif [[ "$kind" == "spike" ]]; then
+    git commit --quiet --allow-empty -F "$commit_msg"
+    log "spike: empty squash committed with --allow-empty (decision landed via journal commit above)"
+else
+    echo "ERROR: squash produced empty diff for non-spike feature $fid" >&2
+    exit 1
+fi
 rm -f "$commit_msg"
-
 merge_sha=$(git rev-parse HEAD)
 
 # Remove worktree + branch (older git versions don't support --quiet on these)
@@ -181,6 +213,21 @@ else
         -e "s|^merge_commit_sha:.*|merge_commit_sha: $merge_sha|" \
         "$moved_dir/meta.yaml"
     rm -f "$moved_dir/meta.yaml.bak"
+fi
+
+# L-023 / L-025: commit the features/<fid> → features/done/<fid> rename
+# (and the updated meta.yaml) right here. Previously this dirty state was
+# left for the next `pi-feature-start`'s pending-edits auto-commit to
+# sweep up — fine for sequential features, fragile for the last feature
+# in an epic (the dirty state persists until `pi-epic-complete`).
+if [[ -n $(git status --porcelain -- ".pi/epics/$epic_id") ]]; then
+    git add -A ".pi/epics/$epic_id"
+    # Halt files never ride the auto-commit train (L-012).
+    git reset --quiet HEAD -- ".pi/epics/$epic_id"/halt-*.md 2>/dev/null || true
+    if [[ -n $(git diff --cached --name-only) ]]; then
+        git commit --quiet -m "chore(epic): archive $fid to features/done/"
+        log "committed feature archive rename"
+    fi
 fi
 
 # Reset STATE.md to epic-only
