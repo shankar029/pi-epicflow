@@ -2,7 +2,7 @@
 
 **Goal:** Ship v0.5.0 with hybrid planner architecture: always-on worker plan-first, optional feature-planner subagent gated by decomposition-time `needs_planner` flag, plus the L-019/L-020/L-021 decomp-quality patches and `kind: spike` support.
 
-**Status:** in progress
+**Status:** rc1 cut + smoke-tested at script level (agent-flow smoke pending user pi session)
 **Started:** 2026-05-14
 **Triggered by:** Harmony GenUI v2 epic readiness; user requested direct v0.5 jump skipping v0.4 baseline.
 
@@ -31,74 +31,96 @@
 
 ### Phase A — Foundations
 
-- [ ] 1. Write PLAN.md (this file)
-- [ ] 2. L-019: `pi-feature-start` auto-commits scaffold after creating feature.md/meta.yaml
-- [ ] 3. L-020: validator rejects AC strings starting with reserved YAML chars (`*`, `&`, `!`, `|`, `>`, `%`, `@`, backtick)
-- [ ] 4. L-021: validator checks `scope_files` non-glob entries exist on filesystem (warning, not error)
-- [ ] 5. Update `templates/decomposition.yaml` — new fields: `kind`, `needs_planner`, `planner_triggers`, `reference_paths`
-- [ ] 6. Validator accepts new fields and validates them
+- [x] 1. Write PLAN.md (this file)
+- [x] 2. L-019: `pi-feature-start` auto-commits scaffold after creating feature.md/meta.yaml
+- [x] 3. L-020: validator rejects AC strings starting with reserved YAML chars (`*`, `&`, `!`, `|`, `>`, `%`, `@`, backtick)
+- [x] 4. L-021: validator checks `scope_files` non-glob entries exist on filesystem (warning, not error)
+- [x] 5. Update `templates/decomposition.yaml` — new fields: `kind`, `needs_planner`, `planner_triggers`, `reference_paths`
+- [x] 6. Validator accepts new fields and validates them
 
 ### Phase B — Always-on worker plan-first
 
-- [ ] 7. Update `templates/feature.md` §4 — explicit Plan structure
-- [ ] 8. Update `agents/feature-worker.md` — mandatory ## Plan section before edits
-- [ ] 9. Update `agents/feature-reviewer.md` — plan-vs-impl validation
+- [x] 7. Update `templates/feature.md` §4 — explicit Plan structure
+- [x] 8. Update `agents/feature-worker.md` — mandatory ## Plan section before edits
+- [x] 9. Update `agents/feature-reviewer.md` — plan-vs-impl validation
 
 ### Phase C — Spike support
 
-- [ ] 10. New `templates/feature-spike.md` (structured decision template)
-- [ ] 11. `pi-feature-start`: select template by `kind`
-- [ ] 12. `pi-feature-complete`: allow spike features to merge with decision-only diff
-- [ ] 13. `agents/feature-worker.md`: spike-mode loop (decision artifact, code optional)
-- [ ] 14. `agents/feature-reviewer.md`: spike-mode validation
+- [x] 10. New `templates/feature-spike.md` (structured decision template)
+- [x] 11. `pi-feature-start`: select template by `kind`
+- [x] 12. `pi-feature-complete`: allow spike features to merge with decision-only diff
+- [x] 13. `agents/feature-worker.md`: spike-mode loop (decision artifact, code optional)
+- [x] 14. `agents/feature-reviewer.md`: spike-mode validation
 
 ### Phase D — Feature-planner subagent
 
-- [ ] 15. New `agents/feature-planner.md` (subagent definition)
-- [ ] 16. New `templates/plan.md` (plan artifact spec)
-- [ ] 17. `install/postinstall.mjs`: copy feature-planner.md
-- [ ] 18. Update `agents/feature-worker.md`: when plan.md exists, treat as binding contract
+- [x] 15. New `agents/feature-planner.md` (subagent definition)
+- [x] 16. Plan artifact spec lives inside `agents/feature-planner.md` (no separate template needed; planner writes plan.md directly)
+- [x] 17. `install/postinstall.mjs`: copy feature-planner.md
+- [x] 18. Update `agents/feature-worker.md`: when plan.md exists, treat as binding contract
 
 ### Phase E — Orchestrator gating
 
-- [ ] 19. Update `prompts/epic-run-auto.md`:
+- [x] 19. Update `prompts/epic-run-auto.md`:
   - New phase: `planning <fid>` before `worker-running <fid>`
-  - Gate on `needs_planner` flag
+  - Gate on `needs_planner` flag + env override + epic-level disable
   - Halt code H9 (planner-blocked)
   - Pass plan.md path to worker
-  - Reviewer plan-vs-impl flow
+  - Reviewer plan-vs-impl flow (via existing REQUEST_CHANGES, not new H10)
 
 ### Phase F — Escape hatches
 
-- [ ] 20. `pi-epic-init --no-planner` flag → writes `disable_planner: true` to epic meta.yaml
-- [ ] 21. Helper resolves effective `needs_planner` (per-feature flag AND epic-level disable AND env-var override)
+- [x] 20. `pi-epic-init --no-planner` flag → writes `disable_planner: true` to epic meta.yaml
+- [x] 21. Helper resolves effective `needs_planner` in orchestrator step 3.5 (env-var → epic flag → feature flag → kind-spike)
 
 ### Phase G — Decomp prompt updates
 
-- [ ] 22. `prompts/epic-decompose.md`:
-  - Document new fields
-  - Trigger checklist (any 2 of 7)
-  - Manifest fan-out hint
-  - Literal-sample requirement for golden/snapshot/wire AC
-  - Spike-kind examples
-  - `reference_paths` field
+- [x] 22. `prompts/epic-decompose.md`:
+  - New fields documented (kind, needs_planner, planner_triggers, reference_paths)
+  - Trigger checklist (any 2 of 7) with codes
+  - Manifest fan-out table
+  - L-018-stronger literal-sample rule
+  - L-020 quote-unsafe-AC rule
+  - Spike conventions + worked example
 
 ### Phase H — Docs
 
-- [ ] 23. `CHANGELOG.md` — v0.5.0 entry
-- [ ] 24. `README.md` — document new features
-- [ ] 25. `skills/epic-feature-workflow/lessons.md` — append L-019/L-020/L-021/L-022
-- [ ] 26. Bump `package.json` to 0.5.0
-- [ ] 27. Commit + tag v0.5.0-rc1
+- [x] 23. `CHANGELOG.md` — v0.5.0 entry (~100 lines)
+- [x] 24. `README.md` — architecture diagram, --no-planner row, postinstall copy list
+- [x] 25. `lessons.md` — L-019/L-020/L-021/L-022 (L-022 deferred to 0.5.1)
+- [x] 26. `package.json` bumped to 0.5.0
+- [x] 27. Committed as `d9cb57c release: 0.5.0-rc1`
 
-### Phase I — Smoke test (Day 2, ~2h)
+### Phase I — Smoke test
 
-- [ ] 28. Build toy 4-feature epic at `~/code/scratch/epicflow-v05-smoke/`
-- [ ] 29. F1 plain (untagged), F2 tagged, F3 spike, F4 planner-disagrees
-- [ ] 30. Run /epic-decompose, verify tagging
-- [ ] 31. Run /epic-run-auto end-to-end
-- [ ] 32. Verify: plan-first, planner subagent, spike kind, H9 fires
-- [ ] 33. Cut v0.5.0 if rc1 clean
+- [x] 28. Toy 4-feature epic at `/tmp/v05-smoke/` (F01 plain, F02 tagged, S03 spike, F04 plain)
+- [x] 29. `pi-epic-init --no-planner` writes `disable_planner: true` (verified)
+- [x] 30. `pi-epic-validate-decomposition` reports `4 entries (3 features, 1 spikes, 1 need planner)` (verified)
+- [x] 31. `pi-feature-start F01` auto-commits scaffold to epic branch as `chore(epic): scaffold F01 feature folder` (verified — L-019)
+- [x] 32. `pi-feature-start S03` uses spike template (verified — first line of feature.md says "This is a SPIKE")
+- [x] 33. `pi-feature-complete S03` skips tests (verified — logs `spike feature: skipping tests (deliverable is decision artifact)`) and archives correctly
+- [ ] 34. **Pending user pi session:** full agent-flow smoke (planner subagent invocation, plan.md round-trip, plan-vs-impl review, H9 halt) requires running `/epic-run-auto` in a real pi session
+- [ ] 35. After agent-flow smoke clean → tag `v0.5.0` final
+
+## Verification commands the user runs in pi
+
+```bash
+# 1. Install rc1 into pi (or auto-pickup if pointing at the git repo)
+pi update git:github.com/shankar029/pi-epicflow
+# (or restart pi session if it's a local extension)
+
+# 2. Smoke epic
+mkdir -p ~/code/scratch/epicflow-v05-smoke && cd ~/code/scratch/epicflow-v05-smoke
+git init -b main && touch README.md && git add -A && git commit -m init
+pi-epic-init smoke --title "v0.5 smoke"
+# fill design.md with a stub
+# /epic-decompose --features=4 → should propose F01-F04 with at least one needs_planner=true
+# manually add a spike S03 to decomposition.yaml
+# /epic-run-auto
+# Verify: planning phase fires for F02; worker reads plan.md; reviewer
+#   reports Plan-vs-impl section; spike completes without tests; F03
+#   ambiguity -> H9 halt if you author one
+```
 
 ## Trigger checklist (in decompose prompt)
 
