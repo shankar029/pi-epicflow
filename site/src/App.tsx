@@ -4,34 +4,41 @@
  */
 
 import { motion } from "motion/react";
-import { 
-  Terminal, 
-  Github, 
-  BookOpen, 
-  Layers, 
-  GitBranch, 
-  FileCode, 
-  CheckCircle2, 
-  XCircle, 
+import {
+  Terminal,
+  Github,
+  GitBranch,
+  Layers,
+  FileCode,
+  CheckCircle2,
+  XCircle,
   Flag,
-  ArrowRight,
-  Code,
-  Copy
+  Copy,
+  Brain,
+  Lightbulb,
+  ClipboardCheck,
+  ShieldCheck,
 } from "lucide-react";
+
+const REPO = "https://github.com/shankar029/pi-epicflow";
 
 const Navbar = () => (
   <header className="bg-surface/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-border">
     <div className="flex justify-between items-center w-full px-4 md:px-10 max-w-7xl mx-auto h-16">
       <div className="flex items-center gap-2 font-bold text-xl tracking-tight">
         <Terminal className="text-vibrant-green w-6 h-6" />
-        <span className="text-white">Pi-EpicFlow</span>
+        <span className="text-white">pi-epicflow</span>
+        <span className="ml-2 px-2 py-0.5 text-[10px] font-mono uppercase tracking-widest text-vibrant-green border border-vibrant-green/30 rounded">
+          v0.5
+        </span>
       </div>
       <nav className="hidden md:flex gap-8 items-center text-sm font-medium">
-        <a href="https://github.com/shankar029/pi-epicflow" className="text-text-muted hover:text-vibrant-green transition-colors">GitHub</a>
-        <a href="https://github.com/shankar029/pi-epicflow#readme" className="text-text-muted hover:text-vibrant-green transition-colors">Documentation</a>
+        <a href={`${REPO}#readme`} className="text-text-muted hover:text-vibrant-green transition-colors">Docs</a>
+        <a href={`${REPO}/blob/main/CHANGELOG.md`} className="text-text-muted hover:text-vibrant-green transition-colors">Changelog</a>
+        <a href={REPO} className="text-text-muted hover:text-vibrant-green transition-colors">GitHub</a>
       </nav>
       <div>
-        <a href="https://github.com/shankar029/pi-epicflow#install" className="inline-block bg-vibrant-green hover:bg-vibrant-green-hover text-surface px-5 py-2 rounded-lg text-sm font-bold transition-all shadow-[0_0_20px_rgba(34,197,94,0.15)]">
+        <a href={`${REPO}#install`} className="inline-block bg-vibrant-green hover:bg-vibrant-green-hover text-surface px-5 py-2 rounded-lg text-sm font-bold transition-all shadow-[0_0_20px_rgba(34,197,94,0.15)]">
           Install
         </a>
       </div>
@@ -40,37 +47,50 @@ const Navbar = () => (
 );
 
 const Hero = () => (
-  <section className="px-4 py-20 md:py-32 max-w-7xl mx-auto text-center relative">
+  <section className="px-4 py-20 md:py-28 max-w-7xl mx-auto text-center relative">
     <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-vibrant-green/5 rounded-full blur-[120px] -z-10 pointer-events-none" />
-    
-    <motion.h1 
+
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="inline-flex items-center gap-2 bg-vibrant-green/10 text-vibrant-green text-xs font-bold font-mono px-4 py-1.5 rounded-full border border-vibrant-green/20 mb-6 uppercase tracking-widest"
+    >
+      <Brain className="w-3 h-3" />
+      v0.5 — hybrid planner + spikes
+    </motion.div>
+
+    <motion.h1
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6 }}
+      transition={{ duration: 0.6, delay: 0.1 }}
       className="text-4xl md:text-6xl font-black text-white mb-6 max-w-4xl mx-auto leading-tight"
     >
-      Ship multi-feature work as one <span className="text-vibrant-green">clean PR</span>
+      Ship multi-feature work as <span className="text-vibrant-green">one clean PR</span>
     </motion.h1>
-    
-    <motion.p 
+
+    <motion.p
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay: 0.2 }}
       className="text-lg md:text-xl text-text-muted mb-10 max-w-2xl mx-auto leading-relaxed"
     >
-      Manage complex development workflows via a DAG of small, manageable features. Isolate work, automate contexts, and maintain a clean git history.
+      A <a href="https://pi.dev" className="text-vibrant-green hover:underline">pi</a> extension
+      that decomposes a <code className="text-vibrant-green font-mono">design.md</code> into a
+      DAG of small features, runs each on its own git worktree, and squash-merges
+      back into one reviewable PR. Plans before it codes. Halts when it should.
     </motion.p>
-    
-    <motion.div 
+
+    <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.6, delay: 0.4 }}
+      transition={{ duration: 0.6, delay: 0.3 }}
       className="flex flex-col sm:flex-row items-center justify-center gap-4"
     >
-      <a href="https://github.com/shankar029/pi-epicflow#install" className="w-full sm:w-auto bg-vibrant-green hover:bg-vibrant-green-hover text-surface px-10 py-4 rounded-xl font-bold uppercase tracking-wider transition-colors text-center">
-        Get Started
+      <a href={`${REPO}#quickstart--the-three-command-flow`} className="w-full sm:w-auto bg-vibrant-green hover:bg-vibrant-green-hover text-surface px-10 py-4 rounded-xl font-bold uppercase tracking-wider transition-colors text-center">
+        Quickstart
       </a>
-      <a href="https://github.com/shankar029/pi-epicflow" className="w-full sm:w-auto bg-slate-surface border border-slate-border text-white px-10 py-4 rounded-xl font-bold uppercase tracking-wider hover:border-vibrant-green/50 hover:bg-surface-container transition-all flex items-center justify-center gap-2">
+      <a href={REPO} className="w-full sm:w-auto bg-slate-surface border border-slate-border text-white px-10 py-4 rounded-xl font-bold uppercase tracking-wider hover:border-vibrant-green/50 hover:bg-surface-container transition-all flex items-center justify-center gap-2">
         <Github className="w-5 h-5" />
         View on GitHub
       </a>
@@ -79,7 +99,7 @@ const Hero = () => (
 );
 
 const BenefitCard = ({ icon: Icon, title, description, delay = 0, colorClass = "text-vibrant-green" }: any) => (
-  <motion.div 
+  <motion.div
     initial={{ opacity: 0, y: 20 }}
     whileInView={{ opacity: 1, y: 0 }}
     viewport={{ once: true }}
@@ -97,101 +117,91 @@ const BenefitCard = ({ icon: Icon, title, description, delay = 0, colorClass = "
 
 const Benefits = () => (
   <section className="px-4 py-16 max-w-7xl mx-auto">
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <BenefitCard 
+    <div className="text-center mb-12">
+      <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
+        Why naive "agent in one big context" doesn't scale
+      </h2>
+      <p className="mt-3 text-text-muted max-w-2xl mx-auto">
+        Five problems that show up at the second or third feature. pi-epicflow solves them by structure, not heroics.
+      </p>
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <BenefitCard
         icon={GitBranch}
-        title="Fresh Contexts"
-        description="Every feature gets its own branch and worktree. Never pollute your workspace when switching tasks."
-        delay={0.1}
+        title="Fresh context per feature"
+        description="Each feature spawns a worker subagent in a clean context. F03's worker doesn't drag F01's 80 KB of tokens into the conversation."
+        delay={0.05}
       />
-      <BenefitCard 
+      <BenefitCard
         icon={Layers}
-        title="Isolated Worktrees"
-        description="Work on multiple features simultaneously without the endless stash/pop cycles."
-        delay={0.2}
+        title="Isolated worktrees"
+        description="Every feature gets its own git worktree off the epic branch. No stash/pop, no branch-switching mid-edit, no scope leak."
+        delay={0.1}
         colorClass="text-cyan-400"
       />
-      <BenefitCard 
+      <BenefitCard
         icon={FileCode}
-        title="YAML-driven"
-        description="Decompose complex work using a simple epic.yaml file. Declarative workflow management."
-        delay={0.3}
+        title="Decomposition is YAML, not chat"
+        description="Approved once, then binding. Deviations are first-class entries in deviations.md — diffable, reviewable, fed back into lessons.md."
+        delay={0.15}
         colorClass="text-emerald-400"
+      />
+      <BenefitCard
+        icon={ClipboardCheck}
+        title="Plan before code, always"
+        description="Every worker fills a structured Plan section before its first edit. Tagged features get a dedicated feature-planner subagent that writes a binding plan.md."
+        delay={0.2}
+        colorClass="text-amber-400"
+      />
+      <BenefitCard
+        icon={Lightbulb}
+        title="Spikes for decisions"
+        description="kind: spike features ship a Decision / Evidence / Impact entry instead of code. Resolve open questions before they corrupt downstream features."
+        delay={0.25}
+        colorClass="text-fuchsia-400"
+      />
+      <BenefitCard
+        icon={ShieldCheck}
+        title="Halts, not guesses"
+        description="Eight well-defined halt codes (H1–H7, H9). On any blocker, the orchestrator writes a halt report with the exact resume command and stops. A bad guess at hour 3 wastes hours; a halt loses minutes."
+        delay={0.3}
+        colorClass="text-rose-400"
       />
     </div>
   </section>
 );
 
-const DAGVisualization = () => (
-  <div className="bg-slate-surface border border-slate-border rounded-3xl p-8 relative overflow-hidden flex items-center justify-center min-h-[400px]">
-    <div className="relative w-full max-w-sm flex flex-col items-center">
-      {/* Root Node */}
-      <motion.div 
-        initial={{ scale: 0, opacity: 0 }}
-        whileInView={{ scale: 1, opacity: 1 }}
-        transition={{ delay: 0.1 }}
-        className="w-16 h-16 rounded-full bg-vibrant-green/20 border-2 border-vibrant-green flex items-center justify-center z-10 shadow-[0_0_30px_rgba(34,197,94,0.3)]"
-      >
-        <Flag className="text-vibrant-green w-8 h-8 fill-vibrant-green/20" />
-      </motion.div>
+const ArchitectureDiagram = () => (
+  <div className="bg-slate-surface border border-slate-border rounded-3xl p-6 md:p-10 relative overflow-hidden">
+    <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-stretch text-center">
+      {[
+        { label: "design.md", sub: "you write", color: "border-slate-border text-text-muted" },
+        { label: "/epic-decompose", sub: "DAG + AC + tags", color: "border-vibrant-green/40 text-vibrant-green" },
+        { label: "feature-planner", sub: "needs_planner: true", color: "border-amber-400/40 text-amber-400" },
+        { label: "feature-worker", sub: "plan.md binding", color: "border-cyan-400/40 text-cyan-400" },
+        { label: "feature-reviewer", sub: "plan-vs-impl", color: "border-emerald-400/40 text-emerald-400" },
+      ].map((node, i) => (
+        <motion.div
+          key={i}
+          initial={{ opacity: 0, y: 10 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.05 * i }}
+          className={`flex-1 bg-surface-container border ${node.color.split(" ")[0]} rounded-2xl p-4`}
+        >
+          <div className={`font-mono text-sm font-bold ${node.color.split(" ")[1]}`}>{node.label}</div>
+          <div className="text-[11px] font-mono text-text-muted mt-1 uppercase tracking-wider">{node.sub}</div>
+        </motion.div>
+      ))}
+    </div>
 
-      {/* Connection Lines */}
-      <div className="h-16 w-px bg-slate-border my-2 relative">
-        <motion.div 
-          initial={{ height: 0 }}
-          whileInView={{ height: "100%" }}
-          transition={{ delay: 0.3 }}
-          className="absolute inset-0 bg-vibrant-green w-px" 
-        />
-      </div>
-
-      <div className="flex gap-16 md:gap-24 relative">
-        {/* Horizontal Line */}
-        <motion.div 
-          initial={{ width: 0 }}
-          whileInView={{ width: "100%" }}
-          transition={{ delay: 0.4 }}
-          className="absolute top-0 left-0 right-0 h-px bg-slate-border" 
-        />
-
-        <div className="flex flex-col items-center">
-          <div className="h-8 w-px bg-slate-border" />
-          <motion.div 
-            initial={{ scale: 0, opacity: 0 }}
-            whileInView={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="w-16 h-12 rounded-2xl bg-surface-container border border-slate-border flex items-center justify-center text-[10px] font-mono text-text-muted"
-          >
-            feat-1
-          </motion.div>
-          
-          <div className="h-8 w-px bg-slate-border mt-2" />
-          <motion.div 
-            initial={{ scale: 0, opacity: 0 }}
-            whileInView={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.7 }}
-            className="w-16 h-12 rounded-2xl bg-surface-container border border-slate-border flex items-center justify-center text-[10px] font-mono text-text-muted"
-          >
-            fix-a
-          </motion.div>
-        </div>
-
-        <div className="flex flex-col items-center">
-          <div className="h-8 w-px bg-slate-border" />
-          <motion.div 
-            initial={{ scale: 0, opacity: 0 }}
-            whileInView={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.6 }}
-            className="w-16 h-12 rounded-2xl bg-surface-container border border-slate-border flex items-center justify-center text-[10px] font-mono text-text-muted"
-          >
-            feat-2
-          </motion.div>
-        </div>
-      </div>
-
-      <div className="mt-12 text-center text-xs font-mono text-text-muted uppercase tracking-[0.2em]">
-        Directed Acyclic Graph (DAG) Structure
-      </div>
+    <div className="mt-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-xs font-mono text-text-muted">
+      <span className="flex items-center gap-2">
+        <Flag className="w-4 h-4 text-vibrant-green" />
+        loop until DAG drained
+      </span>
+      <span>→ squash-merge into <span className="text-vibrant-green">epic/&lt;slug&gt;</span></span>
+      <span>→ epic-reviewer → <span className="text-vibrant-green">one PR to main</span></span>
     </div>
   </div>
 );
@@ -206,26 +216,45 @@ const TerminalWindow = () => (
       </div>
       <span className="ml-2 text-xs font-mono text-text-muted">terminal — pi-epicflow</span>
     </div>
-    <div className="p-6 font-mono text-sm leading-relaxed relative">
-      <button className="absolute top-4 right-4 text-text-muted hover:text-white transition-colors">
+    <div className="p-6 font-mono text-xs md:text-sm leading-relaxed relative">
+      <button className="absolute top-4 right-4 text-text-muted hover:text-white transition-colors" aria-label="copy">
         <Copy className="w-4 h-4" />
       </button>
-      <div className="space-y-2">
+      <div className="space-y-1.5">
+        <div className="text-text-muted"># install (once)</div>
         <div className="flex gap-3">
           <span className="text-slate-border select-none">$</span>
-          <span className="text-white"><span className="text-vibrant-green">pip</span> install pi-epicflow</span>
+          <span className="text-white"><span className="text-vibrant-green">pi</span> install git:github.com/shankar029/pi-epicflow</span>
         </div>
+        <div className="text-text-muted mt-3"># bootstrap the epic</div>
         <div className="flex gap-3">
           <span className="text-slate-border select-none">$</span>
-          <span className="text-white"><span className="text-vibrant-green">pi</span> epic init <span className="text-cyan-400">--name</span> my-feature</span>
+          <span className="text-white"><span className="text-vibrant-green">pi-epic-init</span> my-feature <span className="text-cyan-400">--from</span> /tmp/design.md</span>
         </div>
-        <div className="flex gap-3 opacity-50 pt-2">
+        <div className="flex gap-3 opacity-70">
           <span className="text-slate-border select-none">#</span>
-          <span className="italic text-text-muted">Initialized empty Epic workflow in ./epic.yaml</span>
+          <span className="italic text-text-muted">created branch: epic/my-feature</span>
         </div>
         <div className="flex gap-3">
           <span className="text-slate-border select-none">$</span>
-          <span className="text-white"><span className="text-vibrant-green">pi</span> epic start</span>
+          <span className="text-white"><span className="text-vibrant-green">pi</span></span>
+        </div>
+        <div className="text-text-muted mt-3"># then in pi:</div>
+        <div className="flex gap-3">
+          <span className="text-slate-border select-none">›</span>
+          <span className="text-amber-400">/epic-decompose</span>
+        </div>
+        <div className="flex gap-3 opacity-70">
+          <span className="text-slate-border select-none">#</span>
+          <span className="italic text-text-muted">propose features → you approve → commit</span>
+        </div>
+        <div className="flex gap-3">
+          <span className="text-slate-border select-none">›</span>
+          <span className="text-amber-400">/epic-run-auto</span>
+        </div>
+        <div className="flex gap-3 opacity-70">
+          <span className="text-slate-border select-none">#</span>
+          <span className="italic text-text-muted">plan → implement → review → squash-merge → repeat → PR</span>
         </div>
       </div>
     </div>
@@ -234,13 +263,31 @@ const TerminalWindow = () => (
 
 const WorkflowAndQuickstart = () => (
   <section className="px-4 py-16 max-w-7xl mx-auto">
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-      <div>
-        <h2 className="text-3xl font-bold text-white mb-8 tracking-tight">How it Works</h2>
-        <DAGVisualization />
+    <div className="text-center mb-12">
+      <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight">How it works</h2>
+      <p className="mt-3 text-text-muted max-w-2xl mx-auto">
+        Three commands. Five subagents (planner gated on tag). One PR.
+      </p>
+    </div>
+    <ArchitectureDiagram />
+    <div className="mt-10 grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
+      <div className="lg:col-span-2 space-y-4 text-text-muted text-sm leading-relaxed">
+        <p>
+          <strong className="text-white">1. Decompose.</strong>{" "}
+          <code className="text-vibrant-green font-mono text-xs">/epic-decompose</code> reads your design and proposes 3–60 features with deps, scope, and acceptance criteria. A 7-item trigger checklist auto-tags features as <code className="text-amber-400 font-mono text-xs">needs_planner: true</code> when AC are format-sensitive, scope crosses modules, or the dep chain is deep.
+        </p>
+        <p>
+          <strong className="text-white">2. Run.</strong>{" "}
+          <code className="text-vibrant-green font-mono text-xs">/epic-run-auto</code> ships every feature: planner pass (if tagged) → worker (binding plan.md) → reviewer (plan-vs-impl) → squash-merge into the epic branch.
+        </p>
+        <p>
+          <strong className="text-white">3. Land.</strong>{" "}
+          When every feature has merged, an epic-wide reviewer audits the cumulative diff and{" "}
+          <code className="text-vibrant-green font-mono text-xs">pi-epic-complete</code> opens one PR to main. Deviations get distilled into{" "}
+          <code className="text-vibrant-green font-mono text-xs">lessons.md</code> so the next epic gets smarter automatically.
+        </p>
       </div>
-      <div>
-        <h2 className="text-3xl font-bold text-white mb-8 tracking-tight">Quick Start</h2>
+      <div className="lg:col-span-3">
         <TerminalWindow />
       </div>
     </div>
@@ -249,17 +296,22 @@ const WorkflowAndQuickstart = () => (
 
 const FitSection = () => (
   <section className="px-4 py-16 max-w-7xl mx-auto">
+    <div className="text-center mb-12">
+      <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight">Where it fits</h2>
+      <p className="mt-3 text-text-muted">Below ~3 features it's overkill. Above ~5 it pays for itself many times over.</p>
+    </div>
     <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-slate-border rounded-[2rem] overflow-hidden border border-slate-border">
       <div className="bg-slate-surface p-10 md:p-14">
         <div className="inline-flex items-center gap-2 bg-vibrant-green/10 text-vibrant-green text-xs font-bold font-mono px-4 py-1.5 rounded-full border border-vibrant-green/20 mb-8 uppercase tracking-widest">
           <CheckCircle2 className="w-4 h-4" />
-          Good Fit
+          Good fit
         </div>
         <ul className="space-y-5 text-text-muted">
           {[
-            "Complex, multi-layered feature development",
-            "Long-running epics spanning weeks",
-            "Team collaboration on intertwined tasks"
+            "Cross-module work spanning 5–60 features",
+            "Format-sensitive features (golden files, wire shapes, exact exit codes)",
+            "Multi-step migrations where a wrong early choice corrupts everything downstream",
+            "Long-running epics where you want to walk away and resume tomorrow",
           ].map((item, i) => (
             <li key={i} className="flex items-start gap-4">
               <CheckCircle2 className="w-5 h-5 text-vibrant-green shrink-0 mt-0.5" />
@@ -275,9 +327,10 @@ const FitSection = () => (
         </div>
         <ul className="space-y-5 text-text-muted">
           {[
-            "Tiny, single-file hotfixes",
-            "Single-branch simple tasks",
-            "Trivial documentation updates"
+            "Tiny single-PR hotfixes — just open the PR",
+            "Cross-repo work — one epic, one repo (parallel epics + PRs instead)",
+            "Throwaway exploration — run pi without ceremony",
+            "Two humans on the same epic — no locking on .pi/epics/ yet",
           ].map((item, i) => (
             <li key={i} className="flex items-start gap-4">
               <XCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
@@ -290,21 +343,73 @@ const FitSection = () => (
   </section>
 );
 
+const WhatsNew = () => (
+  <section className="px-4 py-16 max-w-7xl mx-auto">
+    <div className="bg-slate-surface border border-vibrant-green/30 rounded-3xl p-8 md:p-12 relative overflow-hidden">
+      <div className="absolute -top-20 -right-20 w-80 h-80 bg-vibrant-green/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="relative">
+        <div className="inline-flex items-center gap-2 bg-vibrant-green/10 text-vibrant-green text-xs font-bold font-mono px-4 py-1.5 rounded-full border border-vibrant-green/20 mb-6 uppercase tracking-widest">
+          <Brain className="w-3 h-3" />
+          New in v0.5
+        </div>
+        <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-4">Hybrid planning architecture</h2>
+        <p className="text-text-muted text-base md:text-lg max-w-3xl leading-relaxed mb-8">
+          v0.5 introduces a two-tier planning system motivated by real-world failures:
+          mid-implementation halts because the worker guessed wrong on an AC, and silent
+          scope creep on cross-cutting files. Both are now structural, not lucky.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-surface-container border border-slate-border rounded-2xl p-6">
+            <ClipboardCheck className="w-6 h-6 text-amber-400 mb-3" />
+            <h3 className="font-bold text-white mb-2">Always-on Plan §4</h3>
+            <p className="text-text-muted text-sm leading-relaxed">
+              Every worker fills <code className="text-amber-400 font-mono text-xs">feature.md</code> §4 before any edit: files-to-touch, AC interpretations, ambiguities, anti-scope. Reviewer enforces.
+            </p>
+          </div>
+          <div className="bg-surface-container border border-slate-border rounded-2xl p-6">
+            <Brain className="w-6 h-6 text-cyan-400 mb-3" />
+            <h3 className="font-bold text-white mb-2">feature-planner subagent</h3>
+            <p className="text-text-muted text-sm leading-relaxed">
+              Tagged features get a read-only planner pass that produces a binding <code className="text-cyan-400 font-mono text-xs">plan.md</code>. Reads design + reference_paths + repo. Worker treats it as a contract.
+            </p>
+          </div>
+          <div className="bg-surface-container border border-slate-border rounded-2xl p-6">
+            <Lightbulb className="w-6 h-6 text-fuchsia-400 mb-3" />
+            <h3 className="font-bold text-white mb-2">kind: spike</h3>
+            <p className="text-text-muted text-sm leading-relaxed">
+              First-class decision features. <code className="text-fuchsia-400 font-mono text-xs">S01</code>-prefix IDs, structured Decision / Evidence / Impact in <code className="text-fuchsia-400 font-mono text-xs">deviations.md</code>. Tests skipped.
+            </p>
+          </div>
+        </div>
+        <div className="mt-8 flex flex-wrap items-center gap-3 text-sm">
+          <a href={`${REPO}/blob/main/CHANGELOG.md#050--2026-05-14`} className="text-vibrant-green hover:underline">
+            Full v0.5 changelog →
+          </a>
+          <span className="text-text-muted">·</span>
+          <a href={`${REPO}/blob/main/docs/design.md`} className="text-vibrant-green hover:underline">
+            Design rationale →
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+);
+
 const Footer = () => (
   <footer className="border-t border-slate-border bg-slate-background/50">
     <div className="max-w-7xl mx-auto py-12 px-4 md:px-10 flex flex-col md:flex-row justify-between items-center gap-8">
       <div className="flex items-center gap-2 font-bold text-lg">
         <Terminal className="text-vibrant-green w-5 h-5" />
-        <span className="text-white">Pi-EpicFlow</span>
+        <span className="text-white">pi-epicflow</span>
       </div>
-      <p className="text-text-muted text-sm max-w-sm text-center md:text-left">
-        © 2024 Pi-EpicFlow. Built for high-performance developer workflows.
+      <p className="text-text-muted text-sm max-w-md text-center md:text-left">
+        Open-source workflow tooling for shipping multi-feature work with AI coding agents. MIT licensed.
       </p>
       <nav className="flex flex-wrap justify-center gap-x-8 gap-y-4 text-xs font-medium text-text-muted uppercase tracking-widest">
-        <a href="https://github.com/shankar029/pi-epicflow/releases" className="hover:text-vibrant-green transition-colors">Releases</a>
-        <a href="https://github.com/shankar029/pi-epicflow/blob/main/CHANGELOG.md" className="hover:text-vibrant-green transition-colors">Changelog</a>
-        <a href="https://github.com/shankar029/pi-epicflow/issues" className="hover:text-vibrant-green transition-colors">Issues</a>
-        <a href="https://github.com/shankar029/pi-epicflow/blob/main/LICENSE" className="hover:text-vibrant-green transition-colors">License</a>
+        <a href={`${REPO}/releases`} className="hover:text-vibrant-green transition-colors">Releases</a>
+        <a href={`${REPO}/blob/main/CHANGELOG.md`} className="hover:text-vibrant-green transition-colors">Changelog</a>
+        <a href={`${REPO}/issues`} className="hover:text-vibrant-green transition-colors">Issues</a>
+        <a href={`${REPO}/blob/main/LICENSE`} className="hover:text-vibrant-green transition-colors">License</a>
       </nav>
     </div>
   </footer>
@@ -318,6 +423,7 @@ export default function App() {
         <Hero />
         <Benefits />
         <WorkflowAndQuickstart />
+        <WhatsNew />
         <FitSection />
       </main>
       <Footer />

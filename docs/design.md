@@ -119,9 +119,10 @@ Why:
 ### Halt, don't guess
 
 When the agent is unsure (test fails repeatedly, design is genuinely
-ambiguous, merge conflict on epic), it halts with one of seven well-defined
-codes and writes a `halt-<UTC>.md` with the exact resume command. It does
-NOT try three different things in a row.
+ambiguous, merge conflict on epic, **planner can't resolve a fact**), it
+halts with one of eight well-defined codes (H1–H7, H9) and writes a
+`halt-<UTC>.md` with the exact resume command. It does NOT try three
+different things in a row.
 
 Why:
 - A bad guess at hour 3 of a 12-feature run wastes hours. A halt loses
@@ -129,6 +130,56 @@ Why:
 - Halt-reports become the conversation between the agent and the human —
   far better than a multi-page chat log.
 - Resume is just `/epic-run-auto`; no special restart mode.
+
+### Plan before code (v0.5)
+
+Every feature writes a structured plan in `feature.md` §4 *before* the
+worker makes its first edit — files-to-touch, AC interpretations
+(literal expected behavior), ambiguities, anti-scope. Features tagged
+`needs_planner: true` in `decomposition.yaml` additionally get a
+dedicated `feature-planner` subagent pass that produces a binding
+`plan.md` in `FEATURE_DIR/`. The worker treats `plan.md` as a contract
+(deviations require a `deviations.md` entry); the reviewer validates
+plan-vs-impl alignment.
+
+Why:
+- The single biggest source of mid-implementation halts (in real epics)
+  is *AC interpretation*: the worker reads an AC like "golden file
+  matches output" and guesses the byte layout. Forcing a written
+  interpretation up front converts a 2-hour worker crisis into a
+  10-minute review of plan.md.
+- The planner subagent runs in a *read-only* context with the entire
+  design + reference paths + repo loaded — a context budget the worker
+  shouldn't have to pay. Workers come in with a focused, decided plan.
+- For features without `needs_planner: true`, the always-on §4 Plan
+  section still surfaces the worker's intent before any edit; reviewers
+  catch silent deviations.
+
+Triggers (any 2 of 7 → tag `needs_planner: true` in
+`decomposition.yaml`): unverified-callsites, format-sensitive-ac,
+scope-crosses-modules, deep-dep-chain, large-estimate, many-acs,
+cross-cutting-verb. Threshold tunable via
+`PI_EPICFLOW_PLANNER_THRESHOLD`. Disable per-feature
+(`needs_planner: false`) or per-epic (`pi-epic-init --no-planner`).
+
+### Spikes for decisions, not code (v0.5)
+
+When an open question blocks 2+ downstream features ("CRC32 vs xxhash?",
+"which seam to decorate?", "hand-roll vs library?"), don't paper over it
+in AC. File a **spike**: a feature with `kind: spike` whose deliverable
+is a structured Decision / Evidence / Impact entry in `deviations.md`,
+not production code.
+
+Why:
+- Without spikes, the orchestrator either (a) halts mid-feature with H9
+  when the planner discovers the gap, or (b) ships code that locks in
+  the wrong choice silently. Both are expensive.
+- Spikes are bounded (8h cap), reviewable (the decision lands in git as
+  a squash-merge on the epic branch), and feed straight into downstream
+  planners (which see the updated design + deviation).
+- Spike workers run a different loop: read code, prototype, benchmark,
+  log decision. `pi-feature-complete` skips test runs.
+  `feature-reviewer` checks decision quality, not test results.
 
 ### Deviations are first-class
 

@@ -5,6 +5,14 @@
 > each on its own git worktree + short-lived branch, squash-merges back into
 > a long-lived **epic branch**, and opens a **single reviewable PR to main**
 > when the whole epic is done. Halts only when truly blocked.
+>
+> **v0.5** adds a hybrid planning architecture: every feature writes a
+> binding plan before any code edit, and features tagged `needs_planner:
+> true` get a dedicated `feature-planner` subagent pass that produces a
+> contract `plan.md`. **Spikes** (`kind: spike`) are first-class features
+> whose deliverable is a decision artifact in `deviations.md`, not code
+> — use them to resolve open questions before they corrupt downstream
+> features.
 
 [![smoke](https://github.com/shankar029/pi-epicflow/actions/workflows/smoke.yml/badge.svg)](https://github.com/shankar029/pi-epicflow/actions/workflows/smoke.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -96,7 +104,7 @@ decomposing the next one.
                           (one clean, reviewable diff)
 ```
 
-Four keys to why this scales where naive "agent in one big context" doesn't:
+Five keys to why this scales where naive "agent in one big context" doesn't:
 
 1. **Each feature gets a fresh subagent context.** A worker that spends 80 KB
    of tokens implementing F03 doesn't pollute the orchestrator's context or
@@ -109,10 +117,18 @@ Four keys to why this scales where naive "agent in one big context" doesn't:
 3. **The decomposition is YAML, not chat.** Once approved, it's the
    contract. Any departure goes into `deviations.md` with a reason.
    Reviewable. Diffable. Version-controlled.
-4. **Halts, not guesses.** When the agent is unsure (test fails 3x,
-   merge conflict, ambiguous spec), it writes a halt report with the
-   exact resume command and stops. A bad guess at hour 3 wastes hours; a
-   halt loses minutes.
+4. **Plan before code, always.** Every worker fills a structured Plan
+   section in `feature.md` §4 (files-to-touch, AC interpretations,
+   ambiguities, anti-scope) *before* the first edit. Features tagged
+   `needs_planner: true` additionally get a dedicated `feature-planner`
+   subagent pass that produces a binding `plan.md` — the worker treats
+   it as a contract, and the reviewer checks plan-vs-impl alignment.
+   Surfaces ambiguity at planning time (cheap) instead of
+   implementation time (expensive).
+5. **Halts, not guesses.** When the agent is unsure (planner can't
+   resolve, test fails 3x, merge conflict, ambiguous spec), it writes a
+   halt report with the exact resume command and stops. A bad guess at
+   hour 3 wastes hours; a halt loses minutes.
 
 Deeper rationale lives in [`docs/design.md`](docs/design.md).
 
@@ -272,7 +288,7 @@ Verify:
 
 ```bash
 which pi-epic-init pi-feature-start pi-feature-complete   # all should resolve
-ls ~/.pi/agent/agents/feature-*                            # both files present
+ls ~/.pi/agent/agents/feature-*                            # 3 files: worker, reviewer, planner
 pi list | grep -E 'pi-subagents|pi-intercom'               # both should appear
 ```
 
@@ -479,6 +495,7 @@ guess when:
 | **H5** | Environment fatal — disk full, git corrupt, missing toolchain | Fix the host; resume |
 | **H6** | Merge conflict on squash-merge into epic branch | Resolve on epic branch (`pi-feature-complete --skip-tests`); resume |
 | **H7** | Subagent stalled past the §STALL HANDLING budget (auto mode only) | Inspect last forensics; decide manual takeover or respawn |
+| **H9** | `feature-planner` subagent returned BLOCKED (unresolvable ambiguity, missing call sites, contradictory AC) | Read `plan.md` + `planner-report.md`; fix decomposition AC or run a spike; resume |
 
 Every halt writes `.pi/epics/<id>/halt-<UTC>.md` with the failing step, the
 worker/review reports involved, what the human needs to decide, and the exact
@@ -511,6 +528,32 @@ You iterate. `/epic-decompose` shows the YAML in chat and asks for feedback
 revises and re-presents. Only on your explicit approval does it write +
 validate + commit. Then `/epic-run-auto` is bound by that contract — any
 departure goes into `deviations.md` with a reason.
+
+**Q: What is the `feature-planner` subagent and when does it run?**
+A pre-implementation pass that produces a binding `plan.md` for features
+flagged `needs_planner: true` in `decomposition.yaml`. The planner reads
+the design, the decomposition entry, any `reference_paths:` (POC code,
+prior-art docs), and the repo — then writes files-to-touch, AC
+interpretations with literal expected behavior, ambiguities, and
+anti-scope. The worker treats `plan.md` as a contract; the reviewer
+checks plan-vs-impl alignment. Triggered by a 7-item checklist in
+`/epic-decompose` (any 2 of: unverified-callsites, format-sensitive-ac,
+scope-crosses-modules, deep-dep-chain, large-estimate, many-acs,
+cross-cutting-verb). Threshold tunable via
+`PI_EPICFLOW_PLANNER_THRESHOLD`. Disable per-feature with
+`needs_planner: false`, or per-epic with `pi-epic-init --no-planner`.
+
+**Q: What is a spike?**
+A feature whose deliverable is a *decision*, not code. Used when an open
+question blocks 2+ downstream features ("CRC32 vs xxhash?", "which seam
+do we decorate?", "hand-roll parser or use lark?"). Declared in
+`decomposition.yaml` as `kind: spike` with `S<NN>` ids that share a
+counter with features. Spike workers investigate (read code, prototype,
+benchmark), then write a structured Decision / Evidence / Impact entry
+in `deviations.md`. `pi-feature-complete` skips tests for spikes and
+squash-merges the decision artifact into the epic branch.
+`feature-reviewer` runs in spike-mode and checks decision quality, not
+test results. Spikes are capped at 8 estimated hours.
 
 **Q: What if a feature's tests fail?**
 The `feature-worker` retries up to 3 times with different strategies. After
@@ -585,7 +628,7 @@ auto-commit train"*, *"prefer in-progress over ready in the dispatcher to
 avoid leaking worktrees"*). New lessons get appended each time
 `pi-epic-complete` distills `deviations.md` from a finished epic.
 
-L-001 through L-014 are documented today. Contributions of new lessons via
+L-001 through L-022 are documented today (v0.5 added L-019/L-020/L-021/L-022 from the partner-agent-sdk and Harmony GenUI epics). Contributions of new lessons via
 PR are welcome and encouraged.
 
 ---
