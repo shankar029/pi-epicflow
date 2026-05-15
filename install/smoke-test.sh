@@ -42,7 +42,7 @@ echo "# smoke" > README.md
 git add README.md && git commit -qm "init"
 
 # 1. epic-init
-echo "[1/6] pi-epic-init"
+echo "[1/10] pi-epic-init"
 cat > /tmp/pi-epicflow-smoke-design.md <<'EOF'
 # Smoke
 Two features.
@@ -53,7 +53,7 @@ EPIC_ID=$(ls .pi/epics/ | grep -E '^0[0-9]+-' | head -1)
 [ "$(git rev-parse --abbrev-ref HEAD)" = "epic/smoke" ] && pass "on epic branch" || fail "not on epic branch"
 
 # 2. decomposition
-echo "[2/6] decomposition.yaml"
+echo "[2/10] decomposition.yaml"
 cat > ".pi/epics/$EPIC_ID/decomposition.yaml" <<EOF
 epic: $EPIC_ID
 features:
@@ -76,12 +76,12 @@ git add .pi/ && git commit -qm "decomp"
 pass "decomposition committed"
 
 # 3. next-feature dispatch
-echo "[3/6] pi-epic-next-feature"
+echo "[3/10] pi-epic-next-feature"
 NEXT=$(pi-epic-next-feature)
 [ "$NEXT" = "F01" ] && pass "next-feature returns F01" || fail "expected F01, got '$NEXT'"
 
 # 4. feature-start with L-012 (halt file present) + L-013 (status advance)
-echo "[4/6] pi-feature-start F01 (with halt-fake.md present)"
+echo "[4/10] pi-feature-start F01 (with halt-fake.md present)"
 echo "fake halt content" > ".pi/epics/$EPIC_ID/halt-fake.md"
 echo "extra line for design" >> ".pi/epics/$EPIC_ID/design.md"
 pi-feature-start F01 > /dev/null
@@ -98,7 +98,7 @@ fi
 [ -f ".pi/epics/$EPIC_ID/halt-fake.md" ] && pass "halt file still on disk" || fail "halt file was removed"
 
 # 5. worker simulation + feature-complete
-echo "[5/6] simulate worker + pi-feature-complete F01"
+echo "[5/10] simulate worker + pi-feature-complete F01"
 WT_PATH="$(grep -E "^worktree:" ".pi/epics/$EPIC_ID/features/F01-alpha/meta.yaml" | sed -E 's/^worktree:\s*"?([^"]*)"?.*/\1/')"
 [ -d "$WT_PATH" ] || fail "feature worktree missing: $WT_PATH"
 (
@@ -119,14 +119,14 @@ else
 fi
 
 # 6. dispatcher unblocks F02 after F01 merged
-echo "[6/8] pi-epic-next-feature after F01"
+echo "[6/10] pi-epic-next-feature after F01"
 NEXT=$(pi-epic-next-feature)
 [ "$NEXT" = "F02" ] && pass "dispatcher returns F02 after F01 merged" || fail "expected F02, got '$NEXT'"
 
 # 7. L-023: spike workflow end-to-end. Add a fresh epic with a single
 # spike and confirm pi-feature-start + (simulated) worker writing journal
 # to MAIN_REPO + pi-feature-complete all succeed without manual recovery.
-echo "[7/8] L-023 spike workflow"
+echo "[7/10] L-023 spike workflow"
 cd "$SANDBOX"
 # Clean .pi/ from the half-finished first epic so a fresh init works.
 rm -rf .pi/
@@ -186,7 +186,7 @@ else
 fi
 
 # 8. L-025: pi-epic-complete should leave the tree clean.
-echo "[8/8] L-025 clean tree after pi-epic-complete"
+echo "[8/10] L-025 clean tree after pi-epic-complete"
 # Complete the spike epic. --no-pr skips the push step (no origin).
 pi-epic-complete --no-pr > /dev/null 2>&1 || true
 if [[ -d ".pi/epics/done/$SPIKE_EPIC" ]]; then
@@ -199,6 +199,104 @@ if [[ -n $(git status --porcelain) ]]; then
   fail "L-025: working tree dirty after pi-epic-complete"
 else
   pass "working tree clean after pi-epic-complete (L-025)"
+fi
+
+# 9. L-029: range syntax in depends_on must be rejected with a specific error.
+echo "[9/10] L-029 depends_on range syntax detection"
+L29_DIR=$(mktemp -d)
+cd "$L29_DIR"
+git init -q -b main && git config user.email t@t && git config user.name T
+echo init > r.md && git add r.md && git commit -qm init >/dev/null
+mkdir -p .pi/epics/0001-x
+cat > .pi/STATE.md <<'EOF'
+Active epic: .pi/epics/0001-x/
+EOF
+cat > .pi/epics/0001-x/meta.yaml <<'EOF'
+id: 0001-x
+title: x
+status: design
+default_branch: main
+EOF
+cat > .pi/epics/0001-x/decomposition.yaml <<'EOF'
+epic: 0001-x
+features:
+  - id: F01
+    slug: a
+    summary: a
+    depends_on: []
+    estimated_hours: 1
+    scope_files: [src/a.py, src/b.py]
+    acceptance_criteria: [a]
+  - id: F02
+    slug: b
+    summary: b
+    depends_on: [F01-F03]
+    estimated_hours: 1
+    scope_files: [src/c.py]
+    acceptance_criteria: [b]
+  - id: F03
+    slug: c
+    summary: c
+    depends_on: [F01]
+    estimated_hours: 1
+    scope_files: [src/d.py]
+    acceptance_criteria: [c]
+EOF
+out=$(pi-epic-validate-decomposition 2>&1) && ec=0 || ec=$?
+cd "$SANDBOX"
+rm -rf "$L29_DIR"
+if [[ $ec -ne 0 ]] && echo "$out" | grep -q "range syntax 'F01-F03'"; then
+    pass "L-029: range syntax errors with specific hint"
+else
+    echo "  exit=$ec output: $out" >&2
+    fail "L-029: expected range-syntax error"
+fi
+
+# 10. L-030: parent-dir-missing warning suppressed when 2+ scope_files share parent.
+echo "[10/10] L-030 parent-dir warning suppression"
+L30_DIR=$(mktemp -d)
+cd "$L30_DIR"
+git init -q -b main && git config user.email t@t && git config user.name T
+echo init > r.md && git add r.md && git commit -qm init >/dev/null
+mkdir -p .pi/epics/0001-x
+cat > .pi/STATE.md <<'EOF'
+Active epic: .pi/epics/0001-x/
+EOF
+cat > .pi/epics/0001-x/meta.yaml <<'EOF'
+id: 0001-x
+title: x
+status: design
+default_branch: main
+EOF
+# F01 has 2 scope_files under newpkg/ → should suppress.
+# F02 has 1 scope_file under solo/ → should still warn.
+cat > .pi/epics/0001-x/decomposition.yaml <<'EOF'
+epic: 0001-x
+features:
+  - id: F01
+    slug: a
+    summary: a
+    depends_on: []
+    estimated_hours: 1
+    scope_files: [newpkg/a.py, newpkg/b.py]
+    acceptance_criteria: [a]
+  - id: F02
+    slug: b
+    summary: b
+    depends_on: [F01]
+    estimated_hours: 1
+    scope_files: [solo/c.py]
+    acceptance_criteria: [b]
+EOF
+out=$(pi-epic-validate-decomposition 2>&1) || true
+cd "$SANDBOX"
+rm -rf "$L30_DIR"
+if echo "$out" | grep -q "'solo/c.py' does not exist" && \
+   ! echo "$out" | grep -qE "'newpkg/(a|b)\.py' does not exist"; then
+    pass "L-030: parent-dir warning suppressed for shared-parent files; kept for singletons"
+else
+    echo "  output: $out" >&2
+    fail "L-030: suppression behaved unexpectedly"
 fi
 
 echo ""

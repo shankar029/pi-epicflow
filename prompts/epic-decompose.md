@@ -88,6 +88,14 @@ Build a decomposition with these properties:
   - `id` — `F01`, `F02`, … in dependency order. **Spikes** use `S01`,
     `S02`, … sharing the same numeric counter (see "Spike features"
   below).
+    - **L-031 (v0.5.2) — spike numbering.** Place spikes at the position in
+      the dependency order where they naturally fall, sharing the
+      counter with features. If the spike blocks `F04+`, name it `S04`
+      (positioned after `F01..F03`); if it blocks `F12+`, name it `S12`.
+      Don't force all spikes to `S01..S0N` at the top — that hides the
+      DAG position and confuses readers. Smoke epic used `S01,F02..F04`
+      (spike at the top); gen-ui epic used `F01..F03,S04,F05..` (spike
+      after early catalog work). Both are valid; the second is clearer.
   - `slug` — kebab-case, ≤4 words, unique.
   - `kind` — `feature` (default) or `spike`. Omit for normal features.
   - `summary` — 3–8 lines of plain prose: what it does, how it does it,
@@ -95,6 +103,13 @@ Build a decomposition with these properties:
   - `depends_on` — list of earlier ids that MUST be merged before this
     one starts. Be conservative: only true compile/import/test
     dependencies. Don't invent dependencies just to serialize work.
+    - **L-029 (v0.5.2) — NO range syntax.** Always write `depends_on` as
+      an explicit list: `depends_on: [F06, F07, F08, F09]`. NEVER write
+      `depends_on: [F06-F09]` or `depends_on: F06-F09`. YAML does not
+      expand ranges; the dispatcher treats `"F06-F09"` as a single
+      literal feature ID that doesn't exist, silently breaking the
+      dependency graph. The validator catches this with an error, but
+      it's faster to write it right the first time.
   - `estimated_hours` — fractional, e.g. `0.5` `1` `1.5`. Sum across all
     features should be a believable total for the epic. **Spikes capped
     at 8h.**

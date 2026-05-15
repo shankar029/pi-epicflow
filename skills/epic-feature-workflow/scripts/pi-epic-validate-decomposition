@@ -42,6 +42,9 @@ GLOB_CHARS = set('*?[]{}')
 # literal sample is intentionally inline (fenced or quoted). The decomp
 # prompt enforces inline samples; the validator only requires the term.
 LITERAL_SAMPLE_TERMS = ('golden', 'snapshot', 'wire shape', 'wire format')
+# L-029 (v0.5.2): match 'F01-F09', 'S04-S07', 'F12-S04' — any X-Y where
+# both sides look like feature IDs. Used to flag range syntax in depends_on.
+_RANGE_RE = re.compile(r'^[FSfs]\d+-[FSfs]\d+$')
 
 # Minimal YAML reader for the schema we use. Tolerates the unsafe-leading
 # chars (parser-friendly) so we can surface them as ERRORS rather than
@@ -157,6 +160,20 @@ warnings = []
 required = ['id','slug','summary','depends_on','scope_files','acceptance_criteria','estimated_hours']
 ids_seen = []
 
+# L-030 (v0.5.2): pre-compute per-directory scope_file counts across the
+# entire decomposition. The "parent dir missing" warning suppresses when
+# a directory has 2+ planned scope_files in it (signal: someone is
+# building a new package on purpose, not a stale path).
+_planned_dir_filecount = {}
+for _ft in data.get('features', []) or []:
+    for _entry in (_ft.get('scope_files') or []):
+        _val = _entry.get('value', '') if isinstance(_entry, dict) else str(_entry)
+        if not _val: continue
+        if any(c in _val for c in '*?[]{}'): continue
+        _d = os.path.dirname(_val)
+        if _d:
+            _planned_dir_filecount[_d] = _planned_dir_filecount.get(_d, 0) + 1
+
 _FID_RE = re.compile(r'^F(\d+)([a-z]?)$')
 _SID_RE = re.compile(r'^S(\d+)([a-z]?)$')
 expected_idx = 1
@@ -263,7 +280,12 @@ for i, ft in enumerate(data.get('features', [])):
                 f"{fid}: AC mentions golden/snapshot/wire-shape but no literal sample inline. "
                 f"Add a fenced code block with the expected output, or quote the literal.")
 
-    # L-021: scope_files non-glob entries should exist on the filesystem (warning).
+    # L-021 + L-030 (v0.5.2): scope_files non-glob entries should exist on
+    # the filesystem, OR their parent dir should be planned-by-the-epic
+    # (i.e. some other scope_file in the corpus is going into the same new
+    # directory). Suppress the "stale path" warning for greenfield
+    # multi-file packages — prior to v0.5.2 the validator emitted one
+    # noise warning per new-dir scope_file (smoke + gen-ui both flooded).
     for j, entry in enumerate(sf):
         val = entry.get('value', '') if isinstance(entry, dict) else str(entry)
         if not val: continue
@@ -273,9 +295,17 @@ for i, ft in enumerate(data.get('features', [])):
         if not os.path.exists(abs_path):
             parent = os.path.dirname(abs_path) or repo_root
             if not os.path.isdir(parent):
-                warnings.append(
-                    f"{fid}: scope_files[{j}] '{val}' does not exist AND its parent dir is missing. "
-                    f"Likely a stale path from an earlier layout.")
+                parent_rel = os.path.relpath(parent, repo_root)
+                # Suppress if 2+ scope_files across the epic share this
+                # parent dir — someone is intentionally building a new package.
+                if _planned_dir_filecount.get(parent_rel, 0) >= 2:
+                    pass
+                else:
+                    warnings.append(
+                        f"{fid}: scope_files[{j}] '{val}' does not exist AND its parent dir is missing. "
+                        f"Likely a stale path from an earlier layout. "
+                        f"(If this is a new package, add a second scope_file under '{parent_rel}/' "
+                        f"to confirm intent and silence this warning.)")
             else:
                 # Parent exists → probably a file the feature creates. Skip.
                 pass
@@ -352,6 +382,17 @@ for ft in data.get('features', []):
     deps = ft.get('depends_on') or []
     deps_vals = _vals(deps) if (deps and isinstance(deps[0], dict)) else list(deps)
     for d in deps_vals:
+        # L-029 (v0.5.2): range syntax 'F06-F09' is not real YAML — the
+        # dispatcher treats it as a literal (non-existent) feature ID.
+        # Catch it specifically with a hint that points at the fix
+        # (expand to explicit list).
+        if _RANGE_RE.match(d):
+            errors.append(
+                f"{fid}: depends_on contains range syntax '{d}'. "
+                f"Expand to an explicit list, e.g. depends_on: [F06, F07, F08, F09]. "
+                f"YAML does not expand ranges; the dispatcher treats '{d}' as a "
+                f"literal feature ID, silently breaking the dependency graph.")
+            continue
         if d not in all_ids:
             errors.append(f"{fid}: depends_on '{d}' is not a defined feature")
 

@@ -6,6 +6,26 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.2] — 2026-05-14
+
+**UX + validation polish.** Five items — one prompt UX change already on
+main, plus four items surfaced by the gen-ui epic decomposition (the
+first real outside-user epic since v0.5.1). No schema changes, no
+breaking changes, no new halt codes.
+
+### Added
+
+- **L-028 — `docs/recovery.md` (recovery playbook).** Seven named
+  recipes (R1–R7) covering common stuck states: lost-journal restore
+  after an L-004 `--ours` resolve; empty-squash on a non-spike
+  feature; dirty tree after `pi-feature-complete` / `pi-epic-complete`
+  (pre-v0.5.1 epics); feat-branch base drift; half-finished
+  `pi-feature-start`; when `--skip-tests` is the right hammer; and a
+  final 15-min stop-and-halt rule. Each recipe follows the same
+  shape: Symptom → Root cause → Recovery commands → Verification →
+  Prevention reference. Cross-linked from
+  `prompts/epic-run-auto.md` §STALL HANDLING. Deferred from v0.5.1.
+
 ### Changed
 
 - **`/epic-decompose` no longer prints the full YAML.** The prompt used to
@@ -30,6 +50,44 @@ project adheres to [Semantic Versioning](https://semver.org/).
   Steps 3–6, but in the user's approval turn rather than the proposal
   turn. This adds a real human-in-the-loop checkpoint before the
   commit.
+
+### Fixed
+
+- **L-029 — `depends_on` range syntax is now caught with a useful
+  error.** Range strings like `[F06-F09]` or `F06-F09` look like YAML
+  range syntax but YAML doesn't expand them — the dispatcher treats
+  `"F06-F09"` as a single literal feature ID that doesn't exist,
+  silently breaking the dependency graph. Previously the validator
+  caught this with a generic `depends_on '...' is not a defined feature`
+  error that didn't point at the underlying mistake. Now:
+  - `pi-epic-validate-decomposition` matches the range pattern
+    `^[FS]\d+-[FS]\d+$` and emits an error naming the fix inline:
+    *"Expand to an explicit list, e.g. depends_on: [F06, F07, F08, F09]."*
+  - `prompts/epic-decompose.md` Step 1 has a new L-029 callout banning
+    range syntax explicitly.
+  - Near-miss in gen-ui decomposition: seven features had range
+    strings in the summary view; user caught it during review.
+- **L-030 — validator's parent-dir-missing warning no longer floods
+  greenfield decompositions.** The warning was designed to catch stale
+  paths from earlier layouts, but on epics that build new packages
+  (gen-ui: ~10 new directories with multiple files each) it fired once
+  per file: 50+ false-positive lines that drowned real warnings. Now:
+  - Pre-compute per-directory scope_file counts across the entire
+    decomposition.
+  - Suppress the warning when 2+ scope_files share the same (missing)
+    parent dir — evidence the user is building a new package on
+    purpose, not pointing at a stale path.
+  - Single-file-in-new-dir entries still warn (those could be stale).
+  - Warning message now also tells the user how to silence it
+    explicitly: *"add a second scope_file under '<parent>/' to confirm
+    intent."*
+- **L-031 — spike numbering convention.** Smoke epic used `S01,F02..F04`
+  (spike at the top); gen-ui used `F01..F03,S04,F05..` (spike after
+  early catalog work). Both work mechanically. The second is clearer:
+  the id reflects DAG position, not just "this is a spike". Encoded in
+  `prompts/epic-decompose.md` Step 1: place spikes at the position in
+  the dependency order where they naturally fall, sharing the numeric
+  counter with features.
 
 ## [0.5.1] — 2026-05-14
 

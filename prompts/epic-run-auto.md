@@ -245,6 +245,14 @@ a halt condition fires.
 
 ## §STALL HANDLING (worker / reviewer appears stuck)
 
+> **§RECOVERY — stuck git state, not stuck subagent.** When the stuck-state
+> is `pi-feature-complete` / `pi-epic-complete` / `pi-feature-start`
+> erroring out, lost-journal symptoms, or feat-branch base drift, the
+> seven named recipes in `docs/recovery.md` (R1–R7) are the playbook.
+> Read that doc before improvising. The 15-minute stop-and-halt rule
+> at the bottom of `docs/recovery.md` is the same budget as this
+> section's stall budget — intentionally identical.
+
 Trigger this whenever **any** of the following happens while waiting on a
 subagent:
 - A pi needs-attention notice mentions the run.

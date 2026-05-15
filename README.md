@@ -644,7 +644,7 @@ auto-commit train"*, *"prefer in-progress over ready in the dispatcher to
 avoid leaking worktrees"*). New lessons get appended each time
 `pi-epic-complete` distills `deviations.md` from a finished epic.
 
-L-001 through L-027 are documented today (v0.5.1 added L-023/L-024/L-025/L-026/L-027 from the kvstore v0.5.0 smoke epic). Contributions of new lessons via
+L-001 through L-031 are documented today (v0.5.2 added L-028/L-029/L-030/L-031 from the gen-ui epic decomposition review). Contributions of new lessons via
 PR are welcome and encouraged.
 
 ---
