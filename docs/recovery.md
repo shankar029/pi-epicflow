@@ -286,6 +286,56 @@ destination + commits. Upgrade.
 
 ---
 
+## R8 — H10 soft halt: ambiguous AC on one feature (v0.6+)
+
+**Symptom.** `/epic-run-auto` reports `HALT SOFT (H10)` on a specific
+feature, marks it `state: halted-ambiguous` in `meta.yaml`, writes
+`.pi/epics/<id>/halt-<ts>.md`, and *continues running other
+dependency-independent features*. The halted feature is parked, not
+dead.
+
+**Root cause.** Planner or worker found an AC that's ambiguous in a
+way that *cannot* be safely guessed at: literal `TODO`/`TBD` in the
+AC text, a `scope_files` entry pointing at a non-existent path that
+isn't a multi-file new package, an upstream deviation entry that
+contradicts this AC, a `design.md` symbol that doesn't exist. H10
+differs from H9 in that the issue is *localized* — only this feature
+is blocked, the epic keeps moving.
+
+**Recovery.** This is a clarification, not a code fix. Open the halt
+report, read the question, then edit ONE of:
+
+- `.pi/epics/<id>/decomposition.yaml` — if the AC needs a literal
+  value (replace `TODO` with the actual command, add the missing
+  scope_file, expand the AC into 2 specific lines).
+- `.pi/epics/<id>/design.md` — if the missing symbol/API was a design
+  oversight and now needs a section.
+- BOTH, if the AC change requires a design rationale too.
+
+Then commit the clarification:
+
+```bash
+git add .pi/epics/<id>/
+git commit -m "clarify(<fid>): resolve H10 ambiguity in <AC name>"
+```
+
+Resume `/epic-run-auto`. `pi-epic-next-feature`'s in-progress-first
+rule (L-010) picks up the halted feature — the planner and worker
+re-run against the clarified AC.
+
+**Verification.** `pi-epic-status` shows the feature back to `pending`
+or `ready`; the halt report is no longer the latest. The clarified
+AC reads as a single concrete requirement, not a fill-in-the-blank.
+
+**Prevention.** Better up-front decomposition. `/epic-decompose`'s
+guidance already says "every AC must be testable"; literal
+TODO/TBD/placeholder text in an AC is the most common H10 trigger
+and the easiest to spot at decomposition time. Run
+`pi-epic-validate-decomposition` immediately after decompose; future
+versions may add a TODO-literal scan to that validator.
+
+---
+
 ## When to stop and ask for help
 
 If you've spent more than **15 minutes** on recovery and none of the

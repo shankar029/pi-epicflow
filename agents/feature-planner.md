@@ -145,19 +145,42 @@ A spike's deliverable is a decision, not code. For spikes:
 If, after reading the contract and references, you find an
 **unresolvable ambiguity** (an AC that cannot be planned against without
 a product decision), use `contact_supervisor` with
-`reason: "need_decision"` and **wait for the reply**. The orchestrator
-will halt with H9 (planner-blocked) and surface your question to the
-human.
+`reason: "need_decision"` and **wait for the reply**.
 
-Examples of valid H9 escalation:
-- AC references a function that doesn't exist anywhere in the repo and
-  the design doesn't specify where it should live.
-- AC specifies "matches the existing pattern" but there is no existing
-  pattern (would be the first of its kind).
-- Two ACs are mutually contradictory.
+Two halt codes apply, distinguished by severity:
+
+- **H9 — planner-blocked.** Decomposition is genuinely wrong; cannot
+  plan until the user edits `decomposition.yaml` or `design.md`. The
+  orchestrator halts THIS feature; dependency-independent features can
+  continue. Examples:
+  - AC references a function that doesn't exist anywhere in the repo
+    and the design doesn't specify where it should live.
+  - AC specifies "matches the existing pattern" but there is no existing
+    pattern (would be the first of its kind).
+  - Two ACs are mutually contradictory.
+
+- **H10 — ambiguous AC, paused for human.** Softer than H9: you *could*
+  guess and pick a reasonable interpretation, but the guess has a
+  meaningful chance of being wrong intent. The orchestrator marks the
+  feature `halted-ambiguous` and proceeds to the next DAG-independent
+  feature (does NOT block the whole epic). H10 triggers:
+  - AC literally contains `TODO`, `TBD`, `<placeholder>`, `???`, or a
+    blank field where a value is expected.
+  - A `scope_files` entry references a path that doesn't exist AND
+    isn't part of a 2+-file new package (L-030: that's a greenfield
+    signal, not ambiguity).
+  - An upstream dep's deviation entry or spike decision directly
+    contradicts the current AC.
+  - `design.md` references a symbol/file/API that doesn't exist and
+    isn't being created by this feature.
+  - The AC could be read 2+ different ways and the choice changes the
+    diff materially.
+
+  **H10 is NOT for ambiguity-resolvable-by-reading-2-or-3-docs.** Go
+  read first; H10 only when reading-more wouldn't disambiguate.
 
 If `contact_supervisor` is unavailable, write the ambiguity to `plan.md`
-§Ambiguities and return `state: BLOCKED` in your report.
+§Ambiguities, set `halt_code` in your report, and return `state: BLOCKED`.
 
 ## Output shape
 
@@ -167,6 +190,7 @@ Return exactly this structure (markdown). Keep it tight.
 state: READY | BLOCKED
 feature: <FID>-<slug>
 kind: feature | spike
+halt_code: <H9|H10|none>     # required if state: BLOCKED
 
 Plan written: <PLAN_PATH>
 
@@ -183,7 +207,8 @@ If BLOCKED:
 Recommended next step (orchestrator):
 - spawn feature-worker with PLAN_PATH=<absolute path>
   (worker will treat plan.md as binding)
-- OR HALT (H9) if BLOCKED
+- OR HALT (H9) if BLOCKED and decomposition needs editing
+- OR HALT (H10) if BLOCKED and AC just needs a clarifying line
 ```
 
 That report is the orchestrator's only window into your planning. Make it

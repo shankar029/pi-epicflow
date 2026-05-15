@@ -147,10 +147,21 @@ a halt condition fires.
    e. Read the planner report. Decide:
       - `state: READY` and `plan.md` exists → continue to step 4. The
         worker will see plan.md and treat it as binding.
-      - `state: BLOCKED` (planner surfaced an unresolvable ambiguity) →
-        **HALT (H9 — planner-blocked)**. Surface the planner's question to
-        the human in the halt report. Do NOT spawn the worker; the
-        decomposition needs human input first.
+      - `state: BLOCKED` with `halt_code: H9` (planner surfaced an
+        unresolvable structural ambiguity) → **HALT (H9 —
+        planner-blocked)**. Surface the planner's question to the human
+        in the halt report. Do NOT spawn the worker; the decomposition
+        needs human input first.
+      - `state: BLOCKED` with `halt_code: H10` (planner surfaced an AC
+        ambiguity that could be papered over but shouldn't) → **HALT
+        SOFT (H10 — ambiguous AC)**: mark this feature
+        `state: halted-ambiguous` in `meta.yaml`, write a halt report
+        with the planner's exact question, then **continue to the next
+        dependency-independent feature** via `pi-epic-next-feature`. Do
+        NOT block the whole epic. When the user resolves the AC (edits
+        `decomposition.yaml` / `design.md`) and re-runs `/epic-run-auto`,
+        `pi-epic-next-feature`'s in-progress-first rule (L-010) picks
+        the halted feature back up.
       - Missing or malformed report → treat as BLOCKED, log to deviations,
         HALT (H9).
 
@@ -190,7 +201,11 @@ a halt condition fires.
 
 6. Read the worker-report.md (it's small; pull it into context with `read`).
    Decide:
-   - state: BLOCKED → goto §ESCALATION below.
+   - state: BLOCKED with `halt_code: H10` → **HALT SOFT (H10)** as in
+     step 3.e: mark feature `halted-ambiguous`, write halt report,
+     continue to next DAG-independent feature. Worker found AC
+     ambiguity post-plan that planner missed (or planner didn't run).
+   - state: BLOCKED (other halt_code) → goto §ESCALATION below.
    - state: READY → continue.
    - missing/malformed report → treat as BLOCKED, log to deviations, halt.
 
@@ -454,6 +469,7 @@ Halt codes:
 - **H6** — merge conflict on squash-merge into epic branch
 - **H7** — subagent stalled past the §STALL HANDLING budget (or 2nd respawn also stalled)
 - **H9** — planner-blocked: `feature-planner` surfaced an unresolvable ambiguity (missing call sites, contradictory AC, or undefined pattern). Decomposition needs human input before this feature can proceed. Surface the planner's exact question; do not retry without a decomposition.yaml edit.
+- **H10** — ambiguous AC, paused for human. Softer than H9: the planner or worker found an AC ambiguity that could be guessed at but shouldn't (TODO/TBD literals, missing scope_file, contradiction with upstream deviation, undefined design.md symbol, materially-divergent valid interpretations). Mark the feature `state: halted-ambiguous`, write a halt report with the exact question and recommended fix, then **continue to the next dependency-independent feature** in the DAG. Do NOT block the whole epic on H10 — only this feature and its dependents. When the user resolves the AC (editing `decomposition.yaml` or `design.md`), they re-run `/epic-run-auto` and the halted feature is retried automatically.
 
 1. Write `.pi/epics/<id>/halt-<UTC-timestamp>.md` describing:
    - which step (1–14) failed

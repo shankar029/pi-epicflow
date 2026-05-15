@@ -60,8 +60,22 @@ Do not ask the orchestrator to summarise these files; read them yourself.
    - **AC interpretation** per criterion: literal expected output / exit
      code / schema / behavior. Be concrete — "prints `OK` to stdout" not
      "prints success".
-   - **Ambiguities** — if any AC is genuinely ambiguous, HALT with H1
+   - **Ambiguities** — if any AC is genuinely ambiguous, HALT with **H10**
      (escalate via `contact_supervisor`) BEFORE editing. Do not guess.
+     **H10 trigger list** (any of these → halt, do not proceed):
+     - AC literally contains `TODO`, `TBD`, `<placeholder>`, `???`, or
+       a blank field where a value is expected.
+     - A `scope_files` entry references a path that doesn't exist AND
+       isn't in a 2+-file new package (the L-030 case — that's a
+       greenfield signal, not ambiguity).
+     - An upstream dep's output (a merged feature's deviation entry, an
+       earlier spike's decision) directly contradicts the current AC.
+     - `design.md` references a symbol, file, or API that doesn't exist
+       in the repo and isn't being created by this feature.
+     H10 is for ambiguity-you-could-paper-over-but-shouldn't. If you can
+     resolve the ambiguity by reading 2–3 docs or grepping the codebase,
+     that is NOT H10 — go read. H10 is reserved for cases where any
+     guess you make has a >25% chance of being the wrong intent.
    - **Anti-scope** — what you are explicitly NOT doing in this feature.
 
    This section is your contract with the reviewer. If your eventual diff
@@ -91,6 +105,14 @@ Do not ask the orchestrator to summarise these files; read them yourself.
 5. **Test.** Run `epic-config.yaml`'s `test_cmd` from the worktree root.
    Up to 3 attempts with **different strategies** if it fails. After 3
    failures → §6 (escalate, do not pretend success).
+
+   **Capture evidence as you go.** For each AC, keep the *literal*
+   command you ran and its last ~20 lines of stdout/stderr. You will
+   paste these into the worker-report's `## Completion evidence`
+   section (see §7). Do NOT paraphrase the output. Do NOT make up
+   commands you didn't run. If you can't produce a real command for an
+   AC (e.g. the AC is purely about code shape), say so — list the
+   file:line you point to as evidence and explain why no command applies.
 
 6. **Self-review.** Run `git diff $(yaml epic_branch)...HEAD` (epic branch
    is in `.pi/epics/<id>/meta.yaml`). Look for: stray TODOs, half-finished
@@ -157,11 +179,16 @@ that change your plan; not for routine progress.
 ## §7 — Required final report shape
 
 Return exactly this structure (markdown). Keep it tight; no chain-of-thought.
+**The `## Completion evidence` section is MANDATORY for non-spike features.**
+`pi-feature-complete` refuses to merge a feature whose `worker-report.md`
+doesn't contain that header. (Spikes are exempt — their evidence lives in
+the spike template's §5 and `deviations.md`.)
 
 ```
 state: READY | BLOCKED
 feature: F<NN>-<slug>
 branch: feat/<epic-slug>/F<NN>-<slug>
+halt_code: <H1|H10|...|none>     # required if state: BLOCKED
 
 Implemented:
 - <bullet>
@@ -176,6 +203,30 @@ Validation:
 - key tests: <names or count>
 - self-review: <clean | fixed N issues>
 
+## Completion evidence
+
+### AC1: <verbatim AC text>
+```
+$ <exact command you ran>
+<last ~20 lines of stdout/stderr, verbatim, no paraphrase>
+```
+Evidence summary: <one line — e.g. "exit 0, 14 tests passed including
+test_foo and test_bar">
+
+### AC2: <verbatim AC text>
+... (one block per AC) ...
+
+### AC<N>: <code-shape AC with no runnable check>
+No runnable command applies. Evidence is structural: see `<file>:<line>`
+(the function exists, has the expected signature, and is called from
+`<caller>:<line>`).
+
+## Diff summary
+```
+$ git diff <epic_branch>...HEAD --stat
+<verbatim stat output>
+```
+
 Deviations logged: <none | <one-line summary, full entry already appended>>
 
 Open risks/questions: <none | bullets>
@@ -189,3 +240,8 @@ Recommended next step (orchestrator):
 ```
 
 That report is the orchestrator's only window into your work. Make it accurate.
+
+**Hallucinating evidence is the worst thing you can do here.** If you didn't
+run a command, don't quote its output. The reviewer's first job is to spot
+fabricated evidence; if caught, the feature comes back to you as
+`REQUEST_CHANGES` and your credibility-budget for this feature is spent.

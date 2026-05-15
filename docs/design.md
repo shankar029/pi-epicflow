@@ -120,9 +120,20 @@ Why:
 
 When the agent is unsure (test fails repeatedly, design is genuinely
 ambiguous, merge conflict on epic, **planner can't resolve a fact**), it
-halts with one of eight well-defined codes (H1–H7, H9) and writes a
+halts with one of nine well-defined codes (H1–H7, H9, H10) and writes a
 `halt-<UTC>.md` with the exact resume command. It does NOT try three
 different things in a row.
+
+The halt codes split into two severity tiers:
+
+- **Hard halts (H1–H7, H9):** the whole epic stops. Resume requires the
+  user to take an action (commit/stash, edit decomposition, fix env, etc.).
+- **Soft halt (H10) — added in v0.6:** only this feature stops; the
+  orchestrator skips to the next dependency-independent feature in the DAG
+  and keeps going. Used for ambiguous AC that the planner or worker found
+  during runtime (literal `TODO`/`TBD`, missing scope_file, contradicting
+  upstream deviation, undefined design symbol). Lets the user clarify one
+  feature without blocking the other ten.
 
 Why:
 - A bad guess at hour 3 of a 12-feature run wastes hours. A halt loses
@@ -195,6 +206,36 @@ Why:
   *what was built* without rereading every diff.
 - At `pi-epic-complete`, deviations are distilled into the global
   `lessons.md`. The skill literally gets smarter every epic.
+
+### Every rule has a mechanical enforcement point (v0.6)
+
+When a new lesson, halt code, or quality bar gets added, the change MUST
+land somewhere a shell script, validator, reviewer-must-cite clause, or
+git-state check can fail loudly. Prompt-only rules ("the worker should
+…") fail silently when the model ignores them and quietly bit-rot over
+time.
+
+Concretely, every rule lands in at least one of:
+- a `pi-*` script gate (`pi-feature-complete` rejects missing evidence,
+  `pi-epic-validate-decomposition` rejects range syntax, etc.),
+- a reviewer must-cite clause (the reviewer's verdict requires citing
+  the rule's evidence; missing evidence → REQUEST_CHANGES),
+- a structured field the orchestrator parses (halt codes, `state:` enum,
+  `kind: feature|spike`), or
+- a template the reviewer audits for completeness (≥2 spike options,
+  per-AC evidence blocks).
+
+Why:
+- Lessons L-019, L-023, L-025, L-028, L-029, L-030 all happened because
+  earlier prompt-only suggestions weren't enough to prevent the bug.
+  Each lesson's fix added a mechanical gate.
+- Pi-epicflow's core leverage over a culture-pack-style "skills bundle"
+  is that the orchestrator runs shell scripts the agent can't avoid.
+  Keep that leverage. Don't drift toward prompt-only rules just because
+  they're easy to write.
+- Exceptions are rare and should be documented (e.g. anti-sycophancy
+  clauses where there's no good mechanical proxy — those stay as
+  reviewer must-cite rules).
 
 ## The two operating modes
 

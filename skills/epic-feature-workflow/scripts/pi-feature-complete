@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# pi-feature-complete <feature-id> [--skip-tests]
+# pi-feature-complete <feature-id> [--skip-tests] [--skip-evidence]
 #
 # - Verifies we're in the feature's worktree on the feature branch
 # - Runs build/test (autodetected or from epic-config.yaml) unless --skip-tests
+# - Verifies worker-report.md has a "## Completion evidence" section
+#   (non-spike only) unless --skip-evidence
 # - Squash-merges the feature branch into the epic branch
 # - Deletes the feature branch and worktree
 # - Moves feature folder to features/done/
@@ -20,10 +22,18 @@ done
 __SCRIPT_DIR="$(cd -P "$(dirname "$__src")" && pwd)"
 source "$__SCRIPT_DIR/_common.sh"
 
-[[ $# -ge 1 ]] || { echo "usage: pi-feature-complete <feature-id> [--skip-tests]" >&2; exit 1; }
+[[ $# -ge 1 ]] || { echo "usage: pi-feature-complete <feature-id> [--skip-tests] [--skip-evidence]" >&2; exit 1; }
 fid=$1; shift
 skip_tests=0
-[[ "${1:-}" == "--skip-tests" ]] && skip_tests=1
+skip_evidence=0
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --skip-tests) skip_tests=1 ;;
+        --skip-evidence) skip_evidence=1 ;;
+        *) echo "unknown flag: $1" >&2; exit 1 ;;
+    esac
+    shift
+done
 
 repo=$(repo_root)
 cd "$repo"
@@ -95,6 +105,34 @@ if [[ $skip_tests -eq 0 && "$kind" != "spike" ]]; then
     fi
 elif [[ "$kind" == "spike" ]]; then
     log "spike feature: skipping tests (deliverable is decision artifact)"
+fi
+
+# v0.6: completion-evidence gate. Non-spike features must have a
+# "## Completion evidence" section in their worker-report.md. This forces
+# the worker to show its work (commands run, output captured) and gives
+# the reviewer something concrete to audit. Spikes are exempt — their
+# evidence lives in the spike template's §3/§5 + deviations.md entry.
+#
+# Override with --skip-evidence (e.g. for legacy features authored before
+# v0.6 that have a valid review but no evidence block).
+if [[ $skip_evidence -eq 0 && "$kind" != "spike" ]]; then
+    report="$feat_dir/worker-report.md"
+    if [[ ! -f "$report" ]]; then
+        echo "ERROR: worker-report.md missing at $report" >&2
+        echo "  The worker must emit a report before pi-feature-complete runs." >&2
+        echo "  Pass --skip-evidence to merge anyway (NOT recommended)." >&2
+        yaml_set "$feat_dir/meta.yaml" state "halted"
+        exit 1
+    fi
+    if ! grep -qE '^## Completion evidence' "$report"; then
+        echo "ERROR: worker-report.md is missing the '## Completion evidence' section." >&2
+        echo "  Required for non-spike features as of v0.6 (see agents/feature-worker.md §7)." >&2
+        echo "  Re-spawn the worker with a hint to add per-AC evidence blocks," >&2
+        echo "  or pass --skip-evidence to merge anyway (NOT recommended)." >&2
+        yaml_set "$feat_dir/meta.yaml" state "halted"
+        exit 1
+    fi
+    log "completion-evidence section present in worker-report.md"
 fi
 
 # Commit any final pending changes in the worktree

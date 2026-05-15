@@ -6,6 +6,130 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-05-14
+
+**Verification + soft-halt release.** Closes the two biggest implicit
+failure modes that the gen-ui decomposition surfaced and that
+obra/superpowers' culture pack (191k☆) is also trying to address from
+the opposite direction: workers hallucinating "done" without showing
+their work, and ambiguous AC silently guessed at instead of paused.
+
+Borrows the *concepts* from obra/superpowers'
+`verification-before-completion`, `systematic-debugging`, and
+"stop and ask" patterns, but lands them as **mechanical gates** —
+shell-script checks, structured halt codes, reviewer must-cite clauses,
+template completeness audits — not as prompt-only skills. The new L-034
+lesson codifies that principle going forward.
+
+One new halt code (H10), one new shell-script gate, one tightened
+template, four new mandatory reviewer checks, three new lessons. No
+breaking changes; v0.5.x epics in flight keep working (legacy features
+without an evidence section can be merged with `--skip-evidence`).
+
+### Added
+
+- **L-032 — worker completion evidence (mechanical gate).** Workers must
+  emit a `## Completion evidence` section in `worker-report.md` with one
+  `### AC<N>:` block per acceptance criterion containing the literal
+  command run + the last ~20 lines of stdout/stderr (or a `file:line`
+  citation + structural claim for code-shape ACs). `pi-feature-complete`
+  enforces presence of the header at the shell layer; missing evidence
+  rejects the merge unless `--skip-evidence` is passed. The reviewer is
+  required to spot-check at least one block by re-running the command
+  — mismatched output → REQUEST_CHANGES with the specific block flagged.
+  Spikes are exempt (their evidence lives in the spike template's §3/§5
+  and `deviations.md`). (Concept inspired by obra/superpowers'
+  `verification-before-completion` skill.)
+
+- **L-033 — H10 soft halt code ("ambiguous AC, paused for human").**
+  New halt code for ambiguities that should not block the whole epic:
+  literal `TODO`/`TBD`/`<placeholder>`/`???` in AC text, missing
+  scope_file that isn't part of a multi-file greenfield package (L-030
+  case), upstream deviation contradicting current AC, undefined
+  `design.md` symbol referenced by the AC, materially-divergent valid
+  readings. On H10, `/epic-run-auto` marks the feature
+  `state: halted-ambiguous`, writes a halt report with the planner or
+  worker's exact question, and **continues to the next dependency-
+  independent feature** — only this feature and its dependents are
+  blocked, not the whole epic. When the user resolves the AC (one-line
+  edit to `decomposition.yaml` or `design.md`) and re-runs
+  `/epic-run-auto`, `pi-epic-next-feature`'s in-progress-first rule
+  (L-010) picks the halted feature back up. Recipe documented in
+  `docs/recovery.md` R8. The halt family is now H1–H7, H9 (hard),
+  H10 (soft).
+
+- **L-034 — "Every rule has a mechanical enforcement point" (meta-
+  lesson).** Documented as a top-level key design choice in
+  `docs/design.md`. Every new lesson, halt code, or quality bar must
+  land in at least one of: a `pi-*` script gate, a reviewer must-cite
+  clause that maps to REQUEST_CHANGES, a structured field the
+  orchestrator parses (halt codes, `state:` enums, `kind:`), or a
+  template field the reviewer audits for completeness. Prompt-only
+  rules are allowed only when no good mechanical proxy exists
+  (anti-sycophancy clauses, etc.) and must be flagged as exceptions.
+  This is pi-epicflow's actual leverage over a culture-pack-style
+  skills bundle — keep it.
+
+- **Reviewer credibility clause (folded into L-032).** `feature-reviewer`
+  must either (a) name at least one concrete weakness in the worker's
+  change, or (b) explicitly list three specific things it checked and
+  found clean. Rubber-stamp APPROVE with no findings and no specifics is
+  rejected by the orchestrator. Cheapest available anti-sycophancy lever.
+
+- **`docs/recovery.md` R8 — H10 recovery recipe.** Symptom → root
+  cause → the one-line edit to `decomposition.yaml` or `design.md` →
+  resume → prevention. Cross-linked from `prompts/epic-run-auto.md`.
+
+### Changed
+
+- **`templates/feature-spike.md` — ≥2 options required, ≥3 recommended.**
+  Each option must list approach, pros, cons, and a falsification or
+  comparison test. "Option B = do not adopt; keep status quo" is a valid
+  second option for genuinely one-sided spikes. Reviewer enforces the
+  floor — spikes with only one filled-in option come back as
+  REQUEST_CHANGES. (Concept inspired by obra/superpowers'
+  `systematic-debugging` skill; pi-epicflow already had the template,
+  v0.6 makes the floor reviewer-enforced.)
+
+- **`pi-feature-complete` — new `--skip-evidence` flag.** Mirrors
+  `--skip-tests` for the evidence gate. Use for legacy v0.5.x features
+  whose worker-report predates the evidence requirement, or for the
+  rare case where the worker had a real reason to omit the section.
+
+- **`agents/feature-worker.md` — H10 trigger list added** to step 2
+  (planning). Replaces the old "HALT with H1" instruction for
+  ambiguous AC with the more specific H10 path.
+
+- **`agents/feature-planner.md` — H9 vs H10 distinction made explicit.**
+  H9 stays for structural ambiguity (decomposition is wrong; full epic
+  halt). H10 is for AC-level ambiguity (one feature halts; epic
+  continues). Examples and trigger lists for both.
+
+- **Halt family documented as two tiers in `docs/design.md`.** Hard
+  halts (H1–H7, H9) stop the epic. Soft halt (H10) stops only the
+  feature and its dependents.
+
+### Fixed
+
+_(Nothing in this release — v0.6.0 is additive. Smoke test grew
+from 10 to 12 phases; phases 1–10 unchanged in behavior, phases 11
+and 12 cover the new evidence-gate.)_
+
+### Inspired by but did NOT adopt
+
+- TDD enforcer (obra/superpowers `test-driven-development`) —
+  pi-epicflow targets any epic, not just test-firstable code. A hard
+  rule would break legitimate non-TDD features (configs, migrations,
+  docs epics). Available as an optional planner-trigger tag, not a
+  default.
+- Brainstorming, root-cause, commit-hygiene skills — single-line
+  ideas, folded into existing prompts where applicable, not imported
+  as separate skills (per the L-034 "no skill sprawl" anti-pattern).
+- Multi-harness adapters (Claude Code, Codex, Cursor, OpenCode, etc.)
+  — pi-epicflow is pi-shaped and that's a feature, not a gap.
+- `pi-skill-lint` for user-authored content (researcher's P4) —
+  premature; reconsider when first outside-contributor PR opens.
+
 ## [0.5.2] — 2026-05-14
 
 **UX + validation polish.** Five items — one prompt UX change already on

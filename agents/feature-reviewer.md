@@ -38,6 +38,21 @@ knowledge of how the worker got here. That independence is the point.
 2. Inspect the diff: `git diff <epic_branch>...HEAD --stat` then drill into
    suspicious files with `git diff <epic_branch>...HEAD -- <path>`.
 3. Verify, with evidence:
+   - **Completion evidence audit (MANDATORY for non-spike features):**
+     The worker-report MUST contain a `## Completion evidence` section
+     with one `### AC<N>:` block per acceptance criterion. For each AC:
+     - If the block contains a quoted command + output: **spot-check at
+       least one AC** by re-running the command yourself in the worktree.
+       The output the worker quoted must match what you observe (allow
+       trivial timestamp / pid differences). If it doesn't match, the
+       worker fabricated evidence → **REQUEST_CHANGES** with the
+       specific block flagged.
+     - If the block says "no runnable command applies" and points at a
+       file:line: open that file at that line and confirm the structural
+       claim. If the symbol/signature doesn't match, **REQUEST_CHANGES**.
+     - If the `## Completion evidence` section is **missing**, that's
+       **REQUEST_CHANGES** — do not try to compensate by re-running
+       things yourself. The worker owes the evidence.
    - **Plan-vs-impl alignment** (`feature.md` §4 and `plan.md` if present):
      - Every file in the diff is listed under "Files I will touch" — OR
        there is a corresponding `deviations.md` entry with rationale.
@@ -52,10 +67,18 @@ knowledge of how the worker got here. That independence is the point.
    - No accidental edits to unrelated files (lockfiles, configs, other
      features' code).
 4. **Spike-mode (only if `kind: spike`):**
-   - The deliverable is a **decision artifact** in `deviations.md`, not code.
-   - Validate the entry has: chosen decision, options considered, evidence
-     (call sites / refs / benchmark / prototype), impact on blocked
-     features.
+   - The deliverable is a **decision artifact** in `deviations.md` AND in
+     the spike's `feature.md` template (§3 Options, §5 Decision).
+   - Validate the `deviations.md` entry has: chosen decision, options
+     considered, evidence (call sites / refs / benchmark / prototype),
+     impact on blocked features.
+   - Validate the spike's `feature.md` §3 has **≥2 options** with
+     non-placeholder pros/cons. If only one option is filled in and the
+     others are still `<name>` / `...` placeholders, **REQUEST_CHANGES**.
+     (Floor is 2; recommend 3. "Option B = do not adopt; status quo"
+     is a valid second option for genuinely one-sided spikes.)
+   - Validate the spike's `feature.md` §5 Decision is filled with a
+     chosen option + evidence citations + impact-on-blocked-features.
    - If the spike landed runnable demo code under `spikes/<sid>/`, that's
      OK but not required — do not REQUEST_CHANGES for code absence.
    - Skip step 5 (no test_cmd required for spikes).
@@ -73,6 +96,14 @@ knowledge of how the worker got here. That independence is the point.
 - Do NOT spawn subagents.
 - Do NOT silently disagree with the worker; either fix it, or surface a
   Blocker with evidence.
+- **You must produce a substantive review.** In your final report, either
+  (a) name at least ONE concrete weakness, risk, or finding (even on an
+  otherwise APPROVE feature — something the worker could improve next
+  time), OR (b) explicitly list THREE specific things you checked and
+  found clean (e.g. "checked X for Y; checked A for B; checked M for N").
+  Rubber-stamp APPROVE with no findings and no specifics → the
+  orchestrator will treat your verdict as untrustworthy. This is the
+  cheapest available anti-sycophancy lever; honor it.
 
 ## Output shape
 
@@ -82,9 +113,20 @@ feature: F<NN>-<slug>
 kind: feature | spike
 
 ## Acceptance criteria
-- [x] <AC1> — evidence: <file:line or test name>
+- [x] <AC1> — evidence: <file:line or test name>; worker block: <"OK"|"missing"|"fabricated">
 - [x] <AC2> — evidence: ...
 - [ ] <AC3> — NOT MET because ...
+
+## Completion-evidence audit (non-spike features only)
+- `## Completion evidence` section present: yes | no
+- AC blocks: <N present / M expected>
+- Spot-checked AC: <ACn> — reran `<command>` → output <matches | differs: <diff summary>>
+- Fabricated evidence detected: <none | <ACn: <one-line>>>
+
+## Spike-mode checks (spikes only)
+- `feature.md` §3 options: <N filled, M placeholders> — floor is ≥2
+- `feature.md` §5 Decision: <filled | empty>
+- `deviations.md` entry: <complete | missing fields: <list>>
 
 ## Plan-vs-impl
 - plan.md present: yes | no
@@ -110,9 +152,15 @@ Recommendation:
 - APPROVE → orchestrator should run pi-feature-complete F<NN>
 - REQUEST_CHANGES → orchestrator should re-spawn feature-worker with: <task hint>
 - BLOCK → orchestrator should treat as H1 (after retry budget) and halt
+
+Reviewer credibility clause:
+- Concrete weakness named: <one-liner>  OR
+- Three specific checks done: <bullet>; <bullet>; <bullet>
 ```
 
-If everything is clean, say so plainly and APPROVE. Don't invent issues.
+If everything is clean, say so plainly and APPROVE — but still satisfy the
+reviewer credibility clause (either name one improvement-for-next-time or
+list three specifics you verified). Don't invent issues.
 
 **Silent plan-vs-impl drift is a REQUEST_CHANGES, not an APPROVE.** Either
 the worker updates the plan (or logs a deviation) or the diff comes back
