@@ -644,7 +644,7 @@ auto-commit train"*, *"prefer in-progress over ready in the dispatcher to
 avoid leaking worktrees"*). New lessons get appended each time
 `pi-epic-complete` distills `deviations.md` from a finished epic.
 
-L-001 through L-034 are documented today (v0.6.0 added L-032/L-033/L-034 from the obra/superpowers review and the v0.6 verification-gate + soft-halt release; v0.5.2 added L-028/L-029/L-030/L-031 from the gen-ui epic decomposition review). Contributions of new lessons via
+L-001 through L-035 are documented today (v0.6.1 added L-035 — defer the parallel-dispatch orchestrator, ship `pi-epic-status --ready` as the manual-parallelism aid; v0.6.0 added L-032/L-033/L-034 from the obra/superpowers review and the v0.6 verification-gate + soft-halt release; v0.5.2 added L-028/L-029/L-030/L-031 from the gen-ui epic decomposition review). Contributions of new lessons via
 PR are welcome and encouraged.
 
 ---

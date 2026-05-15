@@ -6,6 +6,56 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.1] — 2026-05-15
+
+**Manual-parallelism aid + parallel-dispatch design sketch.** Closes the
+"can I run features in parallel?" question with a near-free path today
+(open multiple pi sessions, use `pi-epic-status --ready` to pick
+non-overlapping features) and parks the full-orchestrator design in
+`docs/sketch-parallel.md` for v0.7+ when real wall-clock evidence
+justifies the ~16h build.
+
+### Added
+
+- **`pi-epic-status --ready`** — list features that are currently
+  dispatchable (own state ∈ {pending, halted-ambiguous}, every dep
+  merged). Default mode prints a table with the warning that overlapping
+  scope_files must be dispatched serially. `--ready --quiet` (or `-q`)
+  emits one feature id per line for scripting:
+  `pi-epic-status --ready --quiet | head -2` to pick two for two pi
+  sessions. When no features are ready, prints the top blocker deps
+  ranked by how many pending features each one gates.
+
+- **`docs/sketch-parallel.md`** — ~1-page design sketch for a v0.7+
+  parallel-dispatch orchestrator. Captures: the problem, what's already
+  in place (worktrees + pi-subagents parallel mode + DAG semantics +
+  v0.6.1 `--ready`), the five hard problems (serial squash-merge, stale
+  worktree on out-of-order merge, halt isolation, reviewer consistency,
+  observability), the proposed components (batch dispatch + conflict
+  pre-check + parallel worker pool + per-task review + serial merge
+  queue + halt isolation), the rebase-or-fallback protocol (halt-and-ask,
+  no auto-rebase), the decision gate (one real ≥20-feature epic with
+  measurable serial-wait time OR two independent outside users asking),
+  the cost estimate (~16h vs. v0.6.0's ~5h), and open questions. Will be
+  the starting point if/when we ship; until then it just prevents
+  redesigning from scratch.
+
+### Why this and not the full dispatcher
+
+No real evidence yet that serial dispatch is the bottleneck. kvstore was
+4 features; gen-ui hasn't run. Building a 16h parallel orchestrator on
+zero data points violates the project's no-bloat bias. The `--ready`
+lookup is ~50 lines of Python in an existing script and lets users get
+manual parallelism today — enough to find out whether they actually
+want the full thing. (L-035 captures this decision.)
+
+### Smoke test
+
+Grew from 12 to 13 phases (added phase 13 for `--ready` correctness:
+verifies F01 + F04 ready when all pending; F02 + F03 join the ready set
+after F01 merges; F02 drops out when it goes in-progress and rejoins on
+halted-ambiguous). 13/13 pass.
+
 ## [0.6.0] — 2026-05-14
 
 **Verification + soft-halt release.** Closes the two biggest implicit

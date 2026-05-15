@@ -42,7 +42,7 @@ echo "# smoke" > README.md
 git add README.md && git commit -qm "init"
 
 # 1. epic-init
-echo "[1/12] pi-epic-init"
+echo "[1/13] pi-epic-init"
 cat > /tmp/pi-epicflow-smoke-design.md <<'EOF'
 # Smoke
 Two features.
@@ -53,7 +53,7 @@ EPIC_ID=$(ls .pi/epics/ | grep -E '^0[0-9]+-' | head -1)
 [ "$(git rev-parse --abbrev-ref HEAD)" = "epic/smoke" ] && pass "on epic branch" || fail "not on epic branch"
 
 # 2. decomposition
-echo "[2/12] decomposition.yaml"
+echo "[2/13] decomposition.yaml"
 cat > ".pi/epics/$EPIC_ID/decomposition.yaml" <<EOF
 epic: $EPIC_ID
 features:
@@ -76,12 +76,12 @@ git add .pi/ && git commit -qm "decomp"
 pass "decomposition committed"
 
 # 3. next-feature dispatch
-echo "[3/12] pi-epic-next-feature"
+echo "[3/13] pi-epic-next-feature"
 NEXT=$(pi-epic-next-feature)
 [ "$NEXT" = "F01" ] && pass "next-feature returns F01" || fail "expected F01, got '$NEXT'"
 
 # 4. feature-start with L-012 (halt file present) + L-013 (status advance)
-echo "[4/12] pi-feature-start F01 (with halt-fake.md present)"
+echo "[4/13] pi-feature-start F01 (with halt-fake.md present)"
 echo "fake halt content" > ".pi/epics/$EPIC_ID/halt-fake.md"
 echo "extra line for design" >> ".pi/epics/$EPIC_ID/design.md"
 pi-feature-start F01 > /dev/null
@@ -98,7 +98,7 @@ fi
 [ -f ".pi/epics/$EPIC_ID/halt-fake.md" ] && pass "halt file still on disk" || fail "halt file was removed"
 
 # 5. worker simulation + feature-complete (v0.6: worker-report.md with evidence section)
-echo "[5/12] simulate worker + pi-feature-complete F01"
+echo "[5/13] simulate worker + pi-feature-complete F01"
 WT_PATH="$(grep -E "^worktree:" ".pi/epics/$EPIC_ID/features/F01-alpha/meta.yaml" | sed -E 's/^worktree:\s*"?([^"]*)"?.*/\1/')"
 [ -d "$WT_PATH" ] || fail "feature worktree missing: $WT_PATH"
 (
@@ -153,14 +153,14 @@ else
 fi
 
 # 6. dispatcher unblocks F02 after F01 merged
-echo "[6/12] pi-epic-next-feature after F01"
+echo "[6/13] pi-epic-next-feature after F01"
 NEXT=$(pi-epic-next-feature)
 [ "$NEXT" = "F02" ] && pass "dispatcher returns F02 after F01 merged" || fail "expected F02, got '$NEXT'"
 
 # 7. L-023: spike workflow end-to-end. Add a fresh epic with a single
 # spike and confirm pi-feature-start + (simulated) worker writing journal
 # to MAIN_REPO + pi-feature-complete all succeed without manual recovery.
-echo "[7/12] L-023 spike workflow"
+echo "[7/13] L-023 spike workflow"
 cd "$SANDBOX"
 # Clean .pi/ from the half-finished first epic so a fresh init works.
 rm -rf .pi/
@@ -220,7 +220,7 @@ else
 fi
 
 # 8. L-025: pi-epic-complete should leave the tree clean.
-echo "[8/12] L-025 clean tree after pi-epic-complete"
+echo "[8/13] L-025 clean tree after pi-epic-complete"
 # Complete the spike epic. --no-pr skips the push step (no origin).
 pi-epic-complete --no-pr > /dev/null 2>&1 || true
 if [[ -d ".pi/epics/done/$SPIKE_EPIC" ]]; then
@@ -236,7 +236,7 @@ else
 fi
 
 # 9. L-029: range syntax in depends_on must be rejected with a specific error.
-echo "[9/12] L-029 depends_on range syntax detection"
+echo "[9/13] L-029 depends_on range syntax detection"
 L29_DIR=$(mktemp -d)
 cd "$L29_DIR"
 git init -q -b main && git config user.email t@t && git config user.name T
@@ -287,7 +287,7 @@ else
 fi
 
 # 10. L-030: parent-dir-missing warning suppressed when 2+ scope_files share parent.
-echo "[10/12] L-030 parent-dir warning suppression"
+echo "[10/13] L-030 parent-dir warning suppression"
 L30_DIR=$(mktemp -d)
 cd "$L30_DIR"
 git init -q -b main && git config user.email t@t && git config user.name T
@@ -334,7 +334,7 @@ else
 fi
 
 # 11. L-032: pi-feature-complete rejects a worker-report without '## Completion evidence'.
-echo "[11/12] L-032 evidence-gate rejects missing-evidence report"
+echo "[11/13] L-032 evidence-gate rejects missing-evidence report"
 L32_DIR=$(mktemp -d)
 cd "$L32_DIR"
 git init -q -b main && git config user.email t@t && git config user.name T
@@ -378,7 +378,7 @@ else
 fi
 
 # 12. L-032: --skip-evidence override permits merge for legacy/edge cases.
-echo "[12/12] L-032 --skip-evidence override works"
+echo "[12/13] L-032 --skip-evidence override works"
 L32B_DIR=$(mktemp -d)
 cd "$L32B_DIR"
 git init -q -b main && git config user.email t@t && git config user.name T
@@ -414,6 +414,67 @@ else
     echo "  exit=$ec merged=$merged output: $out" >&2
     fail "L-032: --skip-evidence override failed"
 fi
+
+# 13. L-035: pi-epic-status --ready filters by dep-merged + own-state-dispatchable.
+echo "[13/13] L-035 pi-epic-status --ready ready-set correctness"
+L35_DIR=$(mktemp -d)
+cd "$L35_DIR"
+git init -q -b main && git config user.email t@t && git config user.name T
+echo init > r.md && git add r.md && git commit -qm init >/dev/null
+pi-epic-init demo --title "demo" >/dev/null 2>&1
+E35_ID=$(ls .pi/epics/ | grep -v done | head -1)
+cat > ".pi/epics/$E35_ID/decomposition.yaml" <<'EOF'
+epic: demo
+features:
+  - id: F01
+    slug: a
+    summary: a
+    depends_on: []
+    estimated_hours: 1
+    scope_files: [a.txt]
+    acceptance_criteria: [a]
+  - id: F02
+    slug: b
+    summary: b
+    depends_on: [F01]
+    estimated_hours: 1
+    scope_files: [b.txt]
+    acceptance_criteria: [b]
+  - id: F03
+    slug: c
+    summary: c
+    depends_on: []
+    estimated_hours: 1
+    scope_files: [c.txt]
+    acceptance_criteria: [c]
+EOF
+# All pending → F01 + F03 ready (F02 blocked by F01).
+out=$(pi-epic-status --ready --quiet | sort | tr '\n' ',')
+if [[ "$out" == "F01,F03," ]]; then
+    pass "L-035: --ready returns leaf-features (F01,F03) when all pending"
+else
+    echo "  got: '$out' expected 'F01,F03,'" >&2; fail "L-035: ready-set initial"
+fi
+# Mark F01 as merged → F02 + F03 ready (F01 done, F02 now unblocked, F03 still ready).
+mkdir -p ".pi/epics/$E35_ID/features/done/F01-a"
+echo "state: merged" > ".pi/epics/$E35_ID/features/done/F01-a/meta.yaml"
+out=$(pi-epic-status --ready --quiet | sort | tr '\n' ',')
+if [[ "$out" == "F02,F03," ]]; then
+    pass "L-035: --ready transitions correctly after merge (F02 unblocks)"
+else
+    echo "  got: '$out' expected 'F02,F03,'" >&2; fail "L-035: ready-set post-merge"
+fi
+# Mark F02 halted-ambiguous → still in ready set (v0.6 H10).
+mkdir -p ".pi/epics/$E35_ID/features/F02-b"
+echo "state: halted-ambiguous" > ".pi/epics/$E35_ID/features/F02-b/meta.yaml"
+out=$(pi-epic-status --ready --quiet | sort | tr '\n' ',')
+if [[ "$out" == "F02,F03," ]]; then
+    pass "L-035: --ready includes halted-ambiguous features (H10-resume path)"
+else
+    echo "  got: '$out' expected 'F02,F03,'" >&2; fail "L-035: ready-set halted-ambiguous"
+fi
+cd "$SANDBOX"
+rm -rf "$L35_DIR"
 
 echo ""
 echo "🎉 smoke test passed"
