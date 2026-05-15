@@ -1,5 +1,5 @@
 ---
-description: Propose, refine, and commit the decomposition.yaml for the active epic. Reads design.md + lessons.md, shows you the YAML, iterates on your feedback, then writes/validates/commits when you approve.
+description: Propose, refine, and commit the decomposition.yaml for the active epic. Reads design.md + lessons.md, writes the draft YAML to disk, shows a compact summary (counts + DAG + per-feature one-liners), iterates on your feedback, then validates and commits when you approve.
 argument-hint: "[--features=N] [--auto-commit]"
 ---
 
@@ -252,39 +252,71 @@ POC code, findings docs, prior-art ADRs.
 
   Re-read the file before proposing — it grows over time.
 
-### Step 2 — present and refine
+### Step 2 — write the draft and summarize
 
-POST the proposed YAML in chat **as a fenced code block**. Above it, draw
-the dependency graph in ASCII:
+**Write the proposed YAML to `.pi/epics/<id>/decomposition.yaml` using the
+`write` tool** (overwriting the template or any prior draft from a
+previous iteration). This is the draft on disk — not yet committed.
+
+**Do NOT print the full YAML body in chat.** Large decompositions
+(20+ features) flood the terminal as they stream, are too long to skim
+quickly, and add real wall-clock latency to the turn. The file on disk
+is the source of truth; chat is for navigation.
+
+Then run `pi-epic-validate-decomposition` once for the summary's
+`warnings:` section (errors short-circuit — fix and re-run before
+showing the summary at all). Then POST exactly this block:
 
 ```
+─── DECOMPOSITION DRAFT ───
+epic:           <id>
+file:           .pi/epics/<id>/decomposition.yaml
+features:       N total (M features, K spikes)
+total est:      X.Xh
+needs_planner:  P tagged
+
 dependency graph:
   F01 ──┐
         ├── F02 ── F03
   F01 ──┘
                        F04 ── F05
+
+features:
+  F01  alpha            1.0h  deps: -          [planner: format-sensitive-ac, many-acs]
+  F02  bravo            1.5h  deps: F01
+  S01  pick-algo        4.0h  spike            [planner: implicit]
+  F03  charlie          0.5h  deps: F02
+  ...
+
+warnings (validator):
+  - <copy each warning line verbatim, or omit this whole section if none>
+─────────────────────────
 ```
 
-Then ask: *"Looks good, or want changes? You can say things like 'merge
-F03 and F04', 'split F02 into model + cli', 'F05 doesn't depend on F03',
-'add a feature for the README update'. Or just say 'looks good / approved
-/ write it' and I'll proceed."*
+Then ask: *"Open `.pi/epics/<id>/decomposition.yaml` in your editor and
+review. You can request changes — 'merge F03 and F04', 'split F02 into
+model + cli', 'F05 doesn't depend on F03', 'add a feature for the
+README update' — or just say 'looks good / approved / write it / lgtm'
+and I'll proceed to validate + commit."*
 
-**CRITICAL:** when the user replies with any approval signal — *"looks
-good"*, *"approved"*, *"yes"*, *"ship it"*, *"lgtm"*, *"go ahead"*,
-*"write it"*, or similar — do NOT stop or wait for further input. The
-approval is your trigger to **continue to steps 3, 4, 5, and 6 in the
-same turn**. The deliverable of this prompt is *"decomposition.yaml
-committed to the epic branch"*, NOT *"YAML displayed in chat"*. If you
-stop after the user approves, you have failed the contract.
+**Then STOP and wait for the user's response.** Do not proceed to
+Step 3 until the user replies. (This is different from past behavior
+where the agent kept going after a presumed approval — user wants a
+human-in-the-loop checkpoint here.)
 
-Only stop on:
-- An explicit "wait" / "hold on" / "let me think" from the user.
-- An explicit abort ("forget it" / "cancel" / "I'll do it manually").
-- A change request — in which case you revise the YAML and re-present.
+**On change requests:** revise the YAML internally, **overwrite the
+same file on disk**, re-run the validator for warnings, and re-POST
+the summary block. Do NOT print the YAML body. Iterate.
 
-Iterate until the user approves or aborts. **On approval, immediately
-proceed to Step 3** in the same response.
+**On approval signals** (*"looks good"*, *"approved"*, *"yes"*, *"ship
+it"*, *"lgtm"*, *"go ahead"*, *"write it"*, etc.): proceed to Steps 3,
+4, 5, 6 in the **next** turn (the user's approval turn). Don't loop
+back to ask again.
+
+**On explicit abort** (*"forget it"*, *"cancel"*, *"I'll do it
+manually"*): post a STATUS with `phase: aborted by user`. Leave the
+draft file on disk so the user can salvage / hand-edit it. Don't
+commit.
 
 ### Step 3 — set the test_cmd
 
@@ -325,23 +357,31 @@ POST a STATUS, show the user the line you intend to put in
 `epic-config.yaml`, and wait for confirmation. They may have a different
 runner in mind (`hatch test`, `pnpm test`, `mise run test`, etc.).
 
-### Step 4 — write to disk
+### Step 4 — the draft is already on disk
 
-Write the approved YAML to `.pi/epics/<id>/decomposition.yaml`. Overwrite
-any existing file (you confirmed at pre-flight). Also write
-`epic-config.yaml` with the agreed `test_cmd` if it changed.
+Step 2 already wrote `.pi/epics/<id>/decomposition.yaml`, and each
+iteration overwrote it. By the time the user approves, the on-disk
+file matches the approved version — nothing more to write for the
+decomposition itself.
 
-### Step 5 — validate
+If Step 3 produced an updated `test_cmd`, write `epic-config.yaml` now.
+
+### Step 5 — final validate
 
 Run:
 ```bash
 pi-epic-validate-decomposition
 ```
 
-If it exits non-zero, the proposal is broken. **Don't commit.** Read the
-error, fix the YAML, re-validate. Surface each fix to the user briefly
-(*"validator caught: duplicate scope_file `src/cli.py` in F02 and F04 —
-moving cli changes entirely to F02"*).
+Step 2 already ran this once for the summary's warnings list, but the
+user may have asked for last-second tweaks between the summary post
+and the approval. Re-run; warnings from the second pass are fine
+(they're warnings) but errors block.
+
+If it exits non-zero, the proposal is broken. **Don't commit.** Read
+the error, fix the YAML on disk, re-validate. Surface each fix to the
+user briefly (*"validator caught: duplicate scope_file `src/cli.py` in
+F02 and F04 — moving cli changes entirely to F02"*).
 
 ### Step 6 — commit
 

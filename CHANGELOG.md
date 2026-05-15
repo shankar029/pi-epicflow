@@ -6,6 +6,31 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- **`/epic-decompose` no longer prints the full YAML.** The prompt used to
+  stream the entire proposed `decomposition.yaml` into chat as a fenced
+  code block for review. On large epics (20+ features) this flooded the
+  terminal, was too long to skim quickly, and added real wall-clock
+  latency to the turn. New behavior: the agent **writes the draft to
+  `.pi/epics/<id>/decomposition.yaml` on disk**, runs the validator for
+  warnings, then POSTs a compact summary block (epic id, totals,
+  dependency graph, one line per feature with id/slug/hours/deps/
+  planner tags, validator warnings). The user reviews the file directly
+  in their editor and either approves or requests changes; on changes
+  the agent overwrites the same file and re-posts the summary. The
+  file is not committed until the user approves (Steps 5+6 unchanged).
+  Touches `prompts/epic-decompose.md` only — no script or schema
+  changes.
+- **`/epic-decompose` now stops and waits after the summary.** Previously
+  the prompt instructed the agent to continue straight through Steps 3–6
+  in the same turn once it detected an approval signal. New behavior:
+  after posting the draft summary the agent **STOPS** and waits for the
+  user's next message before proceeding. Approval still triggers
+  Steps 3–6, but in the user's approval turn rather than the proposal
+  turn. This adds a real human-in-the-loop checkpoint before the
+  commit.
+
 ## [0.5.1] — 2026-05-14
 
 **Bug-fix release.** Six tooling sharpenings traced to specific artifacts
