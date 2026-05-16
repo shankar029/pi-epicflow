@@ -189,3 +189,86 @@ refuse_default_branch() {
 
 # Echo to stderr
 log() { echo "[epic-workflow] $*" >&2; }
+
+# Per-machine user lessons file (privacy fix — v0.6.2 / L-036).
+# Distilled lessons from each user's epics accumulate here, NEVER in the
+# framework's skills/.../lessons.md. The framework file ships with pi-epicflow
+# and is shared by all users; this file is machine-private and is read by
+# agents alongside the framework lessons (user lessons win on conflict).
+user_lessons_path() {
+    echo "${HOME}/.pi/epicflow/user-lessons.md"
+}
+
+# Ensure the user-lessons file exists with a header.
+ensure_user_lessons() {
+    local p; p=$(user_lessons_path)
+    [[ -f "$p" ]] && return 0
+    mkdir -p "$(dirname "$p")"
+    cat > "$p" <<'EOF'
+# User lessons (machine-private)
+
+> Per-machine, per-user lessons distilled from your epics. Never auto-pushed.
+> Agents read this file ALONGSIDE the framework's
+> `skills/epic-feature-workflow/lessons.md`. On conflict, **user-lessons win**
+> (more context-specific to your codebase / toolchain / environment).
+>
+> To contribute a generalizable lesson upstream to pi-epicflow itself, copy
+> the entry into a PR against `skills/epic-feature-workflow/lessons.md` on
+> https://github.com/shankar029/pi-epicflow — `pi-epic-complete
+> --contribute-lesson L-XYZ` prints the copy-paste-friendly form.
+
+## Lessons
+
+EOF
+}
+
+# Append distilled lessons-candidate content (per-epic) to user-lessons.md.
+# Idempotent on epic id: if a section for this epic already exists, skip.
+append_user_lessons_from_candidate() {
+    local candidate=$1 epic_id=$2
+    ensure_user_lessons
+    local p; p=$(user_lessons_path)
+    if grep -qF "## Source epic ${epic_id}" "$p" 2>/dev/null; then
+        log "user-lessons.md already has entries for ${epic_id}; skipping append"
+        return 0
+    fi
+    {
+        echo
+        echo "## Source epic ${epic_id}"
+        echo
+        echo "_Appended $(date -u +%Y-%m-%d) by pi-epic-complete._"
+        echo
+        # Strip the candidate's own header and source-deviations header;
+        # carry the deviation entries through verbatim.
+        sed -n '/^## /,$p' "$candidate" | sed '/^## Source deviations$/d'
+    } >> "$p"
+    log "appended distilled lessons from ${epic_id} → $p"
+}
+
+# Resolve the pi-epicflow clone path (used by pi-epicflow-doctor + version checks).
+# Falls back to the skill root's grandparent which works for both the standard
+# `~/.pi/agent/git/.../pi-epicflow` layout and a developer-checkout install.
+pi_epicflow_clone() {
+    local sr; sr=$(skill_root 2>/dev/null) || sr=""
+    [[ -z "$sr" ]] && return 1
+    # skill_root is .../skills/epic-feature-workflow; clone root is two levels up.
+    ( cd "$sr/../.." && pwd )
+}
+
+# Days since the pi-epicflow clone's HEAD commit. Used by version-drift warning.
+pi_epicflow_age_days() {
+    local clone; clone=$(pi_epicflow_clone 2>/dev/null) || { echo "?"; return; }
+    [[ -d "$clone/.git" ]] || { echo "?"; return; }
+    local last_ts now_ts
+    last_ts=$(git -C "$clone" log -1 --format=%ct HEAD 2>/dev/null || echo "")
+    [[ -z "$last_ts" ]] && { echo "?"; return; }
+    now_ts=$(date -u +%s)
+    echo $(( (now_ts - last_ts) / 86400 ))
+}
+
+# Echo the active pi-epicflow version (from its package.json) — best effort.
+pi_epicflow_version() {
+    local clone; clone=$(pi_epicflow_clone 2>/dev/null) || { echo "?"; return; }
+    [[ -f "$clone/package.json" ]] || { echo "?"; return; }
+    grep -E '"version"' "$clone/package.json" | head -1 | sed -E 's/.*"([0-9.]+[^"]*)".*/\1/'
+}

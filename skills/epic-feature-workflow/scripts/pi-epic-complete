@@ -21,14 +21,52 @@ done
 __SCRIPT_DIR="$(cd -P "$(dirname "$__src")" && pwd)"
 source "$__SCRIPT_DIR/_common.sh"
 
-no_pr=0; draft=0
+no_pr=0; draft=0; contribute_lesson=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --no-pr) no_pr=1; shift ;;
         --draft) draft=1; shift ;;
+        --contribute-lesson)
+            contribute_lesson=$2; shift 2 ;;
         *) echo "unknown arg: $1" >&2; exit 1 ;;
     esac
 done
+
+# --contribute-lesson L-XYZ: print copy-paste-friendly upstream PR text. Does not
+# modify the framework lessons.md in place (the user opens a PR themselves).
+if [[ -n "$contribute_lesson" ]]; then
+    p=$(user_lessons_path)
+    if [[ ! -f "$p" ]]; then
+        echo "ERROR: no user-lessons.md at $p — nothing to contribute." >&2
+        exit 1
+    fi
+    # Extract the named lesson block (### L-XYZ ... up to next ### or ##).
+    awk -v id="$contribute_lesson" '
+        $0 ~ "^### " id "(:|$| )" { found=1; print; next }
+        found && /^###|^## / { exit }
+        found { print }
+    ' "$p" > /tmp/pe-lesson-$$.md
+    if [[ ! -s /tmp/pe-lesson-$$.md ]]; then
+        echo "ERROR: lesson $contribute_lesson not found in $p" >&2
+        rm -f /tmp/pe-lesson-$$.md
+        exit 1
+    fi
+    cat <<EOF
+# Contribute upstream
+
+Copy the block below into a PR against:
+  skills/epic-feature-workflow/lessons.md
+on https://github.com/shankar029/pi-epicflow
+
+Review it first — strip ANY project-specific names, paths, or internal details.
+
+----- BEGIN $contribute_lesson -----
+EOF
+    cat /tmp/pe-lesson-$$.md
+    echo "----- END $contribute_lesson -----"
+    rm -f /tmp/pe-lesson-$$.md
+    exit 0
+fi
 
 repo=$(repo_root)
 cd "$repo"
@@ -84,6 +122,14 @@ if [[ -f "$epic_dir/deviations.md" ]]; then
         cat "$epic_dir/deviations.md"
     } > "$candidate"
     log "distilled deviations → $candidate (review and append to global lessons.md)"
+fi
+
+# v0.6.2 / L-036: also append the distilled lessons to the per-machine
+# user-lessons.md (in $HOME/.pi/epicflow/). This is the curated cross-epic
+# record agents read alongside the framework's skills/.../lessons.md, and it
+# stays out of the pi-epicflow repo entirely (no privacy leak on upstream PRs).
+if [[ -f "$candidate" ]]; then
+    append_user_lessons_from_candidate "$candidate" "$epic_id"
 fi
 
 # Auto-PR body
@@ -169,8 +215,13 @@ git add -A ".pi/epics/done/$epic_id" 2>/dev/null || true
 git reset --quiet HEAD -- ".pi/epics/done/$epic_id/halt-*.md" 2>/dev/null || true
 
 if [[ -n $(git diff --cached --name-only) ]]; then
-    git commit --quiet -m "chore(epic): archive $epic_id to .pi/epics/done/"
-    log "committed epic archive rename (L-025)"
+    # L-039 (v0.6.2): use --no-verify for journal/archive commits so husky /
+    # lint-staged hooks that lint `.pi/` markdown don't block the rename.
+    # gen-ui 0001-gen-ui F01: lint-staged ran ESLint --max-warnings 0 on .pi/
+    # docs which ESLint ignores by default, producing warnings that exceeded
+    # the threshold and aborted the journal commit.
+    git commit --quiet --no-verify -m "chore(epic): archive $epic_id to .pi/epics/done/"
+    log "committed epic archive rename (L-025, L-039 --no-verify)"
 fi
 
 # Reset STATE.md
@@ -186,8 +237,14 @@ cat <<EOF
   Branch: epic/$epic_slug pushed; PR opened (if gh available).
   Folder archived: .pi/epics/done/$epic_id/
   Lessons candidate: .pi/epics/done/$epic_id/lessons-candidate.md
+  User lessons:      $(user_lessons_path) (machine-private, agents read this)
 
-Manually review lessons-candidate.md and append generalizable patterns to
-  ~/.pi/agent/skills/epic-feature-workflow/lessons.md
+Manually review lessons-candidate.md. To CONTRIBUTE a specific lesson upstream
+to pi-epicflow (after stripping project-specific names), run:
+
+  pi-epic-complete --contribute-lesson L-XYZ
+
+Project-specific lessons stay in your user-lessons.md and are read by agents
+automatically.
 
 EOF

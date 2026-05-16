@@ -42,7 +42,7 @@ echo "# smoke" > README.md
 git add README.md && git commit -qm "init"
 
 # 1. epic-init
-echo "[1/13] pi-epic-init"
+echo "[1/16] pi-epic-init"
 cat > /tmp/pi-epicflow-smoke-design.md <<'EOF'
 # Smoke
 Two features.
@@ -53,7 +53,7 @@ EPIC_ID=$(ls .pi/epics/ | grep -E '^0[0-9]+-' | head -1)
 [ "$(git rev-parse --abbrev-ref HEAD)" = "epic/smoke" ] && pass "on epic branch" || fail "not on epic branch"
 
 # 2. decomposition
-echo "[2/13] decomposition.yaml"
+echo "[2/16] decomposition.yaml"
 cat > ".pi/epics/$EPIC_ID/decomposition.yaml" <<EOF
 epic: $EPIC_ID
 features:
@@ -76,12 +76,12 @@ git add .pi/ && git commit -qm "decomp"
 pass "decomposition committed"
 
 # 3. next-feature dispatch
-echo "[3/13] pi-epic-next-feature"
+echo "[3/16] pi-epic-next-feature"
 NEXT=$(pi-epic-next-feature)
 [ "$NEXT" = "F01" ] && pass "next-feature returns F01" || fail "expected F01, got '$NEXT'"
 
 # 4. feature-start with L-012 (halt file present) + L-013 (status advance)
-echo "[4/13] pi-feature-start F01 (with halt-fake.md present)"
+echo "[4/16] pi-feature-start F01 (with halt-fake.md present)"
 echo "fake halt content" > ".pi/epics/$EPIC_ID/halt-fake.md"
 echo "extra line for design" >> ".pi/epics/$EPIC_ID/design.md"
 pi-feature-start F01 > /dev/null
@@ -98,7 +98,7 @@ fi
 [ -f ".pi/epics/$EPIC_ID/halt-fake.md" ] && pass "halt file still on disk" || fail "halt file was removed"
 
 # 5. worker simulation + feature-complete (v0.6: worker-report.md with evidence section)
-echo "[5/13] simulate worker + pi-feature-complete F01"
+echo "[5/16] simulate worker + pi-feature-complete F01"
 WT_PATH="$(grep -E "^worktree:" ".pi/epics/$EPIC_ID/features/F01-alpha/meta.yaml" | sed -E 's/^worktree:\s*"?([^"]*)"?.*/\1/')"
 [ -d "$WT_PATH" ] || fail "feature worktree missing: $WT_PATH"
 (
@@ -153,14 +153,14 @@ else
 fi
 
 # 6. dispatcher unblocks F02 after F01 merged
-echo "[6/13] pi-epic-next-feature after F01"
+echo "[6/16] pi-epic-next-feature after F01"
 NEXT=$(pi-epic-next-feature)
 [ "$NEXT" = "F02" ] && pass "dispatcher returns F02 after F01 merged" || fail "expected F02, got '$NEXT'"
 
 # 7. L-023: spike workflow end-to-end. Add a fresh epic with a single
 # spike and confirm pi-feature-start + (simulated) worker writing journal
 # to MAIN_REPO + pi-feature-complete all succeed without manual recovery.
-echo "[7/13] L-023 spike workflow"
+echo "[7/16] L-023 spike workflow"
 cd "$SANDBOX"
 # Clean .pi/ from the half-finished first epic so a fresh init works.
 rm -rf .pi/
@@ -220,7 +220,7 @@ else
 fi
 
 # 8. L-025: pi-epic-complete should leave the tree clean.
-echo "[8/13] L-025 clean tree after pi-epic-complete"
+echo "[8/16] L-025 clean tree after pi-epic-complete"
 # Complete the spike epic. --no-pr skips the push step (no origin).
 pi-epic-complete --no-pr > /dev/null 2>&1 || true
 if [[ -d ".pi/epics/done/$SPIKE_EPIC" ]]; then
@@ -236,7 +236,7 @@ else
 fi
 
 # 9. L-029: range syntax in depends_on must be rejected with a specific error.
-echo "[9/13] L-029 depends_on range syntax detection"
+echo "[9/16] L-029 depends_on range syntax detection"
 L29_DIR=$(mktemp -d)
 cd "$L29_DIR"
 git init -q -b main && git config user.email t@t && git config user.name T
@@ -287,7 +287,7 @@ else
 fi
 
 # 10. L-030: parent-dir-missing warning suppressed when 2+ scope_files share parent.
-echo "[10/13] L-030 parent-dir warning suppression"
+echo "[10/16] L-030 parent-dir warning suppression"
 L30_DIR=$(mktemp -d)
 cd "$L30_DIR"
 git init -q -b main && git config user.email t@t && git config user.name T
@@ -334,7 +334,7 @@ else
 fi
 
 # 11. L-032: pi-feature-complete rejects a worker-report without '## Completion evidence'.
-echo "[11/13] L-032 evidence-gate rejects missing-evidence report"
+echo "[11/16] L-032 evidence-gate rejects missing-evidence report"
 L32_DIR=$(mktemp -d)
 cd "$L32_DIR"
 git init -q -b main && git config user.email t@t && git config user.name T
@@ -378,7 +378,7 @@ else
 fi
 
 # 12. L-032: --skip-evidence override permits merge for legacy/edge cases.
-echo "[12/13] L-032 --skip-evidence override works"
+echo "[12/16] L-032 --skip-evidence override works"
 L32B_DIR=$(mktemp -d)
 cd "$L32B_DIR"
 git init -q -b main && git config user.email t@t && git config user.name T
@@ -416,7 +416,7 @@ else
 fi
 
 # 13. L-035: pi-epic-status --ready filters by dep-merged + own-state-dispatchable.
-echo "[13/13] L-035 pi-epic-status --ready ready-set correctness"
+echo "[13/16] L-035 pi-epic-status --ready ready-set correctness"
 L35_DIR=$(mktemp -d)
 cd "$L35_DIR"
 git init -q -b main && git config user.email t@t && git config user.name T
@@ -475,6 +475,114 @@ else
 fi
 cd "$SANDBOX"
 rm -rf "$L35_DIR"
+
+# ── v0.6.2 phases ──
+
+echo "[14/16] L-038 test_cmd-bypass warning surfaces in pi-epic-status"
+L38_DIR="$SANDBOX/l38"
+mkdir -p "$L38_DIR" && cd "$L38_DIR"
+git init -q -b main
+git config user.email smoke@local
+git config user.name "Smoke"
+echo init > r.md && git add r.md && git commit -qm init >/dev/null
+printf 'title: Bypass\nslug: bypass\nrationale: smoke\n' > /tmp/pi-bypass-design.md
+pi-epic-init bypass --from /tmp/pi-bypass-design.md --title "Bypass" >/dev/null
+E38_ID=$(ls .pi/epics | grep -v done | head -1)
+sed -i.bak 's|^test_cmd:.*|test_cmd: "echo SKIP-tests-are-broken"|' ".pi/epics/$E38_ID/epic-config.yaml"
+rm -f ".pi/epics/$E38_ID/epic-config.yaml.bak"
+out=$(pi-epic-status 2>&1 || true)
+if echo "$out" | grep -qE 'WARNING.*bypass'; then
+    pass "L-038: bypass test_cmd surfaces WARNING in pi-epic-status"
+else
+    echo "$out" | sed 's/^/    /' >&2
+    fail "L-038: bypass warning missing"
+fi
+sed -i.bak 's|^test_cmd:.*|test_cmd: "true"|' ".pi/epics/$E38_ID/epic-config.yaml"
+rm -f ".pi/epics/$E38_ID/epic-config.yaml.bak"
+out=$(pi-epic-status 2>&1 || true)
+if ! echo "$out" | grep -qE 'WARNING.*bypass'; then
+    pass "L-038: real test_cmd does not trigger bypass warning"
+else
+    fail "L-038: false-positive warning on real test_cmd"
+fi
+cd "$SANDBOX"
+rm -rf "$L38_DIR"
+
+echo "[15/16] L-036 user-lessons.md is populated by pi-epic-complete"
+L36_DIR="$SANDBOX/l36"
+mkdir -p "$L36_DIR" && cd "$L36_DIR"
+git init -q -b main
+git config user.email smoke@local
+git config user.name "Smoke"
+echo init > r.md && git add r.md && git commit -qm init >/dev/null
+REAL_HOME="$HOME"
+L36_HOME="$SANDBOX/home36"
+mkdir -p "$L36_HOME"
+export HOME="$L36_HOME"
+printf 'title: Lesson Smoke\nslug: lsmoke\nrationale: smoke\n' > /tmp/pi-l36-design.md
+pi-epic-init lsmoke --from /tmp/pi-l36-design.md --title "Lesson Smoke" >/dev/null
+if [[ -f "$L36_HOME/.pi/epicflow/user-lessons.md" ]]; then
+    pass "L-036: pi-epic-init creates user-lessons.md skeleton"
+else
+    fail "L-036: user-lessons.md missing after pi-epic-init"
+fi
+E36_ID=$(ls .pi/epics | grep -v done | head -1)
+cat >> ".pi/epics/$E36_ID/deviations.md" <<DEVEOF
+
+## F01 — example
+
+### 2026-05-15 12:00 — sample deviation
+- What: smoke deviation
+- Why: testing distillation
+- Decomposition lesson: scope_files should include barrel exports.
+DEVEOF
+candidate=".pi/epics/$E36_ID/lessons-candidate.md"
+{
+    echo "# Lessons candidates from $E36_ID"
+    echo
+    echo "## Source deviations"
+    echo
+    cat ".pi/epics/$E36_ID/deviations.md"
+} > "$candidate"
+( source "$SCRIPTS_DIR/_common.sh" && append_user_lessons_from_candidate "$candidate" "$E36_ID" )
+if grep -q "## Source epic $E36_ID" "$L36_HOME/.pi/epicflow/user-lessons.md"; then
+    pass "L-036: pi-epic-complete distills lessons into user-lessons.md"
+else
+    cat "$L36_HOME/.pi/epicflow/user-lessons.md" | sed 's/^/    /'
+    fail "L-036: user-lessons.md missing distilled entry"
+fi
+if ( source "$SCRIPTS_DIR/_common.sh" && append_user_lessons_from_candidate "$candidate" "$E36_ID" 2>&1 ) | grep -q 'already has entries'; then
+    pass "L-036: distillation is idempotent on epic id"
+else
+    fail "L-036: distillation re-appended (non-idempotent)"
+fi
+export HOME="$REAL_HOME"
+cd "$SANDBOX"
+rm -rf "$L36_DIR"
+
+echo "[16/16] L-040 gitignore covers node_modules* family"
+L40_DIR="$SANDBOX/l40"
+mkdir -p "$L40_DIR" && cd "$L40_DIR"
+git init -q -b main
+git config user.email smoke@local
+git config user.name "Smoke"
+echo init > r.md && git add r.md && git commit -qm init >/dev/null
+printf 'title: NM\nslug: nm\nrationale: smoke\n' > /tmp/pi-l40-design.md
+pi-epic-init nm --from /tmp/pi-l40-design.md --title "NM" >/dev/null
+if grep -qxF "node_modules*" .gitignore; then
+    pass "L-040: pi-epic-init adds node_modules* glob to .gitignore"
+else
+    cat .gitignore | sed 's/^/    /'
+    fail "L-040: node_modules* missing from .gitignore"
+fi
+mkdir -p node_modules_main && touch node_modules_main/.placeholder
+if git check-ignore -q node_modules_main/.placeholder; then
+    pass "L-040: node_modules_main is correctly ignored"
+else
+    fail "L-040: node_modules_main slipped past gitignore"
+fi
+cd "$SANDBOX"
+rm -rf "$L40_DIR"
 
 echo ""
 echo "🎉 smoke test passed"

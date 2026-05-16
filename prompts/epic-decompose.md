@@ -56,6 +56,12 @@ loop:
   decomposition — they encode hard-won rules like "acceptance criteria
   should name the error class when they say 'throws'" and "scope_files must
   be unique across features".
+- The user's per-machine lessons at `~/.pi/epicflow/user-lessons.md` (v0.6.2+,
+  may not exist on first run). These are project- / toolchain- / environment-
+  specific lessons distilled from this user's prior epics. **Read this file
+  too** and apply its entries; on any conflict with the framework lessons,
+  **user-lessons win** (more context-specific). Treat user-lessons.md as a
+  hint source you can cite but don't echo verbatim into decomposition.yaml.
 
 If `design.md` is the unmodified template (still has placeholder text like
 `<one-paragraph problem statement>`), halt with H3 — there's nothing to

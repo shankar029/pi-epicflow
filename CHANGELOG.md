@@ -6,6 +6,110 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.2] — 2026-05-15
+
+**Quality-of-life pack triggered by harmony + gen-ui retrospectives.**
+Two real epics on the same day (20 features serial, 36 features parallel)
+surfaced six new lessons (L-036..L-041) that were closeable with small
+mechanical fixes. Ships them ahead of v0.7.0 to de-risk the parallel
+dispatcher and other big work that follows.
+
+### Added
+
+- **User-private lessons** (`~/.pi/epicflow/user-lessons.md`, L-036) —
+  per-machine, never auto-pushed. `pi-epic-complete` automatically
+  appends each epic's distilled lessons here; the framework's
+  `skills/epic-feature-workflow/lessons.md` no longer accumulates
+  project-specific patterns by default. Agents (decomposer + planner +
+  reviewer) read BOTH files; user lessons win on conflict. Privacy fix:
+  pushing pi-epicflow upstream no longer risks leaking your project's
+  product names, API endpoints, or internal architecture decisions.
+
+- **`pi-epic-complete --contribute-lesson L-XYZ`** (L-036) — prints
+  copy-paste-friendly text for a specific lesson from your user-lessons
+  so you can PR it into the framework's lessons.md upstream. Reminds
+  you to strip project-specific names first.
+
+- **`pi-epicflow-doctor`** (L-036) — read-only health report: clone
+  age, version, behind-origin commits, skills installed/executable,
+  user-lessons file state, active epic + test_cmd sanity, tooling on
+  PATH. Diagnostic only; never gates.
+
+- **Version-drift warning in `pi-epic-init` and `pi-epic-status`**
+  (L-036) — if the installed pi-epicflow clone is more than 7 days
+  old, log a warning suggesting `pi update pi-epicflow`. The gen-ui
+  epic shipped on v0.5.0 while v0.6.x was already out; this prevents
+  the silent-drift case.
+
+- **`test_cmd` bypass warning** (L-038) — `pi-epic-status` (and
+  `pi-epicflow-doctor`) surface a red WARNING whenever
+  `epic-config.yaml`'s `test_cmd` matches `^echo` or contains
+  `SKIP`/`skip`. The gen-ui epic ran 36 features with
+  `test_cmd: "echo SKIP-tests-verified-by-epic-review"` and deferred
+  all test verification to the final epic-review pass — worked here
+  only by luck. Now the bypass is visible on every status invocation.
+
+- **`node_modules*` glob in default `.gitignore`** (L-040) —
+  `pi-epic-init` now ensures `.gitignore` covers the whole
+  `node_modules*` family, not just exact `node_modules/`. Catches
+  worktree symlinks (`node_modules_main`), caches, and `.bak` siblings
+  that slipped past the original ignore. Gen-ui F01 lost ~5 minutes
+  to recovery from this exact scenario.
+
+- **Smoke-test phases 14, 15, 16** — coverage for L-038 bypass
+  warning, L-036 user-lessons distillation idempotency, and L-040
+  gitignore glob effectiveness.
+
+- **6 new lessons** — L-036 (user-vs-framework lessons split),
+  L-037 (toolchain availability gate — deferred to v0.7.2 for the
+  full pre-flight check), L-038 (bypass test_cmd warning), L-039
+  (journal commits use `--no-verify`), L-040 (`node_modules*` glob),
+  L-041 (late-DAG complexity factor — deferred to v0.8.1 for the
+  decomposer depth multiplier).
+
+### Changed
+
+- **All journal/archive commits use `git commit --no-verify`** (L-039)
+  — `pi-feature-start` (pending-edits + scaffold), `pi-feature-complete`
+  (worktree wip + spike journal + squash + archive), `pi-epic-init`
+  (gitignore + scaffold), `pi-epic-complete` (archive). These commits
+  only touch `.pi/` bookkeeping, never user source. Skipping husky /
+  lint-staged / commit-msg hooks here is correct: hooks should validate
+  user code, not pi-epicflow's internal record-keeping. Gen-ui F01 hit
+  this; future epics in repos with strict hooks are unblocked.
+
+- **`pi-epic-complete`** no longer instructs users to manually append
+  to the framework lessons file. New instructions point at the
+  per-machine `~/.pi/epicflow/user-lessons.md` and the
+  `--contribute-lesson` opt-in path for upstream contributions.
+
+- **`prompts/epic-decompose.md`** now instructs the decomposer to read
+  BOTH the framework lessons.md and `~/.pi/epicflow/user-lessons.md`
+  (with user-lessons winning on conflict).
+
+### Roadmap context
+
+The v0.7 / v0.8 arc is documented in `PLAN.md`:
+
+- **v0.7.0** — `feature-epic-reviewer` agent + epic-review.md gate +
+  rubber-stamp detector. Catches the cross-feature bugs (lockfile drift,
+  resource leaks across feature boundaries, design.md sections that no
+  feature ever covers) that per-feature reviewers cannot see by design.
+- **v0.7.1** — scope_files completeness validator (L-036/L-042). 58 of
+  58 deviations across harmony + gen-ui were the same shape: integration
+  shells (barrels, vite.config, Program.cs, Toolbar) missing from
+  scope_files.
+- **v0.7.2** — `required_toolchain:` epic-config pre-flight (L-037).
+  Refuses to start an epic whose features will need a SDK / runtime that
+  isn't installed; replaces the "manual structural validation" fallback.
+- **v0.8.0** — **Parallel dispatcher** (L-035 evidence-gate satisfied).
+  Gen-ui shipped 36 features in 21.75h via manual parallelism for a 2.97×
+  speedup over a serial baseline of 64.69h. Conservative defaults
+  (`max_workers: 2`), opt-in `--parallel` flag, halt-and-ask on
+  out-of-order merge conflicts.
+- **v0.8.1** — late-DAG depth multiplier (L-041) + run-log emission
+  tightening (gen-ui dropped 2 of 36 `feature-complete` events).
+
 ## [0.6.1] — 2026-05-15
 
 **Manual-parallelism aid + parallel-dispatch design sketch.** Closes the

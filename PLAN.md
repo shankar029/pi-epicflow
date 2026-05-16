@@ -1,97 +1,132 @@
-# v0.6.0 Plan
+# pi-epicflow v0.7 / v0.8 arc plan
 
-**Goal:** Close the "worker hallucinates done" gap and the "ambiguous AC silently
-guessed" gap, by adding **mechanically-enforced** evidence and a soft halt code.
-Borrows the *ideas* from `obra/superpowers` (verification-before-completion,
-systematic-debugging, hooks-as-enforcement) but encodes them as shell-script
-gates + reviewer must-cite clauses, not prompt suggestions.
+**Goal:** Ship five releases (v0.6.2 → v0.8.1) that close gaps surfaced by the
+harmony-design-studio (20-feat serial) and gen-ui (36-feat parallel) epic
+retrospectives, culminating in a parallel dispatcher whose evidence-gate
+(L-035) has now been satisfied by the gen-ui 2.97× speedup.
 
-**Status:** **done** — v0.6.0 ready to tag 2026-05-14.
-**Started:** 2026-05-14
-**Completed:** 2026-05-14 (same day)
+**Status:** in progress — v0.6.2 starting.
 
-## Scope
+## Evidence base
 
-| # | Item | Effort | Files touched |
-|---|------|--------|---------------|
-| P1 | Evidence-required completion gate | S | `agents/feature-worker.md`, `agents/feature-reviewer.md`, `pi-feature-complete`, `lessons.md` L-032 |
-| P2 | Spike-investigation template tightening (≥2 options enforced by reviewer) | S | `templates/feature-spike.md`, `agents/feature-reviewer.md`, `lessons.md` L-032 rider |
-| P3 | H10 soft halt ("ambiguous AC, paused for human") | XS | `agents/feature-worker.md`, `agents/feature-planner.md`, `prompts/epic-run-auto.md`, `docs/design.md`, `docs/recovery.md`, `lessons.md` L-033 |
-| Policy | Mechanical-enforcement principle | XS | `docs/design.md`, `lessons.md` L-034 |
+Two real epics on the same day, opposite shapes:
 
-**Net new files:** 0 (all changes go into existing files; the spike template
-already exists from v0.5).
+| | harmony-design-studio | gen-ui |
+|---|---|---|
+| Features | 20 | 36 |
+| Wall-clock | 7.9h | 21.75h |
+| Sum-of-features | 3.21h | 64.69h |
+| Parallel speedup | 1.0× (serial) | **2.97×** |
+| Max concurrent | 1 | 9–14 |
+| Decompose phase | 4.6h (58%) | 0.4h (2%) |
+| Deviations | 10 | 48 |
+| Halts / re-runs | 0 / 0 | 0 / 0 |
 
-**Net new halt code:** 1 (H10).
+Combined: 56 features, 0 halts, 100% APPROVE first-try.
+Reviewer spot-checks (F23, F26): substantive, not rubber-stamping. .NET features
+shipped without compile validation (no SDK in env) but per-feature reviewers
+DID flag this; gap is runtime validation, not review rigor.
 
-## Assumptions
+## Releases
 
-- The evidence gate is encoded in `pi-feature-complete` (not a hook) because
-  pi-epicflow already standardizes on shell scripts as the mechanical-
-  enforcement layer.
-- H10 does NOT halt the whole DAG — `pi-epic-next-feature` skips to the
-  next dependency-independent feature, mirroring H9 (planner-blocked).
-- Spike features are exempt from the evidence-gate check (their deliverable
-  is a decision artifact, not code; the spike template's filled-in §3/§5
-  IS the evidence).
+### v0.6.2 — Quality-of-life pack (~5h, IN PROGRESS)
 
-## Steps
+Bias: tight, mechanical, all five items confirmed by retrospective evidence.
 
-- [x] 1. PLAN.md written (this file).
-- [x] 2. P1 worker prompt: evidence section in report shape.
-- [x] 3. P1 reviewer prompt: per-AC evidence audit + spot-check + must-name-weakness clause.
-- [x] 4. P1 `pi-feature-complete`: hard-gate on `## Completion evidence` header (with `--skip-evidence` override).
-- [x] 5. P2 spike template: ≥2 options + falsification-test column.
-- [x] 6. P2 reviewer spike-mode: ≥2 non-placeholder options + §5 Decision filled.
-- [x] 7. P3 worker prompt: H10 trigger list + escalation path.
-- [x] 8. P3 planner prompt: H9 vs H10 distinction with examples for each.
-- [x] 9. P3 `prompts/epic-run-auto.md`: H10 in halt-codes table + soft-halt handling in steps 3.e and 6.
-- [x] 10. P3 `docs/design.md`: H10 in halt family + two-tier (hard/soft) framing.
-- [x] 11. P3 `docs/recovery.md`: R8 recipe.
-- [x] 12. Policy: `docs/design.md` "Every rule has a mechanical enforcement point" key design choice.
-- [x] 13. `lessons.md`: L-032, L-033, L-034 appended.
-- [x] 14. `install/smoke-test.sh`: phases 11 + 12 added; 12/12 pass.
-- [x] 15. `CHANGELOG.md` [0.6.0] section written.
-- [x] 16. `package.json`: 0.5.2 → 0.6.0.
-- [x] 17. Smoke test verified: 12/12.
-- [x] 18. Commit + tag v0.6.0 + push.
+- [x] **a. User/built-in lessons split (privacy).**
+  - New `~/.pi/epicflow/user-lessons.md` (per-machine, never auto-pushed)
+  - `pi-epic-complete` writes to user-lessons by default
+  - `--contribute-lesson L-XYZ` flag opts into upstream PR (still manual)
+  - Agents read both files at startup; user-lessons win on conflict
+- [x] **b. `pi-epicflow doctor` + version-drift warning.**
+  - New `pi-epicflow-doctor` script
+  - Checks: installed version vs origin/main, last-update date, skills installed
+  - `pi-epic-init` warns if installed pi-epicflow is >7 days behind origin/main
+  - `pi-epic-status` shows active pi-epicflow version + last-update date
+- [x] **c. `--no-verify` for journal commits (L-039).**
+  - `pi-feature-complete` and `pi-epic-complete` use `git commit --no-verify` for journal/archive commits
+  - One-line script change; defensive against husky/lint-staged conflicts
+- [x] **d. Seed `.gitignore` with `node_modules*` (L-040).**
+  - `pi-epic-init` ensures `.gitignore` contains `node_modules*` (not just `node_modules`)
+  - Catches the `node_modules_main` symlink-tracked-by-git class of bug
+- [x] **e. `test_cmd` bypass warning (L-038).**
+  - `pi-epic-status` shows red warning if `test_cmd` matches `^echo\s` or contains `SKIP`/`skip`
+  - `pi-epic-init` requires explicit `--accept-no-tests` flag if user sets such a bypass at creation
+- [x] **f. New lessons L-036..L-041.**
+- [x] Smoke-test pass (target: 14+ phases — add phases for doctor, journal-commit, test_cmd-warn).
+- [x] CHANGELOG entry, version bump, commit, tag, push.
 
-## Risks & rollback
+### v0.7.0 — feature-epic-reviewer agent (~6h)
 
-- **Evidence-gate false positives:** Worker forgets the "## Completion
-  evidence" section on a perfectly-fine feature, gets rejected by
-  `pi-feature-complete`. **Mitigation:** The error message tells the
-  user exactly which header is missing and where to add it; one
-  re-spawn or one hand-edit resolves. Rollback path: `--skip-evidence`
-  flag on `pi-feature-complete` if false positives are frequent.
-- **H10 too easily triggered:** Worker abuses H10 to avoid hard work.
-  **Mitigation:** H10 has a specific trigger list (TODO/TBD literals,
-  missing files); ambiguity-but-can-be-resolved-by-reading-docs is
-  explicitly NOT H10. Reviewer can mark a feature as "H10 abused;
-  proceed" in a follow-up resume.
-- **Spike template too rigid:** Some spikes genuinely have only one
-  reasonable option (e.g. "use the library the design.md specifies").
-  **Mitigation:** Floor is ≥2 options, ≥3 recommended. Reviewer can
-  accept "Option B = do not adopt; status quo" as a second option.
+- [ ] New `agents/feature-epic-reviewer.md` (final pass before `pi-epic-complete`)
+  - Inputs: all feature reports, deviations.md, design.md, squashed diff
+  - Output: epic-review.md draft with cross-feature consistency checks
+  - Design-trace table (every design.md §X.Y → which feature)
+  - Catches B1/B2-class cross-feature bugs (lockfile, resource leak)
+  - **Rubber-stamp detector:** percentile of features with worker_runs=1 + review_cycles=1 + APPROVE. >90% emits explicit confidence-warning.
+- [ ] `pi-epic-complete` gates on non-empty epic-review.md (file gate like v0.6 evidence-gate)
+- [ ] `prompts/epic-run-auto.md` orchestrates the epic-reviewer step
+- [ ] L-042 lesson + smoke phase
+
+### v0.7.1 — Scope-files completeness validator (~4h)
+
+- [ ] New post-pass in `pi-epic-validate-decomposition`:
+  - For each feature whose AC/summary contains: `wire`, `register`, `expose`, `integrate`, `migrate`, `add … to`, scope_files MUST include the language-appropriate integration shell
+  - Heuristic shells per language: vite.config*, main.ts, index.html, Program.cs, Directory.Build.props, `index.ts` barrel in same package, *.csproj for new project
+- [ ] Validator outputs ranked list of suspicious features for human review
+- [ ] Per-feature reviewer reads same heuristics; flags as deviation if scope_files missed an obvious shell
+- [ ] L-043 lesson + smoke phase
+
+### v0.7.2 — `required_toolchain` pre-flight (~3h)
+
+- [ ] New `epic-config.yaml` field:
+  ```yaml
+  required_toolchain:
+    - { name: dotnet, min_version: "9.0", validate_cmd: "dotnet --version" }
+    - { name: node, min_version: "20", validate_cmd: "node --version" }
+  ```
+- [ ] `pi-epic-init` runs each validate_cmd; refuses to start if any missing/wrong-version
+- [ ] `pi-epic-status` shows toolchain check per feature
+- [ ] Per-feature reviewer cannot APPROVE if a required toolchain was unavailable AND the feature touches files matched by that toolchain (e.g., `*.cs` requires dotnet)
+- [ ] L-044 lesson + smoke phase
+
+### v0.8.0 — Parallel dispatcher (~16h)
+
+L-035 evidence-gate satisfied by gen-ui 2.97× speedup.
+Conservative defaults; opt-in.
+
+- [ ] Decomposer declares `independence_group` per feature
+  (features in the same group can run concurrently; cross-group serializes via merge order)
+- [ ] New `pi-epic-dispatch --parallel [--max-workers N]` script
+  - Default `max_workers: 2` (still conservative)
+  - Spawns N pi sessions, each picking next feature from `--ready` set
+  - Coordinates via filesystem locks in `.pi/epics/<id>/locks/`
+- [ ] **Halt-and-ask (H6 extension)** on out-of-order merge conflict — no auto-rebase
+- [ ] Run-log gets `worker_id` and `dispatcher_pid` fields
+- [ ] Recovery playbook R11 for parallel-merge conflicts
+- [ ] L-045 + L-046 lessons + smoke phases (15+, 16+ for parallel-2 and parallel-4)
+
+### v0.8.1 — Quality polish (~3h)
+
+- [ ] Late-feature complexity factor in decomposer (L-041): estimated_hours × depth multiplier
+- [ ] Run-log emission tightening (gen-ui had F01/F23 missing complete events; F36 no start)
+- [ ] L-047 lesson + smoke phase
 
 ## Decisions log
 
-- 2026-05-14 — Halt code is **H10**, not **H0**. Avoids the "lowest
-  severity" ambiguity of H0; sits naturally adjacent to H9
-  (planner-blocked). The halt family becomes H1–H7, H9, H10 (H8 still
-  reserved).
-- 2026-05-14 — Evidence is in `worker-report.md` under a fixed
-  `## Completion evidence` header. No structured YAML schema; free-form
-  per-AC blocks. Resist the urge to build an evidence parser.
-- 2026-05-14 — Reviewer "must name a weakness OR three checks done"
-  clause folded into P1's reviewer change instead of shipped separately.
-  Net effect identical, one fewer file touched.
-- 2026-05-14 — `pi-skill-lint` (researcher's P4) DEFERRED. Reconsider
-  when first outside-contributor PR opens.
+- 2026-05-15 — Cadence: ship each release with stop-point before moving on
+- 2026-05-15 — Parallel dispatcher (v0.7 sketch, originally canceled) RESTORED for v0.8 based on gen-ui evidence: 43 wall-clock-hours saved by manual parallelism
+- 2026-05-15 — Lessons-sharing privacy fix prioritized to v0.6.2 (was v0.8 candidate)
 
-## Out of scope (deferred to v0.7+)
+## Risks & rollback
 
-- Parallel-mode dispatcher (researcher's P6). Its own multi-feature epic.
-- `pi-skill-lint` for user-authored content. Needs ≥1 outside contribution
-  first.
-- Multi-harness adapters (Claude Code, Codex, …). Stays pi-only by design.
+- **v0.6.2 lessons-split**: backward compat — existing skills/.../lessons.md keeps working, user-lessons.md is additive. No data migration. Rollback = ignore user-lessons.md.
+- **v0.7 epic-reviewer gate**: blocks `pi-epic-complete` if file empty — add `--skip-epic-review` escape hatch (precedent: `--skip-evidence`, `--skip-tests`).
+- **v0.8 parallel dispatcher**: opt-in only via `--parallel` flag. Serial path unchanged. Rollback = don't pass the flag.
+
+## Open questions (resolved-by-default)
+
+- Q: lessons-split conflict resolution = user-lessons win? **A: yes** (more context-specific).
+- Q: doctor scope = version + active-epic sanity? **A: yes, both**.
+- Q: epic-reviewer rubber-stamp threshold = 90%? **A: yes initially, calibrate later**.
+- Q: parallel default max_workers = 2? **A: yes** (sketch-parallel.md locked decision).

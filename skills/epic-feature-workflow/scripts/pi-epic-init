@@ -40,6 +40,21 @@ done
 repo=$(repo_root)
 cd "$repo"
 
+# Initialize per-machine user lessons file if missing (v0.6.2 / L-036).
+# Privacy fix: distilled lessons accumulate in $HOME/.pi/epicflow/user-lessons.md
+# rather than the framework's lessons.md (which would leak project specifics on
+# pi-epicflow PRs). Agents read both files at decompose time; user wins.
+ensure_user_lessons
+
+# Version-drift warning (v0.6.2 / L-038 sibling): if the installed pi-epicflow
+# clone is more than 7 days behind, surface it now so the operator can pull
+# updates BEFORE committing to a multi-hour epic. Quiet on first-day installs.
+_pe_age=$(pi_epicflow_age_days)
+_pe_ver=$(pi_epicflow_version)
+if [[ "$_pe_age" =~ ^[0-9]+$ ]] && (( _pe_age > 7 )); then
+    log "⚠  pi-epicflow $_pe_ver is ${_pe_age} days old. Consider \`pi update pi-epicflow\` before starting a long epic."
+fi
+
 # Pre-add the well-known pi runtime + per-feature ephemeral patterns to
 # .gitignore BEFORE the clean-tree check, so users who installed
 # pi-subagents / pi-intercom locally (`pi install -l`) aren't blocked by the
@@ -81,12 +96,17 @@ gitignore_ensure ".pi/epics/done/*/features/done/*/progress.md"
 # into the epic branch because the template didn't cover this).
 gitignore_ensure "__pycache__/"
 gitignore_ensure "*.pyc"
+# L-040 (v0.6.2): catch tracked-symlink leak (`node_modules_main`, etc.) that
+# slipped past a bare `node_modules` ignore. Gen-ui 0001-gen-ui F01 lost ~5
+# minutes to `git rm --cached` recovery; ignore the whole `node_modules*`
+# family up front. Harmless on non-node repos.
+gitignore_ensure "node_modules*"
 # Commit the .gitignore update if it actually changed something OR if it's
 # brand-new and untracked. (`git diff --quiet` reports clean for untracked
 # files, so we need to check status, not diff.)
 if [[ -n $(git status --porcelain -- .gitignore) ]]; then
     git add .gitignore
-    git commit --quiet -m "chore: ignore pi runtime state (epic-feature-workflow)"
+    git commit --quiet --no-verify -m "chore: ignore pi runtime state (epic-feature-workflow)"
 fi
 
 # Refuse if STILL dirty after the gitignore pass.
@@ -215,7 +235,7 @@ runlog_append "$epic_dir" "\"event\":\"epic-init\",\"epic\":\"$epic_id\",\"branc
 # Commit the scaffolding to the epic branch so the working tree is clean
 # before the first pi-feature-start. (gitignore was already committed above.)
 git add ".pi/epics/$epic_id"
-git commit --quiet -m "chore(epic): scaffold $epic_id" || true
+git commit --quiet --no-verify -m "chore(epic): scaffold $epic_id" || true
 
 cat <<EOF
 

@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+# pi-epicflow-doctor
+#
+# Read-only health report for the installed pi-epicflow runtime + active epic.
+#
+# Checks:
+#   1. pi-epicflow clone exists, version, age since last commit
+#   2. Skills installed (epic-feature-workflow present + executable scripts)
+#   3. User-lessons file present (~/.pi/epicflow/user-lessons.md)
+#   4. Active epic sanity: meta.yaml status, test_cmd not a bypass
+#   5. Tooling on PATH: git, python3
+#
+# Exits 0 always (diagnostic, not gate). Non-OK rows printed with ⚠.
+
+set -euo pipefail
+
+# Resolve script dir through symlinks so we can source siblings reliably.
+__src="${BASH_SOURCE[0]}"
+while [ -L "$__src" ]; do
+    __dir="$(cd -P "$(dirname "$__src")" && pwd)"
+    __src="$(readlink "$__src")"
+    [[ $__src != /* ]] && __src="$__dir/$__src"
+done
+__SCRIPT_DIR="$(cd -P "$(dirname "$__src")" && pwd)"
+source "$__SCRIPT_DIR/_common.sh"
+
+pass() { printf '  \033[32m✓\033[0m %s\n' "$*"; }
+warn() { printf '  \033[33m⚠\033[0m %s\n' "$*"; }
+fail() { printf '  \033[31m✗\033[0m %s\n' "$*"; }
+info() { printf '    %s\n' "$*"; }
+
+echo "═══ pi-epicflow doctor ═══"
+echo
+
+# 1. Clone + version
+echo "── runtime ──"
+clone=$(pi_epicflow_clone 2>/dev/null || echo "")
+if [[ -n "$clone" && -d "$clone" ]]; then
+    pass "pi-epicflow clone: $clone"
+    ver=$(pi_epicflow_version)
+    age=$(pi_epicflow_age_days)
+    info "version: $ver"
+    info "clone age: ${age}d"
+    if [[ "$age" =~ ^[0-9]+$ ]] && (( age > 7 )); then
+        warn "clone is >7 days old. Run \`pi update pi-epicflow\` to refresh."
+    fi
+    # Behind origin/main?
+    if [[ -d "$clone/.git" ]]; then
+        behind=$(git -C "$clone" rev-list --count HEAD..origin/main 2>/dev/null || echo "?")
+        if [[ "$behind" =~ ^[0-9]+$ ]] && (( behind > 0 )); then
+            warn "$behind commit(s) behind origin/main"
+        elif [[ "$behind" == "0" ]]; then
+            pass "in sync with origin/main"
+        fi
+    fi
+else
+    fail "pi-epicflow clone not found (skill_root resolution failed)"
+fi
+echo
+
+# 2. Skills installed
+echo "── skills ──"
+sr=$(skill_root 2>/dev/null || echo "")
+if [[ -n "$sr" && -d "$sr" ]]; then
+    pass "epic-feature-workflow skill at: $sr"
+    for s in pi-epic-init pi-feature-start pi-feature-complete pi-epic-complete pi-epic-status pi-epic-validate-decomposition; do
+        if [[ -x "$sr/scripts/$s" ]]; then
+            pass "$s executable"
+        else
+            fail "$s missing or not executable"
+        fi
+    done
+else
+    fail "skill_root not found"
+fi
+echo
+
+# 3. User lessons
+echo "── user lessons ──"
+ul=$(user_lessons_path)
+if [[ -f "$ul" ]]; then
+    lines=$(wc -l < "$ul")
+    epics=$(grep -c '^## Source epic' "$ul" 2>/dev/null || echo "0")
+    pass "$ul ($lines lines, $epics epic(s) contributed)"
+else
+    info "no user-lessons.md yet at $ul (created on first pi-epic-init / pi-epic-complete)"
+fi
+echo
+
+# 4. Active epic (if any)
+echo "── active epic ──"
+if epic_dir=$(active_epic_dir 2>/dev/null); then
+    epic_id=$(active_epic_id)
+    pass "active epic: $epic_id"
+    info "folder: $epic_dir"
+    status=$(yaml_get "$epic_dir/meta.yaml" status 2>/dev/null || echo "?")
+    info "status: $status"
+    test_cmd=$(yaml_get "$epic_dir/epic-config.yaml" test_cmd 2>/dev/null || echo "")
+    if [[ -n "$test_cmd" ]]; then
+        if [[ "$test_cmd" =~ ^echo[[:space:]] ]] || [[ "$test_cmd" == *SKIP* ]] || [[ "$test_cmd" == *skip* ]]; then
+            warn "test_cmd is a bypass: $test_cmd"
+            info "Per-feature test gate disabled \u2014 regressions caught only at epic-review."
+        else
+            pass "test_cmd: $test_cmd"
+        fi
+    else
+        info "no explicit test_cmd (autodetected at runtime)"
+    fi
+else
+    info "no active epic"
+fi
+echo
+
+# 5. Tooling
+echo "── tools ──"
+for t in git python3; do
+    if command -v "$t" >/dev/null 2>&1; then
+        pass "$t: $($t --version 2>&1 | head -1)"
+    else
+        fail "$t not on PATH"
+    fi
+done
+
+echo
+echo "Done."

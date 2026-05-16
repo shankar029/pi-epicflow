@@ -162,6 +162,38 @@ echo "Epic: $epic_id"
 echo "Folder: $epic_dir"
 echo
 
+# v0.6.2 / L-038: surface test_cmd bypass loudly. If test_cmd matches
+# `^echo ` or contains SKIP / skip, every feature merge defers test
+# verification to epic-review — a regression mid-epic can compound silently.
+test_cmd=$(yaml_get "$epic_dir/epic-config.yaml" test_cmd 2>/dev/null || echo "")
+if [[ -n "$test_cmd" ]]; then
+    if [[ "$test_cmd" =~ ^echo[[:space:]] ]] || [[ "$test_cmd" == *SKIP* ]] || [[ "$test_cmd" == *skip* ]]; then
+        # ANSI red if stdout is a tty.
+        if [[ -t 1 ]]; then
+            printf '\033[31m⚠  WARNING: test_cmd is a bypass: %s\033[0m\n' "$test_cmd"
+            printf '\033[31m   Per-feature test gate is DISABLED. Regressions only caught at epic-review.\033[0m\n'
+        else
+            echo "WARNING: test_cmd is a bypass: $test_cmd"
+            echo "   Per-feature test gate is DISABLED. Regressions only caught at epic-review."
+        fi
+        echo "   Set a real test command in $epic_dir/epic-config.yaml, or run"
+        echo "   \`pi-epic-init --accept-no-tests\` on creation to acknowledge."
+        echo
+    fi
+fi
+
+# v0.6.2 / L-036: show the installed pi-epicflow version + age, so operators
+# notice silent drift (gen-ui shipped on v0.5.0 while v0.6.x was already out).
+_pe_ver=$(pi_epicflow_version 2>/dev/null || echo "?")
+_pe_age=$(pi_epicflow_age_days 2>/dev/null || echo "?")
+if [[ "$_pe_ver" != "?" ]]; then
+    echo "pi-epicflow: $_pe_ver (clone age: ${_pe_age}d)"
+    if [[ "$_pe_age" =~ ^[0-9]+$ ]] && (( _pe_age > 7 )); then
+        echo "  ⚠  >7 days old. Consider \`pi update pi-epicflow\` before continuing."
+    fi
+    echo
+fi
+
 echo "── meta ──"
 cat "$epic_dir/meta.yaml" | grep -vE '^\s*#'
 echo

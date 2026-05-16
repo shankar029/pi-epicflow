@@ -111,7 +111,7 @@ if [[ -n $(git status --porcelain) ]]; then
     if [[ -n $(git diff --cached --name-only) ]]; then
         # Only the epic/STATE files were dirty? Commit them.
         if [[ -z $(git status --porcelain | grep -v -E '^[ A-Z?]+ \.pi/(epics/'"$epic_id"'|STATE\.md)') ]]; then
-            git commit --quiet -m "chore(epic): pending edits before $fid"
+            git commit --quiet --no-verify -m "chore(epic): pending edits before $fid"
             log "auto-committed pending epic-folder edits to epic branch"
         else
             git reset --quiet HEAD .pi/ 2>/dev/null || true
@@ -226,7 +226,7 @@ if [[ -n $(git status --porcelain ".pi/epics/$epic_id/features/$fid-$slug" .pi/S
     # Halt reports never ride the auto-commit train (L-012).
     git reset --quiet HEAD -- ".pi/epics/$epic_id"/halt-*.md 2>/dev/null || true
     if [[ -n $(git diff --cached --name-only) ]]; then
-        git commit --quiet -m "chore(epic): scaffold $fid feature folder"
+        git commit --quiet --no-verify -m "chore(epic): scaffold $fid feature folder"
         log "committed scaffolded feature folder to epic branch (L-019)"
     fi
 fi
