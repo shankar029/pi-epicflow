@@ -21,16 +21,18 @@ done
 __SCRIPT_DIR="$(cd -P "$(dirname "$__src")" && pwd)"
 source "$__SCRIPT_DIR/_common.sh"
 
-no_pr=0; draft=0; contribute_lesson=""
+no_pr=0; draft=0; contribute_lesson=""; SKIP_EXT_CHECK=0
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --no-pr) no_pr=1; shift ;;
         --draft) draft=1; shift ;;
         --contribute-lesson)
             contribute_lesson=$2; shift 2 ;;
+        --skip-extension-check) SKIP_EXT_CHECK=1; shift ;;
         *) echo "unknown arg: $1" >&2; exit 1 ;;
     esac
 done
+export SKIP_EXT_CHECK
 
 # --contribute-lesson L-XYZ: print copy-paste-friendly upstream PR text. Does not
 # modify the framework lessons.md in place (the user opens a PR themselves).
@@ -84,6 +86,65 @@ fi
 
 git checkout "epic/$epic_slug" --quiet
 [[ -z $(git status --porcelain) ]] || { echo "ERROR: working tree dirty on epic branch" >&2; exit 1; }
+
+# v0.6.3 / L-042 — extension guardrails.
+# If this epic has been extended, surface a visible reminder; hard-halt when
+# the extension features grew the epic by ≥30% AND no decomposition lesson
+# has been contributed (the operator is on the hook to explain why the
+# original scope under-shot).
+if grep -qE '^extensions:' "$epic_dir/meta.yaml"; then
+    ext_count=$(awk '
+        /^extensions:/ { in_ext=1; next }
+        in_ext && /^[a-zA-Z]/ { in_ext=0 }
+        in_ext && /^  - / { n++ }
+        END { print n+0 }
+    ' "$epic_dir/meta.yaml")
+    if [[ "$ext_count" -gt 0 ]]; then
+        # Count original (pre-extension) features = features whose id <= the
+        # max id recorded in run-log BEFORE any epic-extended event. Cheap
+        # approximation: total features minus features added on/after the
+        # earliest extension date (we don't have per-feature created_at, so
+        # we use a simpler heuristic — decomposition.yaml order is stable).
+        total_feats=$(grep -cE "^  - id:" "$epic_dir/decomposition.yaml" || echo 0)
+        # If the user recorded `original_feature_count` in meta.yaml, prefer
+        # it; otherwise we can't reliably split, so we just report total.
+        orig_feats=$(yaml_get "$epic_dir/meta.yaml" original_feature_count 2>/dev/null || echo "")
+        if [[ -n "$orig_feats" ]] && [[ "$orig_feats" =~ ^[0-9]+$ ]] && (( orig_feats > 0 )); then
+            added=$(( total_feats - orig_feats ))
+            (( added < 0 )) && added=0
+            pct=$(( added * 100 / orig_feats ))
+        else
+            added="?"
+            pct="?"
+        fi
+        printf '\033[33m⚠  This epic has been extended %s time(s).\033[0m\n' "$ext_count" >&2
+        if [[ "$pct" != "?" ]]; then
+            printf '   Feature growth: %s → %s (+%s%%; %s added).\n' "$orig_feats" "$total_feats" "$pct" "$added" >&2
+        else
+            printf '   Feature count now: %s (original count not recorded — set original_feature_count in meta.yaml to enable growth tracking).\n' "$total_feats" >&2
+        fi
+        # Hard-halt rule: ≥30% growth AND no lesson contribution flag yet on
+        # this run. The user can override by re-running with the flag.
+        if [[ "$pct" != "?" ]] && (( pct >= 30 )); then
+            # Did a decomposition lesson get logged in run-log? Look for a
+            # `decomposition-lesson-recorded` event or any L-XXX reference in
+            # deviations.md tagged "Decomposition lesson:".
+            recorded=0
+            if grep -q 'Decomposition lesson:' "$epic_dir/deviations.md" 2>/dev/null; then
+                recorded=1
+            fi
+            if (( recorded == 0 )); then
+                printf '\033[31m✖ HALT (L-042): extension growth ≥ 30%% but no decomposition lesson recorded.\033[0m\n' >&2
+                printf '   Either add a "Decomposition lesson: ..." line to deviations.md explaining why\n' >&2
+                printf '   the original scope under-shot, or re-run with --skip-extension-check after\n' >&2
+                printf '   you have manually reviewed.\n' >&2
+                if [[ "${SKIP_EXT_CHECK:-0}" != "1" ]]; then
+                    exit 1
+                fi
+            fi
+        fi
+    fi
+fi
 
 log "fetching latest $def..."
 git fetch --quiet origin "$def" 2>/dev/null || true

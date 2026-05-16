@@ -198,6 +198,34 @@ echo "── meta ──"
 cat "$epic_dir/meta.yaml" | grep -vE '^\s*#'
 echo
 
+# v0.6.3 / L-042 — extensions summary.
+if grep -qE '^extensions:' "$epic_dir/meta.yaml"; then
+    ext_count=$(awk '
+        /^extensions:/ { in_ext=1; next }
+        in_ext && /^[a-zA-Z]/ { in_ext=0 }
+        in_ext && /^  - / { n++ }
+        END { print n+0 }
+    ' "$epic_dir/meta.yaml")
+    if [[ "$ext_count" -gt 0 ]]; then
+        orig_feats=$(grep -E '^original_feature_count:' "$epic_dir/meta.yaml" | head -1 | sed -E 's/.*:\s*//' | tr -d '"' || echo "")
+        total_feats=$(grep -cE "^  - id:" "$epic_dir/decomposition.yaml" || echo 0)
+        if [[ -n "$orig_feats" ]] && [[ "$orig_feats" =~ ^[0-9]+$ ]] && (( orig_feats > 0 )); then
+            added=$(( total_feats - orig_feats ))
+            (( added < 0 )) && added=0
+            pct=$(( added * 100 / orig_feats ))
+            printf '── extensions ──\n'
+            printf 'count: %s\n' "$ext_count"
+            printf 'feature growth: %s → %s (+%s%%; %s added)\n' "$orig_feats" "$total_feats" "$pct" "$added"
+            if (( pct >= 30 )); then
+                printf '\033[33m⚠  growth ≥ 30%%: record a "Decomposition lesson: ..." in deviations.md before pi-epic-complete (L-042).\033[0m\n'
+            fi
+            echo
+        else
+            printf '── extensions ──\ncount: %s (set original_feature_count in meta.yaml to enable growth tracking)\n\n' "$ext_count"
+        fi
+    fi
+fi
+
 echo "── features ──"
 python3 - "$epic_dir/decomposition.yaml" "$epic_dir/features" <<'PY'
 import sys, os, re

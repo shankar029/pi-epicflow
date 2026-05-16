@@ -5,7 +5,7 @@ harmony-design-studio (20-feat serial) and gen-ui (36-feat parallel) epic
 retrospectives, culminating in a parallel dispatcher whose evidence-gate
 (L-035) has now been satisfied by the gen-ui 2.97× speedup.
 
-**Status:** in progress — v0.6.2 starting.
+**Status:** in progress — v0.6.2 + v0.6.3 shipped; v0.7.0 next.
 
 ## Evidence base
 
@@ -29,7 +29,7 @@ DID flag this; gap is runtime validation, not review rigor.
 
 ## Releases
 
-### v0.6.2 — Quality-of-life pack (~5h, IN PROGRESS)
+### v0.6.2 — Quality-of-life pack (~5h, SHIPPED)
 
 Bias: tight, mechanical, all five items confirmed by retrospective evidence.
 
@@ -54,6 +54,29 @@ Bias: tight, mechanical, all five items confirmed by retrospective evidence.
   - `pi-epic-init` requires explicit `--accept-no-tests` flag if user sets such a bypass at creation
 - [x] **f. New lessons L-036..L-041.**
 - [x] Smoke-test pass (target: 14+ phases — add phases for doctor, journal-commit, test_cmd-warn).
+- [x] CHANGELOG entry, version bump, commit, tag, push.
+
+### v0.6.3 — `pi-epic-extend` (~3h, SHIPPED)
+
+Driven by gen-ui retrospective: extending an epic is a legitimate workflow,
+not a workaround. First-class verb with guardrails.
+
+- [x] **a. `pi-epic-extend <id> --rationale "…" [--design FILE] [--title "…"]` script.**
+  - Un-archives if in `done/`; refuses if branch is already merged to default.
+  - Records `extensions:` entry in `meta.yaml` (timestamp + rationale + title).
+  - Appends `## Extension — YYYY-MM-DD: <title>` section to `design.md` (append-only).
+  - Snapshots `original_feature_count` on first extension for L-042 growth tracking.
+  - `--no-verify` commit on epic branch.
+- [x] **b. `/epic-decompose` extension mode.**
+  - Detects `extensions:` block; switches to append-only (new features start at F<max+1>).
+  - Existing features are read-only context; diff verified append-only before commit.
+- [x] **c. `pi-epic-complete` extension guardrails.**
+  - Warns at ≥1 extension; **hard-halts** at ≥30% feature growth without a recorded `Decomposition lesson:` in deviations.md.
+  - `--skip-extension-check` escape hatch with operator acknowledgement.
+- [x] **d. `pi-epic-status` + `pi-epicflow-doctor` extensions block.**
+  - Shows count and feature growth %; yellow reminder at ≥30% growth.
+- [x] **e. L-042 lesson** — framework epics need verification features in the original decomposition.
+- [x] **f. Smoke phase 17** — round-trip test of pi-epic-extend.
 - [x] CHANGELOG entry, version bump, commit, tag, push.
 
 ### v0.7.0 — feature-epic-reviewer agent (~6h)

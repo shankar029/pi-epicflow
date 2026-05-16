@@ -12,3 +12,4 @@ links:
   issue:
   design_doc: design.md
 tags: []
+extensions: []                    # v0.6.3 — pi-epic-extend appends entries here

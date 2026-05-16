@@ -106,6 +106,21 @@ if epic_dir=$(active_epic_dir 2>/dev/null); then
     else
         info "no explicit test_cmd (autodetected at runtime)"
     fi
+    # v0.6.3 / L-042 — extensions count.
+    if grep -qE '^extensions:' "$epic_dir/meta.yaml"; then
+        ext_count=$(awk '
+            /^extensions:/ { in_ext=1; next }
+            in_ext && /^[a-zA-Z]/ { in_ext=0 }
+            in_ext && /^  - / { n++ }
+            END { print n+0 }
+        ' "$epic_dir/meta.yaml")
+        if [[ "$ext_count" -gt 0 ]]; then
+            info "extensions: $ext_count"
+            if (( ext_count >= 2 )); then
+                warn "≥2 extensions on a single epic — consider whether the original decomposition was too narrow (L-042)."
+            fi
+        fi
+    fi
 else
     info "no active epic"
 fi

@@ -32,13 +32,40 @@ and commit. The user (or `/epic-run-auto`) runs the features afterward.
    forgot to `git checkout` after a context switch.
 
 3. **Check decomposition isn't already filled in.** Read
-   `.pi/epics/<id>/decomposition.yaml`.
+   `.pi/epics/<id>/decomposition.yaml` AND `.pi/epics/<id>/meta.yaml` (look
+   for an `extensions:` block — see step 3b).
    - If it's just the template (only the `epic:` line + a stub or comments,
      no real `features:` list with at least one id), continue.
    - If it already has 1+ real features and the user didn't pass any
      override flag, ASK: *"decomposition.yaml already has N features. Re-do
      it (overwrite), or refine it interactively (treat the existing list as
      a starting point)?"* Wait for their answer.
+
+3b. **Extension mode (v0.6.3 / L-042).** If `meta.yaml` has an
+    `extensions:` block with at least one entry AND the latest extension
+    does NOT already have matching features appended (i.e. design.md was
+    extended but decomposition.yaml was not), enter **extension mode**:
+    - Read the LATEST `## Extension — YYYY-MM-DD: <title>` section at the
+      bottom of `design.md`. That section is the source of truth for the
+      NEW features you must propose. Earlier `## Extension` sections (and
+      the original design above them) are read-only context: features for
+      them are already in `decomposition.yaml`.
+    - Open `decomposition.yaml` and find the highest existing feature id
+      (e.g. F36). The new features you propose START AT F37 (or S<n+1>
+      for spikes). **Do NOT renumber, edit, or remove any existing
+      entry.** Append-only.
+    - All `depends_on` references in your new entries may point at any
+      existing feature id (those features are already merged) AND at
+      sibling entries you're adding in this same extension batch.
+    - The new features must collectively satisfy the latest extension's
+      acceptance criteria. The existing features in decomposition.yaml
+      are NOT in scope for re-planning.
+    - Tell the user explicitly when you summarize: *"EXTENSION MODE: 5 new
+      features F37–F41 will be APPENDED. Existing F01–F36 are unchanged."*
+    - On commit, the diff to `decomposition.yaml` MUST be append-only.
+      Verify with `git diff --cached .pi/epics/<id>/decomposition.yaml`
+      — if anything earlier than the F37 insertion point changed, halt
+      and ask the user before committing.
 
 ## Reading list (do this once, then keep in working set)
 

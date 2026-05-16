@@ -1,0 +1,335 @@
+#!/usr/bin/env bash
+# pi-epic-extend <id> --rationale "<one-liner>" [--design <file>] [--title "<short>"]
+#
+# Extend an existing epic with new requirements that belong to its original
+# scope (typical case: the epic shipped a framework / API surface, and the
+# only honest way to verify it is to build a sample/consumer that exercises
+# it; that consumer is part of the original epic's contract, not a downstream
+# product).
+#
+# What this does:
+#   1. Resolves the epic (may live under .pi/epics/<id> or .pi/epics/done/<id>).
+#   2. Un-archives the epic if it's in done/ (git mv back; commit on epic branch).
+#   3. Flips meta.yaml status → in-progress.
+#   4. Records the extension in meta.yaml extensions: list with timestamp +
+#      rationale + design file (if any).
+#   5. Appends an extension section to design.md (rationale + content from
+#      --design file, or a stub the user fills in). Original design content
+#      is never edited.
+#   6. Updates .pi/STATE.md so subsequent pi-epic-* commands target this epic.
+#   7. Logs an `epic-extended` run-log event.
+#   8. Refuses safely when:
+#        - epic doesn't exist
+#        - epic is missing required scaffolding
+#        - epic branch was merged to default_branch (would need un-merge)
+#        - working tree is dirty (caller must commit/stash first)
+#
+# Guardrails (v0.6.3 / L-042):
+#   - Rationale is mandatory. No silent extensions.
+#   - design.md is APPEND-ONLY (extension content goes under a new
+#     `## Extension \u2014 YYYY-MM-DD: <title>` section).
+#   - decomposition.yaml is left untouched here. The next /epic-decompose run
+#     is responsible for APPENDING new features starting at max(existing)+1.
+#   - Extensions are NOT a free escape hatch: pi-epic-complete warns at >=2
+#     extensions and hard-halts when extension features are >=30% of the
+#     original feature count without a contributed decomposition lesson.
+
+set -euo pipefail
+__src="${BASH_SOURCE[0]}"
+while [ -L "$__src" ]; do
+    __dir="$(cd -P "$(dirname "$__src")" && pwd)"
+    __src="$(readlink "$__src")"
+    [[ $__src != /* ]] && __src="$__dir/$__src"
+done
+__SCRIPT_DIR="$(cd -P "$(dirname "$__src")" && pwd)"
+source "$__SCRIPT_DIR/_common.sh"
+
+usage() {
+    cat <<USAGE >&2
+usage: pi-epic-extend <id> --rationale "<text>" [--design <file>] [--title "<short>"]
+
+  <id>            epic id, e.g. 0001-gen-ui (matches folder under .pi/epics/
+                  or .pi/epics/done/)
+  --rationale     REQUIRED. 1\u20133 sentence reason this work belongs to the
+                  original epic rather than a new stacked epic. Recorded
+                  verbatim in meta.yaml + design.md extension header.
+  --design FILE   Optional markdown file whose body becomes the extension's
+                  requirements section in design.md. If omitted, an editable
+                  stub is appended for the user to fill in.
+  --title TEXT    Optional short title for the extension section heading.
+                  Defaults to "Extension".
+USAGE
+    exit 1
+}
+
+[[ $# -ge 1 ]] || usage
+epic_id=$1; shift
+
+rationale=""
+design_file=""
+ext_title="Extension"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --rationale) rationale=$2; shift 2 ;;
+        --design)    design_file=$2; shift 2 ;;
+        --title)     ext_title=$2; shift 2 ;;
+        -h|--help)   usage ;;
+        *) echo "unknown arg: $1" >&2; usage ;;
+    esac
+done
+
+[[ -n "$rationale" ]] || { echo "ERROR: --rationale is required (no silent extensions \u2014 L-042)." >&2; usage; }
+
+repo=$(repo_root)
+cd "$repo"
+
+# Locate the epic. Try active first, then archived.
+active_path="$repo/.pi/epics/$epic_id"
+archived_path="$repo/.pi/epics/done/$epic_id"
+if [[ -d "$active_path" ]]; then
+    epic_dir="$active_path"
+    was_archived=0
+elif [[ -d "$archived_path" ]]; then
+    epic_dir="$archived_path"
+    was_archived=1
+else
+    echo "ERROR: epic '$epic_id' not found." >&2
+    echo "  Looked in: $active_path" >&2
+    echo "            $archived_path" >&2
+    echo "  Available epics:" >&2
+    for d in "$repo/.pi/epics"/[0-9][0-9][0-9][0-9]-* "$repo/.pi/epics/done"/[0-9][0-9][0-9][0-9]-*; do
+        [[ -d "$d" ]] || continue
+        echo "    $(basename "$d")" >&2
+    done
+    exit 1
+fi
+
+# Required scaffolding.
+for required in meta.yaml design.md decomposition.yaml; do
+    [[ -f "$epic_dir/$required" ]] || {
+        echo "ERROR: $epic_dir is missing $required \u2014 not a valid epic folder." >&2
+        exit 1
+    }
+done
+
+epic_slug="${epic_id#*-}"
+epic_branch="epic/$epic_slug"
+def=$(yaml_get "$epic_dir/meta.yaml" default_branch)
+[[ -n "$def" ]] || { echo "ERROR: meta.yaml has no default_branch \u2014 cannot determine merge base." >&2; exit 1; }
+
+# Refuse if epic branch was already merged to default. An extension would
+# re-open a closed PR, which is messy. Surface and stop.
+if git rev-parse --verify --quiet "refs/heads/$epic_branch" >/dev/null; then
+    if git merge-base --is-ancestor "$epic_branch" "$def" 2>/dev/null; then
+        echo "ERROR: $epic_branch is already merged into $def." >&2
+        echo "  Extending a merged epic would require un-merging. Either:" >&2
+        echo "    - start a new epic with: pi-epic-init <new-slug> --base $def" >&2
+        echo "    - or revert the merge first, then retry pi-epic-extend." >&2
+        exit 1
+    fi
+elif git rev-parse --verify --quiet "refs/remotes/origin/$epic_branch" >/dev/null; then
+    # Branch only on origin \u2014 try to fetch and check the same way.
+    git fetch --quiet origin "$epic_branch" 2>/dev/null || true
+    git branch --track "$epic_branch" "origin/$epic_branch" 2>/dev/null || true
+    if git rev-parse --verify --quiet "refs/heads/$epic_branch" >/dev/null && \
+       git merge-base --is-ancestor "$epic_branch" "$def" 2>/dev/null; then
+        echo "ERROR: $epic_branch is already merged into $def (per origin)." >&2
+        exit 1
+    fi
+else
+    echo "ERROR: epic branch '$epic_branch' not found locally or on origin." >&2
+    echo "  An extension requires the original epic branch to still exist." >&2
+    exit 1
+fi
+
+# Working tree must be clean. We're about to commit a folder move + design.md
+# edit + meta.yaml edit; don't entangle with user's in-flight work.
+[[ -z $(git status --porcelain) ]] || {
+    echo "ERROR: working tree is dirty. Commit or stash before extending." >&2
+    git status --short >&2
+    exit 1
+}
+
+# Switch to the epic branch so the un-archive commit lands there.
+log "switching to $epic_branch"
+git checkout --quiet "$epic_branch"
+
+# Step 1: un-archive if needed.
+if [[ $was_archived -eq 1 ]]; then
+    log "un-archiving $epic_id from .pi/epics/done/"
+    new_dir="$repo/.pi/epics/$epic_id"
+    if git mv "$epic_dir" "$new_dir" 2>/dev/null; then
+        :
+    else
+        mv "$epic_dir" "$new_dir"
+        git add -A ".pi/epics/done/$epic_id" 2>/dev/null || true
+        git add -A ".pi/epics/$epic_id" 2>/dev/null || true
+    fi
+    epic_dir="$new_dir"
+fi
+
+# Step 2: prepare extension entry.
+today=$(date -u +%Y-%m-%d)
+ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+ext_n=0
+# Count existing extensions: lines under `extensions:` that start with `  - `.
+if grep -qE '^extensions:' "$epic_dir/meta.yaml"; then
+    ext_n=$(awk '
+        /^extensions:/ { in_ext=1; next }
+        in_ext && /^[a-zA-Z]/ { in_ext=0 }
+        in_ext && /^  - / { n++ }
+        END { print n+0 }
+    ' "$epic_dir/meta.yaml")
+fi
+ext_idx=$((ext_n + 1))
+
+# Snapshot current feature count BEFORE the first extension so
+# pi-epic-complete can compute growth %. Skip if already recorded.
+if [[ "$ext_n" -eq 0 ]] && ! grep -qE '^original_feature_count:' "$epic_dir/meta.yaml"; then
+    cur_feats=$(grep -cE "^  - id:" "$epic_dir/decomposition.yaml" || echo 0)
+    printf 'original_feature_count: %s\n' "$cur_feats" >> "$epic_dir/meta.yaml"
+    log "recorded original_feature_count=$cur_feats (used for L-042 growth check)"
+fi
+
+# Step 3: edit meta.yaml \u2014 status \u2192 in-progress, append extension entry.
+python3 - "$epic_dir/meta.yaml" "$today" "$ts" "$rationale" "$ext_title" "$design_file" <<'PY'
+import sys, os, re
+path, today, ts, rationale, title, design_file = sys.argv[1:7]
+with open(path, encoding='utf-8') as f:
+    lines = f.read().splitlines()
+
+# Update status + updated.
+out = []
+saw_status = saw_updated = saw_extensions = False
+ext_block_end = -1
+for i, l in enumerate(lines):
+    if re.match(r'^status:', l):
+        out.append(f'status: in-progress')
+        saw_status = True
+    elif re.match(r'^updated:', l):
+        out.append(f'updated: {today}')
+        saw_updated = True
+    else:
+        out.append(l)
+
+if not saw_status:
+    out.append('status: in-progress')
+if not saw_updated:
+    out.append(f'updated: {today}')
+
+# Locate (or create) the extensions: block and append a new entry.
+ext_line = None
+for i, l in enumerate(out):
+    if re.match(r'^extensions:', l):
+        ext_line = i
+        break
+if ext_line is None:
+    out.append('extensions: []')
+    ext_line = len(out) - 1
+
+# If `extensions: []`, replace with `extensions:` then append entry.
+if re.match(r'^extensions:\s*\[\s*\]\s*$', out[ext_line]):
+    out[ext_line] = 'extensions:'
+    insert_at = ext_line + 1
+else:
+    # Find end of block.
+    insert_at = ext_line + 1
+    while insert_at < len(out) and (out[insert_at].startswith('  ') or out[insert_at].strip() == ''):
+        insert_at += 1
+
+# Escape double quotes in user strings.
+def q(s): return s.replace('"', '\\"')
+entry = [
+    f'  - date: {today}',
+    f'    ts: {ts}',
+    f'    title: "{q(title)}"',
+    f'    rationale: "{q(rationale)}"',
+]
+if design_file:
+    entry.append(f'    design_file: "{q(os.path.basename(design_file))}"')
+out[insert_at:insert_at] = entry
+
+with open(path, 'w', encoding='utf-8') as f:
+    f.write('\n'.join(out).rstrip() + '\n')
+PY
+
+# Step 4: append extension section to design.md (append-only; original
+# content is left intact).
+{
+    echo
+    echo "---"
+    echo
+    echo "## Extension \u2014 ${today}: ${ext_title}"
+    echo
+    echo "**Rationale:** ${rationale}"
+    echo
+    if [[ -n "$design_file" ]]; then
+        if [[ ! -f "$design_file" ]]; then
+            echo "WARNING: --design file $design_file not found at extend time." >&2
+            echo "<!-- design file $design_file was missing at extend time \u2014 add content here -->"
+        else
+            echo "### Requirements"
+            echo
+            cat "$design_file"
+        fi
+    else
+        cat <<'STUB'
+### Requirements
+
+<!--
+Fill in the extension requirements here. Treat this as a mini-design:
+- Goals (what success looks like for THIS extension).
+- Non-goals (what's explicitly out of scope for this extension).
+- Surfaces to touch (files / modules / new components).
+- Acceptance criteria for the extension as a whole.
+
+Once filled in, run `/epic-decompose` again. It will detect the new
+extension entry in meta.yaml and APPEND new features (F<last+1>+) without
+modifying the existing decomposition.
+-->
+STUB
+    fi
+} >> "$epic_dir/design.md"
+
+# Step 5: STATE.md \u2014 point at this epic, clear feature.
+mkdir -p "$repo/.pi"
+cat > "$repo/.pi/STATE.md" <<EOF
+# Active feature: (none)
+
+Active epic: \`.pi/epics/$epic_id/\` (extended ${today})
+EOF
+
+# Step 6: run-log entry.
+runlog_append "$epic_dir" "\"event\":\"epic-extended\",\"epic\":\"$epic_id\",\"extension_index\":$ext_idx,\"title\":\"$(echo "$ext_title" | sed 's/"/\\"/g')\""
+
+# Step 7: commit (--no-verify per L-039: this is bookkeeping, not user source).
+# Note: .pi/STATE.md is gitignored by pi-epic-init; we wrote it locally above
+# but don't try to stage it.
+git add -A ".pi/epics/$epic_id"
+if [[ $was_archived -eq 1 ]]; then
+    # Sweep the now-empty done/<id> staging slot.
+    git add -A ".pi/epics/done/$epic_id" 2>/dev/null || true
+fi
+git commit --quiet --no-verify -m "chore(epic): extend $epic_id #$ext_idx \u2014 $ext_title"
+log "committed extension #$ext_idx to $epic_branch"
+
+# Final advice.
+cat <<EOF
+
+\u2713 Epic extended: $epic_id (#$ext_idx)
+  Branch:    $epic_branch
+  Folder:    .pi/epics/$epic_id/
+  Rationale: $rationale
+
+Next:
+  1. Edit  .pi/epics/$epic_id/design.md  if the extension section needs more
+     detail (or you didn't pass --design FILE).
+  2. Run  /epic-decompose  (or the prompt template in pi). The decomposer
+     will detect extensions[#$ext_idx] in meta.yaml and APPEND new features
+     starting at F<max+1>; existing features are read-only context.
+  3. Then  pi-feature-start <new-id>  as usual.
+
+Guardrail reminder: pi-epic-complete will warn at \u22652 extensions and
+hard-halt if the extension features grow the epic by \u226530% without a
+recorded decomposition lesson. See L-042.
+EOF

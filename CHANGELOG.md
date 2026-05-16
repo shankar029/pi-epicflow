@@ -6,6 +6,85 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.3] — 2026-05-15
+
+**`pi-epic-extend` — first-class verb for extending an existing epic.**
+Driven by gen-ui's sample-app gap: the original epic shipped a framework
+with `test_cmd: "echo SKIP-…"` and Chromium-only frontend tests. The only
+honest way to verify it is to build a sample/consumer app, but that work
+belongs to the *original* epic's contract — not a stacked downstream epic
+with 3-tier branch pain. Now there's a sanctioned path.
+
+### Added
+
+- **`pi-epic-extend <id> --rationale "…" [--design FILE] [--title "…"]`**
+  (L-042) — extend an existing epic with new requirements that belong to
+  its original scope. Resolves the epic from either `.pi/epics/<id>/` or
+  `.pi/epics/done/<id>/`, un-archives it if needed (via `git mv` on the
+  epic branch), flips `meta.yaml` `status: in-progress`, records the
+  extension in `meta.yaml extensions:` with timestamp + rationale, and
+  appends a `## Extension — YYYY-MM-DD: <title>` section to
+  `design.md` (with `--design FILE` content or an editable stub).
+  Original `design.md` content is never edited. The new commit is on the
+  existing epic branch, `--no-verify` per L-039. Refuses if the epic
+  branch has already been merged to its `default_branch`, if the working
+  tree is dirty, or if `--rationale` is missing.
+
+- **Extension mode in `prompts/epic-decompose.md`** — when the decomposer
+  detects an `extensions:` block in `meta.yaml` whose latest entry has no
+  corresponding features yet, it switches to APPEND-ONLY mode: new
+  features start at `F<max+1>`, existing entries are read-only context,
+  the diff to `decomposition.yaml` is verified append-only before commit.
+  The summary explicitly tells the user: *"EXTENSION MODE: 5 new
+  features F37–F41 will be APPENDED. Existing F01–F36 are unchanged."*
+
+- **`original_feature_count`** in `meta.yaml` (snapshotted by
+  `pi-epic-extend` before the first extension) — used by
+  `pi-epic-complete`, `pi-epic-status`, and `pi-epicflow-doctor` to
+  compute extension growth percentage.
+
+- **`pi-epic-status` extensions block** — surfaces extension count and
+  feature growth %. At ≥30% growth, prints a yellow reminder to record
+  a `Decomposition lesson:` in `deviations.md` before `pi-epic-complete`.
+
+- **`pi-epicflow-doctor` extensions line** — reports extension count on
+  the active epic; warns at ≥2 extensions about possibly-too-narrow
+  original scope.
+
+- **L-042 lesson** — framework epics need verification features
+  (sample apps, conformance harnesses) in the ORIGINAL decomposition,
+  not as follow-up work. *"Tests pass" ≠ "framework verified" when the
+  tests don't exercise a real consumer.*
+
+- **Smoke phase 17** — `pi-epic-extend` round-trip: rationale-required
+  gate, meta.yaml mutation, design.md append, status flip, un-archive
+  from `done/`, idempotent `original_feature_count`, doctor reports
+  extension count.
+
+### Changed
+
+- **`pi-epic-complete`** — extension guardrails. Warns when the active
+  epic has ≥1 extension; **hard-halts (exit 1)** when extension features
+  grow the epic ≥30% AND no `Decomposition lesson:` line exists in
+  `deviations.md`. Override with `--skip-extension-check` or by
+  recording the lesson. The escape hatch is intentional but visible —
+  the operator has to acknowledge why the original scope under-shot.
+
+- **`meta.yaml` template** — includes `extensions: []` placeholder.
+
+### Migration notes
+
+- Existing epics created before v0.6.3 have no `extensions:` field. They
+  still work — `pi-epic-extend` creates the field on first use, and
+  `pi-epic-status` only surfaces the block when present.
+- Existing epics also lack `original_feature_count`. The first call to
+  `pi-epic-extend` snapshots `decomposition.yaml`'s current feature count
+  at that moment, which serves as the baseline. If your epic has already
+  grown via manual feature additions before you call `pi-epic-extend` for
+  the first time, that growth is invisible to the L-042 check — set
+  `original_feature_count:` manually in `meta.yaml` to the historical
+  baseline if you care.
+
 ## [0.6.2] — 2026-05-15
 
 **Quality-of-life pack triggered by harmony + gen-ui retrospectives.**
