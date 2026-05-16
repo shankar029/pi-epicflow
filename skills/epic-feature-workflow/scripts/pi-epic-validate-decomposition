@@ -559,9 +559,15 @@ _SHELL_TRIGGER_RE = re.compile(
 # satisfying the gate. Match is permissive: if ANY scope_files entry is one
 # of these basenames, the gate is satisfied for that language.
 _SHELL_BY_LANG = {
-    'ts_react':  ['vite.config.ts', 'vite.config.js', 'vite.config.mjs',
-                  'main.tsx', 'main.ts', 'main.jsx', 'index.html',
-                  'index.ts', 'index.tsx', 'index.js'],
+    'ts_react':  [# v0.7.3: most-common React wiring targets come first so
+                  # the operator-facing hint surfaces them. Found via real
+                  # 'wire X into App.tsx' epic in real-app verification.
+                  # See L-047.
+                  'App.tsx', 'App.jsx', 'main.tsx', 'main.jsx',
+                  'Routes.tsx', 'Routes.jsx', 'routes.tsx', 'AppRouter.tsx',
+                  'router.tsx', 'App.ts', 'App.js', 'main.ts',
+                  'vite.config.ts', 'vite.config.js', 'vite.config.mjs',
+                  'index.html', 'index.ts', 'index.tsx', 'index.js'],
     'ts_lib':    ['package.json', 'index.ts', 'index.tsx', 'index.js',
                   'tsconfig.json'],
     'csharp':    ['Program.cs', 'Startup.cs', 'Directory.Build.props',

@@ -38,6 +38,17 @@ outside users are the primary signal driving the roadmap.
       documented today" sentence at the end of the *Lessons-as-code*
       section names the highest L-id introduced by this release and
       briefly cites what each new lesson was about.
+- [ ] **Real-app verification for heuristic-shaped features (L-047).**
+      If this release adds or modifies a heuristic that pattern-matches
+      real codebases (file-name shell lists, AC trigger-verb regexes,
+      language detectors, scope-coverage rules), run it against at
+      least one realistic sample app — not just synthetic smoke
+      fixtures. Smoke ensures the code *runs*; real-app verification
+      ensures the code *helps*. Anti-pattern: shipping a heuristic
+      that only the smoke fixture's exact shape exercises, and
+      learning about gaps from the first outside user. Record the
+      sample app path and any defects found in the release commit
+      message.
 - [ ] Tag the release: `git tag vX.Y.Z && git push --tags`.
 
 **Per-release nice-to-have (best effort, not blocking):**

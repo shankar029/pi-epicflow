@@ -912,6 +912,59 @@ else
     fail "L-045: false positive on a pure helper"
 fi
 
+# v0.7.3 / L-047 — regression: App.tsx must satisfy the ts_react shell gate.
+# Real-app verification of v0.7.1 surfaced that 'wire X into App.tsx' (the most
+# common React integration pattern) couldn't satisfy the gate even when App.tsx
+# was added to scope_files — App.{tsx,jsx} wasn't in _SHELL_BY_LANG['ts_react'].
+# This case proves the fix sticks.
+cat > ".pi/epics/$E45_ID/decomposition.yaml" <<DEC45E
+epic: $E45_ID
+features:
+  - id: F01
+    slug: wire-component-into-app
+    summary: Wire the new component into the existing App.tsx host.
+    depends_on: []
+    scope_files:
+      - "src/components/Thing.tsx"
+      - "src/App.tsx"
+    acceptance_criteria:
+      - "Wire Thing into App so the user sees it."
+    estimated_hours: 1
+DEC45E
+if pi-epic-validate-decomposition >/tmp/pe-l47-a.log 2>&1; then
+    pass "L-047: App.tsx in scope_files satisfies the ts_react shell gate"
+else
+    cat /tmp/pe-l47-a.log | sed 's/^/    /' >&2
+    fail "L-047: App.tsx should satisfy the gate but did not"
+fi
+
+# And the hint must surface App.tsx so operators can act on it.
+cat > ".pi/epics/$E45_ID/decomposition.yaml" <<DEC45F
+epic: $E45_ID
+features:
+  - id: F01
+    slug: wire-component-into-app
+    summary: Wire the new component into the existing App.tsx host.
+    depends_on: []
+    scope_files:
+      - "src/components/Thing.tsx"
+    acceptance_criteria:
+      - "Wire Thing into App so the user sees it."
+    estimated_hours: 1
+DEC45F
+if pi-epic-validate-decomposition >/tmp/pe-l47-b.log 2>&1; then
+    cat /tmp/pe-l47-b.log | sed 's/^/    /' >&2
+    fail "L-047: validator should have errored when App.tsx missing from scope"
+else
+    if grep -q 'App.tsx' /tmp/pe-l47-b.log; then
+        pass "L-047: hint surfaces App.tsx as a candidate shell"
+    else
+        cat /tmp/pe-l47-b.log | sed 's/^/    /' >&2
+        fail "L-047: hint did not surface App.tsx; operators would be misled"
+    fi
+fi
+rm -f /tmp/pe-l47-*.log
+
 cd "$SANDBOX"
 rm -rf "$L45_DIR"
 rm -f /tmp/pe-l45-*.log

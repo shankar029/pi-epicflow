@@ -6,6 +6,50 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.3] — 2026-05-16
+
+**Heuristic hotfix found by real-app verification (L-047).** v0.7.1
+shipped the L-045 integration-shell validator with a 4-case smoke
+fixture. Smoke covered the schema; it did not cover the distribution
+of real-world React wiring patterns. Driving the validator against a
+real Vite+React app (a TODO slice under `/tmp/pe-sample-todo`) surfaced
+two compounding bugs that synthetic fixtures could not have caught.
+
+### Fixed
+
+- **`App.{tsx,jsx,ts,js}` / `Routes.tsx` / `AppRouter.tsx` / `router.tsx`
+  added to the `ts_react` shell list.** Before this fix, the canonical
+  React wiring target (`src/App.tsx`) did not satisfy the L-045 gate,
+  meaning an operator who *correctly* added `App.tsx` to scope_files
+  was *still* told the gate failed. The validator effectively pointed
+  operators at the wrong files.
+
+- **Shell list reordered so wiring targets surface first in hints.**
+  The hint shows the first 3 entries per detected language. Before
+  this fix, that meant `[vite.config.ts, vite.config.js, vite.config.mjs]`
+  — generic config files that are almost never the right answer for
+  "wire X into the host app". Now the operator-facing hint surfaces
+  `App.tsx, App.jsx, main.tsx, Routes.tsx, AppRouter.tsx, ...` first.
+
+### Added
+
+- **L-047 lesson** — *heuristics must be verified on a real app, not
+  just smoke fixtures*. Codifies the pattern: every heuristic-shaped
+  feature gets at least one verification pass on a realistic codebase
+  before release. Smoke ensures the code *runs*; real-app verification
+  ensures the code *helps*.
+
+- **Smoke regression cases for L-047** (two new cases inside the
+  L-045 phase): App.tsx in scope_files now satisfies the gate; the
+  hint surfaces App.tsx when scope_files lacks any shell.
+
+### Migration notes
+
+- Zero migration: this is a pure expansion of the shell-acceptance
+  set + a hint reordering. Decompositions that previously passed
+  still pass; decompositions that correctly cited App.tsx will now
+  pass where before they were rejected.
+
 ## [0.7.2] — 2026-05-15
 
 **`required_toolchain` pre-flight (L-046).** Detect + suggest, NOT
