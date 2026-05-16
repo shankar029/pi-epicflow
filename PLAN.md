@@ -5,7 +5,7 @@ harmony-design-studio (20-feat serial) and gen-ui (36-feat parallel) epic
 retrospectives, culminating in a parallel dispatcher whose evidence-gate
 (L-035) has now been satisfied by the gen-ui 2.97× speedup.
 
-**Status:** in progress — v0.6.2 + v0.6.3 shipped; v0.7.0 next.
+**Status:** in progress — v0.6.2 + v0.6.3 + v0.7.0 shipped; v0.7.1 next.
 
 ## Evidence base
 
@@ -79,17 +79,21 @@ not a workaround. First-class verb with guardrails.
 - [x] **f. Smoke phase 17** — round-trip test of pi-epic-extend.
 - [x] CHANGELOG entry, version bump, commit, tag, push.
 
-### v0.7.0 — feature-epic-reviewer agent (~6h)
+### v0.7.0 — feature-epic-reviewer agent (~6h, SHIPPED)
 
-- [ ] New `agents/feature-epic-reviewer.md` (final pass before `pi-epic-complete`)
+- [x] New `agents/feature-epic-reviewer.md` (final pass before `pi-epic-complete`)
   - Inputs: all feature reports, deviations.md, design.md, squashed diff
-  - Output: epic-review.md draft with cross-feature consistency checks
-  - Design-trace table (every design.md §X.Y → which feature)
-  - Catches B1/B2-class cross-feature bugs (lockfile, resource leak)
-  - **Rubber-stamp detector:** percentile of features with worker_runs=1 + review_cycles=1 + APPROVE. >90% emits explicit confidence-warning.
-- [ ] `pi-epic-complete` gates on non-empty epic-review.md (file gate like v0.6 evidence-gate)
-- [ ] `prompts/epic-run-auto.md` orchestrates the epic-reviewer step
-- [ ] L-042 lesson + smoke phase
+  - Output: epic-review.md with cross-feature consistency checks
+  - Design-trace table (every design.md §X.Y → which feature; covers v0.6.3 `## Extension —` sections too)
+  - Catches B1/B2-class cross-feature bugs (lockfile drift, resource leak, no-op stubs, orphaned refs)
+  - **Rubber-stamp detector:** % of features with worker_runs=1 + review_cycles=1 + APPROVE. >90% triggers spot-check; ≥2 of 3 reports lacking file:line evidence → hard finding.
+  - Toolchain & test-gate coverage (bypass test_cmd → hard finding; real test suite must run)
+  - Anti-sycophancy credibility clause (same shape as feature-reviewer)
+  - Verdict: `APPROVE_EPIC | REQUEST_CHANGES_EPIC | BLOCK_EPIC` (LAST non-empty line)
+- [x] `pi-epic-complete` L-043 gate — refuses to archive without `Verdict: APPROVE_EPIC` in epic-review.md; `--skip-epic-review` escape hatch with warning + run-log audit entry
+- [x] `prompts/epic-run-auto.md` step 4 invokes `feature-epic-reviewer` (was generic `reviewer`)
+- [x] L-043 lesson (per-feature reviewers blind to cross-feature bugs; cite harmony B1/B2 + gen-ui MapHarmonyAgent stub)
+- [x] Smoke phase 18 — gate refuses without file, refuses on REQUEST_CHANGES_EPIC, accepts APPROVE_EPIC, `--skip-epic-review` bypasses with audit log
 
 ### v0.7.1 — Scope-files completeness validator (~4h)
 

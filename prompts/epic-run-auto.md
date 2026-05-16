@@ -383,20 +383,32 @@ Decision tree:
 
 3. POST STATUS (phase: epic-review).
 
-4. Spawn the epic-wide review:
-   `subagent({ agent: "reviewer", context: "fresh",
-                task: "Review the entire epic branch <epic/slug> vs <main>.
-                       Cite the design.md sections each change traces to.",
-                output: ".pi/epics/<id>/epic-review.md",
+4. Spawn the epic-wide review with the dedicated agent (v0.7.0):
+   `subagent({ agent: "feature-epic-reviewer", context: "fresh",
+                cwd: "<MAIN_REPO>",
+                task: "Review the entire epic branch end-to-end before pi-epic-complete archives it. Catch cross-feature bugs per-feature reviewers cannot see.\nEPIC_ID=<id>\nMAIN_REPO=<MAIN_REPO>\nEPIC_DIR=<EPIC_DIR>\nEPIC_BRANCH=<EPIC_BRANCH>\nDEFAULT_BRANCH=<DEFAULT_BRANCH>",
+                output: "<EPIC_DIR>/epic-review.md",
                 outputMode: "file-only" })`
 
+   The agent (see `agents/feature-epic-reviewer.md`) checks: lockfile /
+   manifest churn, no-op stubs, orphaned references, resource
+   lifecycle symmetry, design-trace coverage of every `design.md` section
+   (including any `## Extension —` sections from v0.6.3+), rubber-stamp
+   detection across per-feature reviewers (>90% single-pass APPROVE on
+   ≥5 features triggers a hard finding if review-report.md spot-checks
+   show no file:line evidence), toolchain / test-gate effectiveness, and
+   extension growth (L-042). Output's final non-empty line MUST be one
+   of `Verdict: APPROVE_EPIC | REQUEST_CHANGES_EPIC | BLOCK_EPIC`.
+   `pi-epic-complete` parses for that verdict at step 6.
+
 5. Read epic-review.md. Decide:
-   - **APPROVE** → continue to step 6.
-   - **BLOCK with fixable working-tree issues** (uncommitted closeout files,
-     stale halt reports already on the branch, etc.): if the fix is purely
-     under `.pi/epics/<id>/` and doesn't touch code, you MAY make ONE
-     additional closeout commit and re-run the epic-reviewer. Max 1 retry.
-     If still BLOCK → HALT.
+   - **APPROVE_EPIC** (final non-empty line of the file) → continue to step 6.
+   - **REQUEST_CHANGES_EPIC** with fixable working-tree issues (uncommitted
+     closeout files, stale halt reports already on the branch, etc.): if
+     the fix is purely under `.pi/epics/<id>/` and doesn't touch code, you
+     MAY make ONE additional closeout commit and re-run the
+     feature-epic-reviewer. Max 1 retry. If still REQUEST_CHANGES_EPIC
+     → HALT.
 
      **Halt-file rule (L-012).** "Stale halt reports" are fixed by
      **deleting** them, not by committing them. The reviewer flags them
@@ -412,8 +424,8 @@ Decision tree:
      are also covered by `.gitignore` since v0.3, but the explicit
      `git rm` + `rm` here handles halt files that were tracked by an older
      pi-epicflow before the gitignore rule landed.
-   - **BLOCK with code/test issues** → HALT (H1 or H4 depending on cause).
-     Do NOT proceed to PR.
+   - **BLOCK_EPIC** or **REQUEST_CHANGES_EPIC** with code/test issues →
+     HALT (H1 or H4 depending on cause). Do NOT proceed to PR.
 
 6. **Run `pi-epic-complete`.** This step is mandatory — the epic is NOT
    finished until this script returns 0. It rebases onto the default

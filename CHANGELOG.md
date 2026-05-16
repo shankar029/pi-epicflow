@@ -6,6 +6,87 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-05-15
+
+**`feature-epic-reviewer` agent + `pi-epic-complete` epic-review gate (L-043).**
+Close the bug-class gap surfaced by harmony (B1 stale lockfile, B2
+`destroyConversation` orphan) and gen-ui (`MapHarmonyAgent` no-op stub).
+Per-feature reviewers are blind to these cross-feature bugs by design;
+v0.7.0 adds a final-pass agent that runs AFTER every feature merges and
+BEFORE `pi-epic-complete` archives, and a gate in `pi-epic-complete` that
+refuses to archive without an `APPROVE_EPIC` verdict.
+
+### Added
+
+- **`agents/feature-epic-reviewer.md`** (L-043) — dedicated agent for
+  end-of-epic review. Contract:
+  - Pre-flight (cwd + branch sanity)
+  - Cross-feature consistency (lockfile / manifest churn, no-op stubs,
+    orphaned references, resource lifecycle symmetry)
+  - Design-trace table (every `design.md` section — including v0.6.3
+    `## Extension —` sections — must be claimed by ≥1 feature)
+  - Rubber-stamp detector (parses run-log.jsonl `worker_runs` /
+    `review_cycles`; >90% single-pass APPROVE on ≥5 features triggers
+    spot-checks of 3 random review-reports; ≥2 of 3 lacking file:line
+    evidence → hard finding)
+  - Toolchain & test-gate coverage (bypass `test_cmd` = hard finding;
+    real test suite MUST run)
+  - Extension growth check (L-042 reminder)
+  - Verdict: `APPROVE_EPIC | REQUEST_CHANGES_EPIC | BLOCK_EPIC`
+    (LAST non-empty line of output, parsed by pi-epic-complete)
+  - Same anti-sycophancy credibility clause as `feature-reviewer`:
+    must name a concrete weakness OR list three specific clean checks.
+
+- **`pi-epic-complete` L-043 gate** — reads
+  `EPIC_DIR/epic-review.md` after the working-tree cleanliness check.
+  Refuses to archive unless the file exists AND its last non-empty
+  line matches `Verdict:*APPROVE_EPIC*`. Helpful error messages
+  distinguish missing file vs missing verdict vs wrong verdict.
+  Escape hatch: `--skip-epic-review` logs a yellow warning, appends
+  an `epic-review-skipped` event to run-log.jsonl, and proceeds.
+  Intentional for spike-only epics, smoke tests, and documented
+  emergency overrides; NOT the default path.
+
+- **`prompts/epic-run-auto.md` step 4 updated** — invokes
+  `feature-epic-reviewer` (was: generic `reviewer`). Passes
+  `EPIC_ID`, `EPIC_BRANCH`, `DEFAULT_BRANCH`, `MAIN_REPO`,
+  `EPIC_DIR` as task fields. Decision tree updated to expect the
+  new verdict names. Step 5 retry path unchanged.
+
+- **L-043 lesson** — documents the structural blind spot:
+  per-feature reviewers see one feature's diff against one feature's
+  AC; they cannot see cross-feature bugs. End-of-epic review is
+  mandatory. The lesson cites harmony's B1/B2 and gen-ui's stub as
+  the empirical evidence.
+
+- **Smoke phase 18** — L-043 gate round-trip:
+  - missing epic-review.md → refuses
+  - `Verdict: REQUEST_CHANGES_EPIC` → refuses
+  - `Verdict: APPROVE_EPIC` → gate passes
+  - `--skip-epic-review` → bypasses with warning + run-log entry
+
+### Changed
+
+- **`pi-epic-complete`** — new `--skip-epic-review` flag (in addition to
+  the existing `--skip-extension-check` from v0.6.3). Existing flags
+  unchanged.
+
+- **Smoke phase 8** — spike-epic pi-epic-complete invocation updated
+  to `--skip-epic-review` (this phase tests archive mechanics, not the
+  L-043 gate). Phase 18 explicitly exercises the gate.
+
+### Migration notes
+
+- Existing epics will refuse to archive on the next `pi-epic-complete`
+  run unless either:
+  - An `epic-review.md` is written by the new agent (via the
+    orchestrator's step 4, or a manual `subagent` invocation), OR
+  - `--skip-epic-review` is passed (one-time emergency override).
+- The recommended migration is to run the orchestrator step 4 by
+  hand: spawn the `feature-epic-reviewer` agent against the
+  in-flight epic and produce an `epic-review.md`. The agent is
+  designed to work on retrospective epics too.
+
 ## [0.6.3] — 2026-05-15
 
 **`pi-epic-extend` — first-class verb for extending an existing epic.**

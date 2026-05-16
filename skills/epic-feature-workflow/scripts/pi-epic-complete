@@ -21,7 +21,7 @@ done
 __SCRIPT_DIR="$(cd -P "$(dirname "$__src")" && pwd)"
 source "$__SCRIPT_DIR/_common.sh"
 
-no_pr=0; draft=0; contribute_lesson=""; SKIP_EXT_CHECK=0
+no_pr=0; draft=0; contribute_lesson=""; SKIP_EXT_CHECK=0; SKIP_EPIC_REVIEW=0
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --no-pr) no_pr=1; shift ;;
@@ -29,10 +29,11 @@ while [[ $# -gt 0 ]]; do
         --contribute-lesson)
             contribute_lesson=$2; shift 2 ;;
         --skip-extension-check) SKIP_EXT_CHECK=1; shift ;;
+        --skip-epic-review) SKIP_EPIC_REVIEW=1; shift ;;
         *) echo "unknown arg: $1" >&2; exit 1 ;;
     esac
 done
-export SKIP_EXT_CHECK
+export SKIP_EXT_CHECK SKIP_EPIC_REVIEW
 
 # --contribute-lesson L-XYZ: print copy-paste-friendly upstream PR text. Does not
 # modify the framework lessons.md in place (the user opens a PR themselves).
@@ -86,6 +87,62 @@ fi
 
 git checkout "epic/$epic_slug" --quiet
 [[ -z $(git status --porcelain) ]] || { echo "ERROR: working tree dirty on epic branch" >&2; exit 1; }
+
+# v0.7.0 / L-043 — epic-review gate.
+# Refuse to archive an epic that hasn't been through feature-epic-reviewer.
+# The reviewer writes EPIC_DIR/epic-review.md whose final non-empty line is
+# `Verdict: APPROVE_EPIC | REQUEST_CHANGES_EPIC | BLOCK_EPIC`. We accept only
+# APPROVE_EPIC. Bypassable for spike epics, smoke tests, and emergencies via
+# --skip-epic-review (logs a loud warning).
+if [[ "${SKIP_EPIC_REVIEW:-0}" != "1" ]]; then
+    epic_review_file="$epic_dir/epic-review.md"
+    if [[ ! -f "$epic_review_file" ]]; then
+        printf '\033[31m✖ HALT (L-043): no epic-review.md at %s.\033[0m\n' "$epic_review_file" >&2
+        cat >&2 <<EOF
+   pi-epic-complete refuses to archive an epic without an end-to-end review.
+   The feature-epic-reviewer agent catches the cross-feature bug classes
+   per-feature reviewers cannot see (lockfile drift, no-op stubs, orphaned
+   references, design-section coverage gaps, rubber-stamping).
+
+   Run the orchestrator's epic-review step, or invoke the agent directly:
+     subagent({ agent: "feature-epic-reviewer", context: "fresh",
+                cwd: "$repo",
+                task: "...",
+                output: "$epic_review_file",
+                outputMode: "file-only" })
+
+   Escape hatch (logs a warning, NOT the default path):
+     pi-epic-complete --skip-epic-review
+EOF
+        exit 1
+    fi
+    # Extract the LAST non-empty line and look for an APPROVE_EPIC verdict.
+    verdict_line=$(awk 'NF { last=$0 } END { print last }' "$epic_review_file")
+    case "$verdict_line" in
+        *Verdict:*APPROVE_EPIC*)
+            log "epic-review verdict: APPROVE_EPIC — gate passed."
+            ;;
+        *Verdict:*REQUEST_CHANGES_EPIC*|*Verdict:*BLOCK_EPIC*)
+            printf '\033[31m✖ HALT (L-043): epic-review verdict is not APPROVE_EPIC.\033[0m\n' >&2
+            printf '   Last line of %s:\n' "$epic_review_file" >&2
+            printf '     %s\n' "$verdict_line" >&2
+            printf '   Address the findings, then re-run the reviewer. Do NOT bypass unless you understand why.\n' >&2
+            exit 1
+            ;;
+        *)
+            printf '\033[31m✖ HALT (L-043): epic-review.md exists but has no parseable Verdict: line.\033[0m\n' >&2
+            printf '   Last line read: %s\n' "$verdict_line" >&2
+            printf '   The feature-epic-reviewer contract requires the LAST non-empty line to be:\n' >&2
+            printf '     Verdict: APPROVE_EPIC | REQUEST_CHANGES_EPIC | BLOCK_EPIC\n' >&2
+            exit 1
+            ;;
+    esac
+else
+    printf '\033[33m⚠  --skip-epic-review used: bypassing the L-043 epic-review gate.\033[0m\n' >&2
+    printf '   This is a documented escape hatch (spike epics, smoke tests, emergencies)\n' >&2
+    printf '   but means no cross-feature consistency check ran. Logged to run-log.jsonl.\n' >&2
+    runlog_append "$epic_dir" "\"event\":\"epic-review-skipped\",\"epic\":\"$epic_id\""
+fi
 
 # v0.6.3 / L-042 — extension guardrails.
 # If this epic has been extended, surface a visible reminder; hard-halt when
