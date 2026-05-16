@@ -28,6 +28,16 @@ outside users are the primary signal driving the roadmap.
       (run them mentally — or actually — against a fresh tmpdir repo).
 - [ ] The README *"How it works"* diagram still matches the code if any
       step in the orchestrator changed.
+- [ ] **`site/src/App.tsx` bumped** — Navbar version pill, Hero pill,
+      `<WhatsNew>` section content, and changelog deep-link all reflect
+      this release. If the orchestration pipeline changed, the
+      `<ArchitectureDiagram>` node list changes too. The marketing
+      surface MUST not lag the code (anti-L-X: "shipped v0.7 but the
+      site still says v0.5").
+- [ ] **`README.md` lesson catch-up** — the "L-001 through L-NNN are
+      documented today" sentence at the end of the *Lessons-as-code*
+      section names the highest L-id introduced by this release and
+      briefly cites what each new lesson was about.
 - [ ] Tag the release: `git tag vX.Y.Z && git push --tags`.
 
 **Per-release nice-to-have (best effort, not blocking):**

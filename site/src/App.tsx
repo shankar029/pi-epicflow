@@ -350,44 +350,62 @@ const WhatsNew = () => (
       <div className="relative">
         <div className="inline-flex items-center gap-2 bg-vibrant-green/10 text-vibrant-green text-xs font-bold font-mono px-4 py-1.5 rounded-full border border-vibrant-green/20 mb-6 uppercase tracking-widest">
           <Brain className="w-3 h-3" />
-          New in v0.5
+          New in v0.7
         </div>
-        <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-4">Hybrid planning architecture</h2>
+        <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-4">Cross-feature review, before the PR opens</h2>
         <p className="text-text-muted text-base md:text-lg max-w-3xl leading-relaxed mb-8">
-          v0.5 introduces a two-tier planning system motivated by real-world failures:
-          mid-implementation halts because the worker guessed wrong on an AC, and silent
-          scope creep on cross-cutting files. Both are now structural, not lucky.
+          Per-feature reviewers see one feature's diff against one feature's AC,
+          in fresh context. They are structurally blind to cross-feature bugs —
+          stale lockfiles bumped by F03 and reverted by F12, no-op stubs left
+          behind, design.md sections no feature claimed. v0.7 closes that gap
+          with a final-pass agent and a hard archive gate, motivated by real
+          bugs caught (and missed) on two end-to-end epics.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-surface-container border border-slate-border rounded-2xl p-6">
-            <ClipboardCheck className="w-6 h-6 text-amber-400 mb-3" />
-            <h3 className="font-bold text-white mb-2">Always-on Plan §4</h3>
+            <ClipboardCheck className="w-6 h-6 text-fuchsia-400 mb-3" />
+            <h3 className="font-bold text-white mb-2">feature-epic-reviewer agent</h3>
             <p className="text-text-muted text-sm leading-relaxed">
-              Every worker fills <code className="text-amber-400 font-mono text-xs">feature.md</code> §4 before any edit: files-to-touch, AC interpretations, ambiguities, anti-scope. Reviewer enforces.
+              Fresh-context agent runs after every feature merges. Checks lockfile/manifest churn, no-op stubs, orphaned refs, resource lifecycle symmetry, design-trace coverage, and rubber-stamping. Emits{" "}
+              <code className="text-fuchsia-400 font-mono text-xs">Verdict: APPROVE_EPIC</code>.
             </p>
           </div>
           <div className="bg-surface-container border border-slate-border rounded-2xl p-6">
-            <Brain className="w-6 h-6 text-cyan-400 mb-3" />
-            <h3 className="font-bold text-white mb-2">feature-planner subagent</h3>
+            <Flag className="w-6 h-6 text-vibrant-green mb-3" />
+            <h3 className="font-bold text-white mb-2">pi-epic-complete gate (L-043)</h3>
             <p className="text-text-muted text-sm leading-relaxed">
-              Tagged features get a read-only planner pass that produces a binding <code className="text-cyan-400 font-mono text-xs">plan.md</code>. Reads design + reference_paths + repo. Worker treats it as a contract.
+              Refuses to archive an epic unless{" "}
+              <code className="text-vibrant-green font-mono text-xs">epic-review.md</code>{" "}
+              ends with{" "}
+              <code className="text-vibrant-green font-mono text-xs">APPROVE_EPIC</code>.{" "}
+              Bypass with{" "}
+              <code className="text-vibrant-green font-mono text-xs">--skip-epic-review</code>{" "}
+              for spike epics; bypass is logged to run-log.jsonl for audit.
             </p>
           </div>
           <div className="bg-surface-container border border-slate-border rounded-2xl p-6">
-            <Lightbulb className="w-6 h-6 text-fuchsia-400 mb-3" />
-            <h3 className="font-bold text-white mb-2">kind: spike</h3>
+            <Lightbulb className="w-6 h-6 text-amber-400 mb-3" />
+            <h3 className="font-bold text-white mb-2">pi-epic-extend (v0.6.3)</h3>
             <p className="text-text-muted text-sm leading-relaxed">
-              First-class decision features. <code className="text-fuchsia-400 font-mono text-xs">S01</code>-prefix IDs, structured Decision / Evidence / Impact in <code className="text-fuchsia-400 font-mono text-xs">deviations.md</code>. Tests skipped.
+              First-class extend verb. Un-archives a finished epic, appends new features (F&lt;max+1&gt; onward), and snapshots{" "}
+              <code className="text-amber-400 font-mono text-xs">original_feature_count</code>.{" "}
+              &ge;30% growth hard-halts without a{" "}
+              <code className="text-amber-400 font-mono text-xs">Decomposition lesson:</code>{" "}
+              entry in deviations.md (L-042).
             </p>
           </div>
         </div>
         <div className="mt-8 flex flex-wrap items-center gap-3 text-sm">
-          <a href={`${REPO}/blob/main/CHANGELOG.md#050--2026-05-14`} className="text-vibrant-green hover:underline">
-            Full v0.5 changelog →
+          <a href={`${REPO}/blob/main/CHANGELOG.md#070--2026-05-15`} className="text-vibrant-green hover:underline">
+            Full v0.7 changelog →
           </a>
           <span className="text-text-muted">·</span>
-          <a href={`${REPO}/blob/main/docs/design.md`} className="text-vibrant-green hover:underline">
-            Design rationale →
+          <a href={`${REPO}/blob/main/agents/feature-epic-reviewer.md`} className="text-vibrant-green hover:underline">
+            feature-epic-reviewer contract →
+          </a>
+          <span className="text-text-muted">·</span>
+          <a href={`${REPO}/blob/main/skills/epic-feature-workflow/lessons.md`} className="text-vibrant-green hover:underline">
+            All 43 lessons →
           </a>
         </div>
       </div>
