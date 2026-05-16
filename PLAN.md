@@ -102,7 +102,7 @@ not a workaround. First-class verb with guardrails.
   - Heuristic shells per language: vite.config*, main.ts, index.html, Program.cs, Directory.Build.props, `index.ts` barrel in same package, *.csproj for new project
 - [ ] Validator outputs ranked list of suspicious features for human review
 - [ ] Per-feature reviewer reads same heuristics; flags as deviation if scope_files missed an obvious shell
-- [ ] L-043 lesson + smoke phase
+- [ ] L-045 lesson + smoke phase
 
 ### v0.7.2 — `required_toolchain` pre-flight (~3h)
 
@@ -115,7 +115,7 @@ not a workaround. First-class verb with guardrails.
 - [ ] `pi-epic-init` runs each validate_cmd; refuses to start if any missing/wrong-version
 - [ ] `pi-epic-status` shows toolchain check per feature
 - [ ] Per-feature reviewer cannot APPROVE if a required toolchain was unavailable AND the feature touches files matched by that toolchain (e.g., `*.cs` requires dotnet)
-- [ ] L-044 lesson + smoke phase
+- [ ] L-046 lesson + smoke phase
 
 ### v0.8.0 — Parallel dispatcher (~16h)
 
@@ -131,13 +131,13 @@ Conservative defaults; opt-in.
 - [ ] **Halt-and-ask (H6 extension)** on out-of-order merge conflict — no auto-rebase
 - [ ] Run-log gets `worker_id` and `dispatcher_pid` fields
 - [ ] Recovery playbook R11 for parallel-merge conflicts
-- [ ] L-045 + L-046 lessons + smoke phases (15+, 16+ for parallel-2 and parallel-4)
+- [ ] L-047 + L-048 lessons + smoke phases (15+, 16+ for parallel-2 and parallel-4)
 
 ### v0.8.1 — Quality polish (~3h)
 
 - [ ] Late-feature complexity factor in decomposer (L-041): estimated_hours × depth multiplier
 - [ ] Run-log emission tightening (gen-ui had F01/F23 missing complete events; F36 no start)
-- [ ] L-047 lesson + smoke phase
+- [ ] L-049 lesson + smoke phase
 
 ## Decisions log
 

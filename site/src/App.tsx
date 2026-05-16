@@ -405,7 +405,7 @@ const WhatsNew = () => (
           </a>
           <span className="text-text-muted">·</span>
           <a href={`${REPO}/blob/main/skills/epic-feature-workflow/lessons.md`} className="text-vibrant-green hover:underline">
-            All 43 lessons →
+            All 44 lessons →
           </a>
         </div>
       </div>
