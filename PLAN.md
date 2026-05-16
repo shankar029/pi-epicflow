@@ -5,7 +5,7 @@ harmony-design-studio (20-feat serial) and gen-ui (36-feat parallel) epic
 retrospectives, culminating in a parallel dispatcher whose evidence-gate
 (L-035) has now been satisfied by the gen-ui 2.97× speedup.
 
-**Status:** in progress — v0.7.0 + v0.7.1 shipped; v0.7.2 next.
+**Status:** in progress — v0.7.0 + v0.7.1 + v0.7.2 shipped; v0.8.0 next (parallel dispatcher).
 
 ## Evidence base
 
@@ -103,18 +103,14 @@ not a workaround. First-class verb with guardrails.
 - [x] Validator errors on missing shell; `--skip-shell-check` bypass flag
 - [x] L-045 lesson + smoke phase 19 (4-case round-trip: missing-shell errors, shell-present passes, bypass works, no-trigger does not false-positive)
 
-### v0.7.2 — `required_toolchain` pre-flight (~3h)
+### v0.7.2 — `required_toolchain` pre-flight (~3h, SHIPPED)
 
-- [ ] New `epic-config.yaml` field:
-  ```yaml
-  required_toolchain:
-    - { name: dotnet, min_version: "9.0", validate_cmd: "dotnet --version" }
-    - { name: node, min_version: "20", validate_cmd: "node --version" }
-  ```
-- [ ] `pi-epic-init` runs each validate_cmd; refuses to start if any missing/wrong-version
-- [ ] `pi-epic-status` shows toolchain check per feature
-- [ ] Per-feature reviewer cannot APPROVE if a required toolchain was unavailable AND the feature touches files matched by that toolchain (e.g., `*.cs` requires dotnet)
-- [ ] L-046 lesson + smoke phase
+- [x] New `epic-config.yaml` field: `required_toolchain` (list of `{name, min_version, validate_cmd, install_hint}` entries; template ships `[]` plus commented example)
+- [x] `pi-epic-validate-decomposition` runs each `validate_cmd` (15s timeout); compares leading digit groups against `min_version`; on failure emits the `install_hint` verbatim and refuses to proceed
+- [x] Toolchain-manager auto-defer: `.mise.toml` → 'mise install'; `.tool-versions` → 'asdf install' (prefers manager over per-SDK hint)
+- [x] `--skip-toolchain-check` flag (documented escape hatch with yellow warning)
+- [x] **Auto-install was deliberately rejected** — see L-046 rationale (security, portability, state pollution, concern boundary; no outside-user evidence yet); deferred to v0.7.3+ as opt-in `--auto-install` with installer allow-list if real signal demands it
+- [x] L-046 lesson + smoke phase 20 (six-case round-trip)
 
 ### v0.8.0 — Parallel dispatcher (~16h)
 

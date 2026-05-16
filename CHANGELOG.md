@@ -6,6 +6,72 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.2] — 2026-05-15
+
+**`required_toolchain` pre-flight (L-046).** Detect + suggest, NOT
+detect + auto-install. Closes the failure mode where an epic gets
+halfway through F03 before discovering the host machine doesn't have
+the SDK the work needs. Auto-install was deliberately rejected (see
+L-046) on security, portability, state-pollution, and concern-boundary
+grounds; auto-install can return as an opt-in flag with an installer
+allow-list only after outside-user evidence demands it.
+
+### Added
+
+- **`epic-config.yaml` new field: `required_toolchain`** — list of
+  `{name, min_version, validate_cmd, install_hint}` entries. Template
+  ships with `required_toolchain: []` (no-op) plus a commented-out
+  example documenting the schema.
+
+- **`pi-epic-validate-decomposition` L-046 check** — runs each
+  `required_toolchain` entry's `validate_cmd` (15s timeout); compares
+  leading digit groups of stdout against `min_version` (`'v9.0.100'`
+  parses as `(9, 0, 100)`); on failure, emits a multi-line stderr
+  block with the failing toolchain name, the failure reason (exit
+  code / version comparison / parse failure), and the `install_hint`
+  **verbatim** — pi-epicflow does NOT execute the hint. Operator
+  copy/pastes.
+
+- **Toolchain-manager auto-defer** — if the repo root has
+  `.mise.toml` / `mise.toml`, the failure message prefers
+  `mise install` over per-SDK hints. If `.tool-versions` is present
+  but no mise config, prefers `asdf install`. Defers to the
+  toolchain manager the repo already chose; doesn't try to install
+  the manager itself.
+
+- **`--skip-toolchain-check` flag** — documented escape hatch (CI
+  smoke runs, one-off operator overrides). Logs a yellow warning.
+
+- **L-046 lesson** — *detect + suggest, not detect + install*.
+  Spells out the rationale for rejecting auto-install (security,
+  portability, state pollution, concern boundary, no outside-user
+  evidence yet).
+
+- **Smoke phase 20** — six-case round-trip:
+  - empty `required_toolchain: []` is a no-op
+  - nonexistent SDK → errors with install_hint
+  - `--skip-toolchain-check` → bypasses with warning
+  - present SDK passes
+  - too-old `min_version` → errors with 'version too low'
+  - `.tool-versions` present → prefers `asdf install` over per-SDK hint
+
+### Changed
+
+- `skills/epic-feature-workflow/templates/epic-config.yaml` — adds
+  the `required_toolchain: []` field + commented example. Existing
+  `epic-config.yaml` files without the field are unaffected (the
+  check is opt-in via population, not via field presence).
+
+### Migration notes
+
+- Existing epics: no action required. The check only fires when
+  `required_toolchain` is populated. The template will seed the field
+  on new `pi-epic-init` runs; old epics keep working unchanged.
+- To benefit on an existing epic: edit `epic-config.yaml`, populate
+  `required_toolchain`, re-run `pi-epic-validate-decomposition`.
+- Rationale for the detect+suggest design (vs auto-install) is
+  spelled out in lessons.md §L-046 and in this CHANGELOG entry.
+
 ## [0.7.1] — 2026-05-15
 
 **Integration-shell completeness validator (L-045).** Closes the

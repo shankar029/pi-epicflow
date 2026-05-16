@@ -27,25 +27,168 @@ decomp="$epic_dir/decomposition.yaml"
 [[ -f "$decomp" ]] || { echo "ERROR: $decomp not found" >&2; exit 1; }
 
 # v0.7.1 / L-045 — integration-shell completeness flag.
+# v0.7.2 / L-046 — required toolchain pre-flight flag.
 SKIP_SHELL_CHECK=0
+SKIP_TOOLCHAIN_CHECK=0
 for arg in "$@"; do
     case "$arg" in
         --skip-shell-check) SKIP_SHELL_CHECK=1 ;;
+        --skip-toolchain-check) SKIP_TOOLCHAIN_CHECK=1 ;;
         --help|-h)
             cat <<EOF
-Usage: pi-epic-validate-decomposition [--skip-shell-check]
+Usage: pi-epic-validate-decomposition [--skip-shell-check] [--skip-toolchain-check]
 
-  --skip-shell-check   Bypass the v0.7.1 L-045 integration-shell completeness
-                       check (warns/errors when AC contains trigger verbs like
-                       'wire', 'register', 'integrate' but scope_files lacks a
-                       language-appropriate integration shell). Logs a warning;
-                       intended for spike epics or one-off bypass.
+  --skip-shell-check       Bypass the v0.7.1 L-045 integration-shell completeness
+                           check (warns/errors when AC contains trigger verbs like
+                           'wire', 'register', 'integrate' but scope_files lacks a
+                           language-appropriate integration shell). Logs a warning;
+                           intended for spike epics or one-off bypass.
+
+  --skip-toolchain-check   Bypass the v0.7.2 L-046 required-toolchain pre-flight
+                           check (runs each epic-config.yaml required_toolchain
+                           entry's validate_cmd; refuses to validate the
+                           decomposition if any returns non-zero or stdout fails
+                           min_version comparison). Logs a warning. Intended for
+                           CI smoke runs and one-off operator overrides.
 EOF
             exit 0
             ;;
     esac
 done
-export SKIP_SHELL_CHECK
+export SKIP_SHELL_CHECK SKIP_TOOLCHAIN_CHECK
+
+# v0.7.2 / L-046 — required toolchain pre-flight.
+# Run BEFORE the python validator. Reads epic-config.yaml's required_toolchain
+# entries; for each, runs the validate_cmd and compares its trimmed first-line
+# stdout against min_version (lexicographic per-segment). Failures emit a
+# multi-line message with the install_hint verbatim; pi-epicflow does NOT run
+# the install_hint itself (see L-046 design rationale).
+if [[ "${SKIP_TOOLCHAIN_CHECK:-0}" != "1" ]]; then
+    epic_cfg="$epic_dir/epic-config.yaml"
+    if [[ -f "$epic_cfg" ]]; then
+        # Defer to a toolchain manager if the repo has one declared.
+        toolchain_mgr_hint=""
+        if [[ -f "$repo/.mise.toml" || -f "$repo/mise.toml" ]]; then
+            toolchain_mgr_hint="mise install"
+        elif [[ -f "$repo/.tool-versions" ]]; then
+            toolchain_mgr_hint="asdf install"
+        fi
+
+        python3 - "$epic_cfg" "$toolchain_mgr_hint" <<'TPY'
+import sys, subprocess, re
+epic_cfg = sys.argv[1]
+mgr_hint = sys.argv[2]
+
+def parse_toolchain(p):
+    """Tiny YAML-ish reader for the required_toolchain block only."""
+    out = []
+    in_block = False
+    cur = None
+    with open(p, encoding='utf-8') as f:
+        for raw in f:
+            line = raw.rstrip('\n')
+            if not line.strip() or line.lstrip().startswith('#'):
+                # comment / blank — still respect block boundaries
+                continue
+            # Top-level key
+            if not line.startswith(' ') and not line.startswith('-'):
+                m = re.match(r'^required_toolchain\s*:\s*(.*)$', line)
+                if m:
+                    rest = m.group(1).strip()
+                    if rest == '[]' or rest == '':
+                        in_block = (rest != '[]')
+                    else:
+                        in_block = False  # inline value, not list
+                    cur = None
+                else:
+                    in_block = False
+                continue
+            if not in_block:
+                continue
+            # New list item
+            m = re.match(r'^\s*-\s*(.*)$', line)
+            if m:
+                if cur is not None:
+                    out.append(cur)
+                cur = {}
+                rest = m.group(1)
+                m2 = re.match(r'^([A-Za-z_][\w]*)\s*:\s*(.+)$', rest)
+                if m2:
+                    cur[m2.group(1)] = m2.group(2).strip().strip('"').strip("'")
+                continue
+            # Continuation field
+            m = re.match(r'^\s+([A-Za-z_][\w]*)\s*:\s*(.+)$', line)
+            if m and cur is not None:
+                cur[m.group(1)] = m.group(2).strip().strip('"').strip("'")
+    if cur is not None:
+        out.append(cur)
+    return out
+
+toolchains = parse_toolchain(epic_cfg)
+if not toolchains:
+    sys.exit(0)
+
+def ver_tuple(s):
+    # Extract leading digit groups: '20.5.1+build' → (20,5,1); 'v9.0.100' → (9,0,100)
+    nums = re.findall(r'\d+', s)
+    return tuple(int(n) for n in nums[:4]) if nums else ()
+
+failures = []
+for tc in toolchains:
+    name = tc.get('name', '<unnamed>')
+    cmd = tc.get('validate_cmd', '').strip()
+    min_v = tc.get('min_version', '').strip()
+    hint = tc.get('install_hint', '').strip()
+    if not cmd:
+        failures.append((name, 'no validate_cmd defined in epic-config.yaml', hint))
+        continue
+    try:
+        r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=15)
+    except subprocess.TimeoutExpired:
+        failures.append((name, f'validate_cmd timed out after 15s: {cmd}', hint))
+        continue
+    except Exception as e:
+        failures.append((name, f'validate_cmd raised: {e}', hint))
+        continue
+    if r.returncode != 0:
+        failures.append((name, f'validate_cmd exit {r.returncode}: {(r.stderr or r.stdout).strip()[:200]}', hint))
+        continue
+    out = (r.stdout or '').strip().splitlines()[0] if r.stdout else ''
+    if min_v:
+        got = ver_tuple(out)
+        want = ver_tuple(min_v)
+        if not got:
+            failures.append((name, f'cannot parse version from `{cmd}` output: {out!r}', hint))
+            continue
+        if got < want:
+            failures.append((name, f'version too low: got {out!r}, need >= {min_v}', hint))
+            continue
+
+if failures:
+    sys.stderr.write('\n')
+    sys.stderr.write('\033[31m✖ L-046 (v0.7.2): required toolchain pre-flight failed.\033[0m\n')
+    sys.stderr.write('   The epic declares toolchains it needs (epic-config.yaml → required_toolchain).\n')
+    sys.stderr.write('   These are missing or below min_version:\n\n')
+    for name, reason, hint in failures:
+        sys.stderr.write(f'   * {name}: {reason}\n')
+        if hint:
+            sys.stderr.write(f'     install: {hint}\n')
+        sys.stderr.write('\n')
+    if mgr_hint:
+        sys.stderr.write(f'   The repo has a toolchain manager declared. Prefer:\n')
+        sys.stderr.write(f'     {mgr_hint}\n\n')
+    sys.stderr.write('   pi-epicflow intentionally does NOT auto-install (see L-046 rationale).\n')
+    sys.stderr.write('   Run the install command above, then re-run pi-epic-validate-decomposition.\n')
+    sys.stderr.write('   Bypass (logs a warning): --skip-toolchain-check\n\n')
+    sys.exit(1)
+sys.exit(0)
+TPY
+        tc_exit=$?
+        if [[ $tc_exit -ne 0 ]]; then exit $tc_exit; fi
+    fi
+else
+    printf '\033[33m⚠  --skip-toolchain-check used: bypassing the L-046 required-toolchain gate.\033[0m\n' >&2
+fi
 
 python3 - "$decomp" "$repo" <<'PY'
 import sys, re, os, glob
