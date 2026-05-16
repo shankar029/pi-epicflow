@@ -29,7 +29,7 @@ const Navbar = () => (
         <Terminal className="text-vibrant-green w-6 h-6" />
         <span className="text-white">pi-epicflow</span>
         <span className="ml-2 px-2 py-0.5 text-[10px] font-mono uppercase tracking-widest text-vibrant-green border border-vibrant-green/30 rounded">
-          v0.5
+          v0.7.1
         </span>
       </div>
       <nav className="hidden md:flex gap-8 items-center text-sm font-medium">
@@ -57,7 +57,7 @@ const Hero = () => (
       className="inline-flex items-center gap-2 bg-vibrant-green/10 text-vibrant-green text-xs font-bold font-mono px-4 py-1.5 rounded-full border border-vibrant-green/20 mb-6 uppercase tracking-widest"
     >
       <Brain className="w-3 h-3" />
-      v0.5 — hybrid planner + spikes
+      v0.7.1 — integration-shell validator
     </motion.div>
 
     <motion.h1
@@ -173,13 +173,14 @@ const Benefits = () => (
 
 const ArchitectureDiagram = () => (
   <div className="bg-slate-surface border border-slate-border rounded-3xl p-6 md:p-10 relative overflow-hidden">
-    <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-stretch text-center">
+    <div className="grid grid-cols-1 lg:grid-cols-6 gap-4 items-stretch text-center">
       {[
         { label: "design.md", sub: "you write", color: "border-slate-border text-text-muted" },
         { label: "/epic-decompose", sub: "DAG + AC + tags", color: "border-vibrant-green/40 text-vibrant-green" },
         { label: "feature-planner", sub: "needs_planner: true", color: "border-amber-400/40 text-amber-400" },
         { label: "feature-worker", sub: "plan.md binding", color: "border-cyan-400/40 text-cyan-400" },
         { label: "feature-reviewer", sub: "plan-vs-impl", color: "border-emerald-400/40 text-emerald-400" },
+        { label: "feature-epic-reviewer", sub: "cross-feature gate", color: "border-fuchsia-400/40 text-fuchsia-400" },
       ].map((node, i) => (
         <motion.div
           key={i}
@@ -201,7 +202,7 @@ const ArchitectureDiagram = () => (
         loop until DAG drained
       </span>
       <span>→ squash-merge into <span className="text-vibrant-green">epic/&lt;slug&gt;</span></span>
-      <span>→ epic-reviewer → <span className="text-vibrant-green">one PR to main</span></span>
+      <span>→ epic-review gate → <span className="text-vibrant-green">one PR to main</span></span>
     </div>
   </div>
 );
@@ -282,8 +283,11 @@ const WorkflowAndQuickstart = () => (
         </p>
         <p>
           <strong className="text-white">3. Land.</strong>{" "}
-          When every feature has merged, an epic-wide reviewer audits the cumulative diff and{" "}
-          <code className="text-vibrant-green font-mono text-xs">pi-epic-complete</code> opens one PR to main. Deviations get distilled into{" "}
+          When every feature has merged, a dedicated{" "}
+          <code className="text-fuchsia-400 font-mono text-xs">feature-epic-reviewer</code>{" "}
+          audits the cumulative diff for the cross-feature bugs per-feature reviewers can't see (lockfile drift, no-op stubs, design-section coverage gaps, rubber-stamping). Only on{" "}
+          <code className="text-vibrant-green font-mono text-xs">Verdict: APPROVE_EPIC</code> does{" "}
+          <code className="text-vibrant-green font-mono text-xs">pi-epic-complete</code> open one PR to main. Deviations get distilled into{" "}
           <code className="text-vibrant-green font-mono text-xs">lessons.md</code> so the next epic gets smarter automatically.
         </p>
       </div>
@@ -405,7 +409,7 @@ const WhatsNew = () => (
           </a>
           <span className="text-text-muted">·</span>
           <a href={`${REPO}/blob/main/skills/epic-feature-workflow/lessons.md`} className="text-vibrant-green hover:underline">
-            All 44 lessons →
+            All 45 lessons →
           </a>
         </div>
       </div>

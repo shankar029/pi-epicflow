@@ -26,6 +26,27 @@ repo=$(repo_root)
 decomp="$epic_dir/decomposition.yaml"
 [[ -f "$decomp" ]] || { echo "ERROR: $decomp not found" >&2; exit 1; }
 
+# v0.7.1 / L-045 — integration-shell completeness flag.
+SKIP_SHELL_CHECK=0
+for arg in "$@"; do
+    case "$arg" in
+        --skip-shell-check) SKIP_SHELL_CHECK=1 ;;
+        --help|-h)
+            cat <<EOF
+Usage: pi-epic-validate-decomposition [--skip-shell-check]
+
+  --skip-shell-check   Bypass the v0.7.1 L-045 integration-shell completeness
+                       check (warns/errors when AC contains trigger verbs like
+                       'wire', 'register', 'integrate' but scope_files lacks a
+                       language-appropriate integration shell). Logs a warning;
+                       intended for spike epics or one-off bypass.
+EOF
+            exit 0
+            ;;
+    esac
+done
+export SKIP_SHELL_CHECK
+
 python3 - "$decomp" "$repo" <<'PY'
 import sys, re, os, glob
 
@@ -374,6 +395,130 @@ for ft in data.get('features', []):
                     f"scope_files entry (or dep's scope) maps to module '{modpath}'. "
                     f"L-024: add the owning file to scope_files, or you'll force "
                     f"an out-of-scope edit at implementation time.")
+
+# v0.7.1 / L-045 — integration-shell completeness.
+#
+# Pattern caught: ~58 deviations across harmony + gen-ui where a worker built
+# the new thing correctly but forgot to wire it into the host app. The AC
+# triggers ('wire X into Y', 'register with Z', 'expose at /foo', 'integrate
+# with Bar') signal cross-cutting work; if scope_files lists only the new
+# thing and no language-appropriate integration shell, the worker has no
+# mechanical reason to touch the shell and the per-feature reviewer's check
+# is shaped around the new thing, not the boundary.
+#
+# Trigger verbs (case-insensitive, word-boundary):
+_SHELL_TRIGGER_RE = re.compile(
+    r'\b(wire|register|registered|registering|expose|exposes|exposed|integrate|integrates|integrated|integrating|mount|mounts|mounted|route|routes|routed|hook(?:\s+up)?|plug(?:\s+in)?|add\s+\S+\s+to|connect|connects|connected)\b',
+    re.IGNORECASE)
+
+# Detect target language(s) from scope_files extensions. Each language
+# has a list of integration-shell *names* (basename match) that count as
+# satisfying the gate. Match is permissive: if ANY scope_files entry is one
+# of these basenames, the gate is satisfied for that language.
+_SHELL_BY_LANG = {
+    'ts_react':  ['vite.config.ts', 'vite.config.js', 'vite.config.mjs',
+                  'main.tsx', 'main.ts', 'main.jsx', 'index.html',
+                  'index.ts', 'index.tsx', 'index.js'],
+    'ts_lib':    ['package.json', 'index.ts', 'index.tsx', 'index.js',
+                  'tsconfig.json'],
+    'csharp':    ['Program.cs', 'Startup.cs', 'Directory.Build.props',
+                  'Directory.Packages.props'],
+    'csharp_proj': ['.csproj', '.sln'],   # extension-based match
+    'python':    ['pyproject.toml', 'setup.py', '__init__.py', 'conftest.py'],
+    'rust':      ['Cargo.toml', 'lib.rs', 'main.rs', 'mod.rs'],
+    'go':        ['go.mod', 'main.go'],
+}
+
+def _detect_langs(scope_files_list):
+    """Return set of language tags for a scope_files list, by extension."""
+    langs = set()
+    for p in scope_files_list:
+        if not p:
+            continue
+        base = os.path.basename(p)
+        ext = os.path.splitext(p)[1].lower()
+        if ext in ('.tsx', '.jsx'):
+            langs.add('ts_react'); langs.add('ts_lib')
+        elif ext in ('.ts', '.js', '.mjs', '.cjs'):
+            langs.add('ts_lib')
+            # If repo has a vite.config or index.html, also treat as ts_react.
+            if any(os.path.exists(os.path.join(repo_root, c))
+                   for c in ('vite.config.ts', 'vite.config.js', 'index.html')):
+                langs.add('ts_react')
+        elif ext == '.cs':
+            langs.add('csharp'); langs.add('csharp_proj')
+        elif ext == '.py':
+            langs.add('python')
+        elif ext == '.rs':
+            langs.add('rust')
+        elif ext == '.go':
+            langs.add('go')
+    return langs
+
+def _scope_satisfies_shell(scope_files_list, langs):
+    """True if any scope_files entry is an integration shell for one of the langs."""
+    for p in scope_files_list:
+        if not p:
+            continue
+        base = os.path.basename(p)
+        ext = os.path.splitext(p)[1].lower()
+        for lang in langs:
+            shells = _SHELL_BY_LANG.get(lang, [])
+            for shell in shells:
+                if shell.startswith('.'):
+                    # extension-based shell (e.g. '.csproj', '.sln')
+                    if ext == shell:
+                        return True
+                else:
+                    if base == shell:
+                        return True
+    return False
+
+SKIP_SHELL_CHECK = os.environ.get('SKIP_SHELL_CHECK', '0') == '1'
+shell_findings = []  # list of (fid, trigger_phrase, langs, scope_files)
+if not SKIP_SHELL_CHECK:
+    for ft in data.get('features', []):
+        fid = ft.get('id', '?')
+        kind = (ft.get('kind') or 'feature').strip()
+        if kind == 'spike':
+            continue
+        ac = ft.get('acceptance_criteria') or []
+        sf = _vals(ft.get('scope_files') or [])
+        if not sf:
+            continue  # already flagged as empty earlier
+        # Check each AC for a trigger phrase.
+        trigger = None
+        for entry in ac:
+            s = entry.get('value', '') if isinstance(entry, dict) else str(entry)
+            m = _SHELL_TRIGGER_RE.search(s)
+            if m:
+                trigger = m.group(0)
+                break
+        # Also check summary (shorter, sometimes the only place the verb lives).
+        if not trigger:
+            m = _SHELL_TRIGGER_RE.search(ft.get('summary', '') or '')
+            if m:
+                trigger = m.group(0)
+        if not trigger:
+            continue
+        langs = _detect_langs(sf)
+        if not langs:
+            # No detectable language — skip silently (heuristic not applicable)
+            continue
+        if not _scope_satisfies_shell(sf, langs):
+            # Suggest concrete shell candidates for the detected languages.
+            cands = []
+            for lang in sorted(langs):
+                cands.extend(_SHELL_BY_LANG.get(lang, [])[:3])
+            cands = list(dict.fromkeys(cands))[:6]  # dedupe, cap at 6
+            shell_findings.append((fid, trigger, sorted(langs), cands))
+
+for fid, trig, langs, cands in shell_findings:
+    errors.append(
+        f"{fid}: AC/summary contains trigger '{trig}' (cross-cutting work) but "
+        f"scope_files lacks a {'/'.join(langs)} integration shell. "
+        f"L-045: add at least one of [{', '.join(cands)}] to scope_files, "
+        f"or pass --skip-shell-check if this is a one-off bypass.")
 
 # Unknown deps
 all_ids = {ft.get('id') for ft in data.get('features', [])}

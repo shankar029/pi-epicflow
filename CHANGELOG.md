@@ -6,6 +6,71 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.1] — 2026-05-15
+
+**Integration-shell completeness validator (L-045).** Closes the
+largest single deviation class observed across harmony + gen-ui:
+~58 deviations that boil down to "worker built the new thing but
+forgot to wire it into the host app" — missing barrel entry,
+missing `main.tsx` registration, missing `Directory.Packages.props`
+entry, missing `vite.config` plugin entry. Per-feature reviewer
+catches it inconsistently because AC is shaped around the new
+thing, not the boundary.
+
+### Added
+
+- **`pi-epic-validate-decomposition` integration-shell check (L-045)**
+  — for every feature whose `acceptance_criteria` or `summary`
+  contains a trigger verb (`wire`, `register`, `expose`, `integrate`,
+  `mount`, `route`, `add ... to`, `hook up`, `plug in`, `connect`),
+  `scope_files` MUST include at least one language-appropriate
+  integration shell or the validator errors out:
+
+  | Detected language | Required shell candidates (≥1) |
+  |---|---|
+  | TypeScript/JS + React (`.tsx`, `.jsx`) | `main.tsx` / `main.ts` / `index.html` / `index.ts` barrel / `vite.config*` |
+  | TypeScript/JS (`.ts`, `.js`) | `package.json` / `index.ts` / `tsconfig.json` |
+  | C# (`.cs`) | `Program.cs` / `Startup.cs` / `*.csproj` / `*.sln` / `Directory.Build.props` |
+  | Python (`.py`) | `pyproject.toml` / `__init__.py` / `conftest.py` |
+  | Rust (`.rs`) | `Cargo.toml` / `lib.rs` / `main.rs` |
+  | Go (`.go`) | `go.mod` / `main.go` |
+
+  Detection is by extension on `scope_files`. Repo root markers
+  (e.g. an existing `vite.config.ts`) promote `.ts`/`.js` to
+  `ts_react`. Match is permissive: a single shell satisfies the
+  gate.
+
+- **`--skip-shell-check` flag** on `pi-epic-validate-decomposition`
+  — documented escape hatch for one-off bypass. Mirrors the v0.7.0
+  `--skip-epic-review` pattern.
+
+- **L-045 lesson** — *integration shells are part of the work, not
+  part of the toolchain*. Cites the 58-deviation evidence base
+  from both real epics.
+
+- **Smoke phase 19** — four-case round-trip:
+  - Trigger AC + no shell → validator errors with L-045 message
+  - Trigger AC + shell present → validator passes
+  - `--skip-shell-check` → bypasses
+  - No trigger verb → validator does not false-positive
+
+### Changed
+
+- `pi-epic-validate-decomposition` now accepts flags (previously
+  positional-args-only). `--help` describes the new flag.
+
+### Migration notes
+
+- Existing in-flight decomposition.yaml files that contain trigger
+  verbs but no shell will now error on the next
+  `pi-epic-validate-decomposition` run. Fix by adding the
+  appropriate shell to `scope_files` (preferred) or by passing
+  `--skip-shell-check` (one-off bypass).
+- The check is opt-out, not opt-in. Rationale: the bug class is
+  high-frequency and high-impact; the heuristic has been validated
+  against two large real epics; the bypass flag handles edge cases
+  cleanly.
+
 ## [0.7.0] — 2026-05-15
 
 **`feature-epic-reviewer` agent + `pi-epic-complete` epic-review gate (L-043).**

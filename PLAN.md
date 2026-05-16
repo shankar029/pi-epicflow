@@ -5,7 +5,7 @@ harmony-design-studio (20-feat serial) and gen-ui (36-feat parallel) epic
 retrospectives, culminating in a parallel dispatcher whose evidence-gate
 (L-035) has now been satisfied by the gen-ui 2.97× speedup.
 
-**Status:** in progress — v0.6.2 + v0.6.3 + v0.7.0 shipped; v0.7.1 next.
+**Status:** in progress — v0.7.0 + v0.7.1 shipped; v0.7.2 next.
 
 ## Evidence base
 
@@ -95,14 +95,13 @@ not a workaround. First-class verb with guardrails.
 - [x] L-043 lesson (per-feature reviewers blind to cross-feature bugs; cite harmony B1/B2 + gen-ui MapHarmonyAgent stub)
 - [x] Smoke phase 18 — gate refuses without file, refuses on REQUEST_CHANGES_EPIC, accepts APPROVE_EPIC, `--skip-epic-review` bypasses with audit log
 
-### v0.7.1 — Scope-files completeness validator (~4h)
+### v0.7.1 — Scope-files completeness validator (~4h, SHIPPED)
 
-- [ ] New post-pass in `pi-epic-validate-decomposition`:
-  - For each feature whose AC/summary contains: `wire`, `register`, `expose`, `integrate`, `migrate`, `add … to`, scope_files MUST include the language-appropriate integration shell
-  - Heuristic shells per language: vite.config*, main.ts, index.html, Program.cs, Directory.Build.props, `index.ts` barrel in same package, *.csproj for new project
-- [ ] Validator outputs ranked list of suspicious features for human review
-- [ ] Per-feature reviewer reads same heuristics; flags as deviation if scope_files missed an obvious shell
-- [ ] L-045 lesson + smoke phase
+- [x] New post-pass in `pi-epic-validate-decomposition`:
+  - For each feature whose AC/summary contains: `wire`, `register`, `expose`, `integrate`, `mount`, `route`, `add … to`, `hook up`, `plug in`, `connect`, scope_files MUST include the language-appropriate integration shell
+  - Heuristic shells per language: vite.config*, main.tsx, index.html, Program.cs, Directory.Build.props, `index.ts` barrel in same package, *.csproj/*.sln for new project, pyproject.toml, Cargo.toml, go.mod
+- [x] Validator errors on missing shell; `--skip-shell-check` bypass flag
+- [x] L-045 lesson + smoke phase 19 (4-case round-trip: missing-shell errors, shell-present passes, bypass works, no-trigger does not false-positive)
 
 ### v0.7.2 — `required_toolchain` pre-flight (~3h)
 

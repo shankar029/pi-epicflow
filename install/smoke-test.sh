@@ -42,7 +42,7 @@ echo "# smoke" > README.md
 git add README.md && git commit -qm "init"
 
 # 1. epic-init
-echo "[1/18] pi-epic-init"
+echo "[1/19] pi-epic-init"
 cat > /tmp/pi-epicflow-smoke-design.md <<'EOF'
 # Smoke
 Two features.
@@ -53,7 +53,7 @@ EPIC_ID=$(ls .pi/epics/ | grep -E '^0[0-9]+-' | head -1)
 [ "$(git rev-parse --abbrev-ref HEAD)" = "epic/smoke" ] && pass "on epic branch" || fail "not on epic branch"
 
 # 2. decomposition
-echo "[2/18] decomposition.yaml"
+echo "[2/19] decomposition.yaml"
 cat > ".pi/epics/$EPIC_ID/decomposition.yaml" <<EOF
 epic: $EPIC_ID
 features:
@@ -76,12 +76,12 @@ git add .pi/ && git commit -qm "decomp"
 pass "decomposition committed"
 
 # 3. next-feature dispatch
-echo "[3/18] pi-epic-next-feature"
+echo "[3/19] pi-epic-next-feature"
 NEXT=$(pi-epic-next-feature)
 [ "$NEXT" = "F01" ] && pass "next-feature returns F01" || fail "expected F01, got '$NEXT'"
 
 # 4. feature-start with L-012 (halt file present) + L-013 (status advance)
-echo "[4/18] pi-feature-start F01 (with halt-fake.md present)"
+echo "[4/19] pi-feature-start F01 (with halt-fake.md present)"
 echo "fake halt content" > ".pi/epics/$EPIC_ID/halt-fake.md"
 echo "extra line for design" >> ".pi/epics/$EPIC_ID/design.md"
 pi-feature-start F01 > /dev/null
@@ -98,7 +98,7 @@ fi
 [ -f ".pi/epics/$EPIC_ID/halt-fake.md" ] && pass "halt file still on disk" || fail "halt file was removed"
 
 # 5. worker simulation + feature-complete (v0.6: worker-report.md with evidence section)
-echo "[5/18] simulate worker + pi-feature-complete F01"
+echo "[5/19] simulate worker + pi-feature-complete F01"
 WT_PATH="$(grep -E "^worktree:" ".pi/epics/$EPIC_ID/features/F01-alpha/meta.yaml" | sed -E 's/^worktree:\s*"?([^"]*)"?.*/\1/')"
 [ -d "$WT_PATH" ] || fail "feature worktree missing: $WT_PATH"
 (
@@ -153,14 +153,14 @@ else
 fi
 
 # 6. dispatcher unblocks F02 after F01 merged
-echo "[6/18] pi-epic-next-feature after F01"
+echo "[6/19] pi-epic-next-feature after F01"
 NEXT=$(pi-epic-next-feature)
 [ "$NEXT" = "F02" ] && pass "dispatcher returns F02 after F01 merged" || fail "expected F02, got '$NEXT'"
 
 # 7. L-023: spike workflow end-to-end. Add a fresh epic with a single
 # spike and confirm pi-feature-start + (simulated) worker writing journal
 # to MAIN_REPO + pi-feature-complete all succeed without manual recovery.
-echo "[7/18] L-023 spike workflow"
+echo "[7/19] L-023 spike workflow"
 cd "$SANDBOX"
 # Clean .pi/ from the half-finished first epic so a fresh init works.
 rm -rf .pi/
@@ -220,7 +220,7 @@ else
 fi
 
 # 8. L-025: pi-epic-complete should leave the tree clean.
-echo "[8/18] L-025 clean tree after pi-epic-complete"
+echo "[8/19] L-025 clean tree after pi-epic-complete"
 # Complete the spike epic. --no-pr skips the push step (no origin);
 # --skip-epic-review bypasses the v0.7.0 L-043 gate (this phase tests archive
 # mechanics, not the epic-review gate; phase 18 tests the gate).
@@ -238,7 +238,7 @@ else
 fi
 
 # 9. L-029: range syntax in depends_on must be rejected with a specific error.
-echo "[9/18] L-029 depends_on range syntax detection"
+echo "[9/19] L-029 depends_on range syntax detection"
 L29_DIR=$(mktemp -d)
 cd "$L29_DIR"
 git init -q -b main && git config user.email t@t && git config user.name T
@@ -289,7 +289,7 @@ else
 fi
 
 # 10. L-030: parent-dir-missing warning suppressed when 2+ scope_files share parent.
-echo "[10/18] L-030 parent-dir warning suppression"
+echo "[10/19] L-030 parent-dir warning suppression"
 L30_DIR=$(mktemp -d)
 cd "$L30_DIR"
 git init -q -b main && git config user.email t@t && git config user.name T
@@ -336,7 +336,7 @@ else
 fi
 
 # 11. L-032: pi-feature-complete rejects a worker-report without '## Completion evidence'.
-echo "[11/18] L-032 evidence-gate rejects missing-evidence report"
+echo "[11/19] L-032 evidence-gate rejects missing-evidence report"
 L32_DIR=$(mktemp -d)
 cd "$L32_DIR"
 git init -q -b main && git config user.email t@t && git config user.name T
@@ -380,7 +380,7 @@ else
 fi
 
 # 12. L-032: --skip-evidence override permits merge for legacy/edge cases.
-echo "[12/18] L-032 --skip-evidence override works"
+echo "[12/19] L-032 --skip-evidence override works"
 L32B_DIR=$(mktemp -d)
 cd "$L32B_DIR"
 git init -q -b main && git config user.email t@t && git config user.name T
@@ -418,7 +418,7 @@ else
 fi
 
 # 13. L-035: pi-epic-status --ready filters by dep-merged + own-state-dispatchable.
-echo "[13/18] L-035 pi-epic-status --ready ready-set correctness"
+echo "[13/19] L-035 pi-epic-status --ready ready-set correctness"
 L35_DIR=$(mktemp -d)
 cd "$L35_DIR"
 git init -q -b main && git config user.email t@t && git config user.name T
@@ -480,7 +480,7 @@ rm -rf "$L35_DIR"
 
 # ── v0.6.2 phases ──
 
-echo "[14/18] L-038 test_cmd-bypass warning surfaces in pi-epic-status"
+echo "[14/19] L-038 test_cmd-bypass warning surfaces in pi-epic-status"
 L38_DIR="$SANDBOX/l38"
 mkdir -p "$L38_DIR" && cd "$L38_DIR"
 git init -q -b main
@@ -510,7 +510,7 @@ fi
 cd "$SANDBOX"
 rm -rf "$L38_DIR"
 
-echo "[15/18] L-036 user-lessons.md is populated by pi-epic-complete"
+echo "[15/19] L-036 user-lessons.md is populated by pi-epic-complete"
 L36_DIR="$SANDBOX/l36"
 mkdir -p "$L36_DIR" && cd "$L36_DIR"
 git init -q -b main
@@ -562,7 +562,7 @@ export HOME="$REAL_HOME"
 cd "$SANDBOX"
 rm -rf "$L36_DIR"
 
-echo "[16/18] L-040 gitignore covers node_modules* family"
+echo "[16/19] L-040 gitignore covers node_modules* family"
 L40_DIR="$SANDBOX/l40"
 mkdir -p "$L40_DIR" && cd "$L40_DIR"
 git init -q -b main
@@ -588,7 +588,7 @@ rm -rf "$L40_DIR"
 
 # ── v0.6.3 phase ──
 
-echo "[17/18] L-042 pi-epic-extend round-trip"
+echo "[17/19] L-042 pi-epic-extend round-trip"
 L42_DIR="$SANDBOX/l42"
 mkdir -p "$L42_DIR" && cd "$L42_DIR"
 git init -q -b main
@@ -681,7 +681,7 @@ rm -rf "$L42_DIR"
 
 # ── v0.7.0 phase ──
 
-echo "[18/18] L-043 epic-review gate in pi-epic-complete"
+echo "[18/19] L-043 epic-review gate in pi-epic-complete"
 L43_DIR="$SANDBOX/l43"
 mkdir -p "$L43_DIR" && cd "$L43_DIR"
 git init -q -b main
@@ -802,6 +802,119 @@ rm -rf "$L43B_DIR"
 cd "$SANDBOX"
 rm -rf "$L43_DIR"
 rm -f /tmp/pe-l43-*.log
+
+# ── v0.7.1 phase ──
+
+echo "[19/19] L-045 integration-shell completeness validator"
+L45_DIR="$SANDBOX/l45"
+mkdir -p "$L45_DIR" && cd "$L45_DIR"
+git init -q -b main
+git config user.email smoke@local
+git config user.name "Smoke"
+echo init > r.md
+# Repo scaffold that triggers ts_react language detection
+touch vite.config.ts && echo '{}' > package.json
+git add -A && git commit -qm init >/dev/null
+printf 'title: Shell\nslug: shell-check\nrationale: smoke\n' > /tmp/pi-l45-design.md
+pi-epic-init shell-check --from /tmp/pi-l45-design.md --title "Shell" >/dev/null
+E45_ID=$(ls .pi/epics | grep -v done | head -1)
+
+# Case A: AC contains 'Wire' trigger, scope_files lacks an integration shell → validator must fail with L-045.
+cat > ".pi/epics/$E45_ID/decomposition.yaml" <<DEC45A
+epic: $E45_ID
+features:
+  - id: F01
+    slug: new-button
+    summary: Add a new button component
+    depends_on: []
+    scope_files:
+      - "src/components/NewButton.tsx"
+    acceptance_criteria:
+      - "NewButton renders the label prop"
+      - "Wire NewButton into the toolbar"
+    estimated_hours: 2
+DEC45A
+if pi-epic-validate-decomposition >/tmp/pe-l45-a.log 2>&1; then
+    cat /tmp/pe-l45-a.log | sed 's/^/    /' >&2
+    fail "L-045: validator must error when trigger AC present but no shell in scope_files"
+else
+    if grep -q 'L-045' /tmp/pe-l45-a.log && grep -q 'integration shell' /tmp/pe-l45-a.log; then
+        pass "L-045: validator errors on missing integration shell"
+    else
+        cat /tmp/pe-l45-a.log | sed 's/^/    /' >&2
+        fail "L-045: validator error message wrong"
+    fi
+fi
+
+# Case B: Add an integration shell (src/main.tsx) to scope_files → validator passes.
+cat > ".pi/epics/$E45_ID/decomposition.yaml" <<DEC45B
+epic: $E45_ID
+features:
+  - id: F01
+    slug: new-button
+    summary: Add a new button component
+    depends_on: []
+    scope_files:
+      - "src/components/NewButton.tsx"
+      - "src/main.tsx"
+    acceptance_criteria:
+      - "NewButton renders the label prop"
+      - "Wire NewButton into the toolbar"
+    estimated_hours: 2
+DEC45B
+if pi-epic-validate-decomposition >/tmp/pe-l45-b.log 2>&1; then
+    pass "L-045: validator passes when integration shell is in scope_files"
+else
+    cat /tmp/pe-l45-b.log | sed 's/^/    /' >&2
+    fail "L-045: validator falsely errored when shell present"
+fi
+
+# Case C: --skip-shell-check bypasses the gate.
+cat > ".pi/epics/$E45_ID/decomposition.yaml" <<DEC45C
+epic: $E45_ID
+features:
+  - id: F01
+    slug: new-button
+    summary: Add a new button component
+    depends_on: []
+    scope_files:
+      - "src/components/NewButton.tsx"
+    acceptance_criteria:
+      - "NewButton renders"
+      - "Wire NewButton into toolbar"
+    estimated_hours: 2
+DEC45C
+if pi-epic-validate-decomposition --skip-shell-check >/tmp/pe-l45-c.log 2>&1; then
+    pass "L-045: --skip-shell-check bypasses the gate"
+else
+    cat /tmp/pe-l45-c.log | sed 's/^/    /' >&2
+    fail "L-045: --skip-shell-check did not bypass"
+fi
+
+# Case D: No trigger verb → validator passes even without an integration shell.
+cat > ".pi/epics/$E45_ID/decomposition.yaml" <<DEC45D
+epic: $E45_ID
+features:
+  - id: F01
+    slug: pure-helper
+    summary: Pure helper function
+    depends_on: []
+    scope_files:
+      - "src/util/helper.ts"
+    acceptance_criteria:
+      - "helper(x) returns x+1 for positive x"
+    estimated_hours: 1
+DEC45D
+if pi-epic-validate-decomposition >/tmp/pe-l45-d.log 2>&1; then
+    pass "L-045: validator does not false-positive on non-cross-cutting features"
+else
+    cat /tmp/pe-l45-d.log | sed 's/^/    /' >&2
+    fail "L-045: false positive on a pure helper"
+fi
+
+cd "$SANDBOX"
+rm -rf "$L45_DIR"
+rm -f /tmp/pe-l45-*.log
 
 echo ""
 echo "🎉 smoke test passed"
