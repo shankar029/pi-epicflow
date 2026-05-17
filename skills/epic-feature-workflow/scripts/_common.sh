@@ -258,7 +258,7 @@ pi_epicflow_clone() {
 # Days since the pi-epicflow clone's HEAD commit. Used by version-drift warning.
 pi_epicflow_age_days() {
     local clone; clone=$(pi_epicflow_clone 2>/dev/null) || { echo "?"; return; }
-    [[ -d "$clone/.git" ]] || { echo "?"; return; }
+    [[ -e "$clone/.git" ]] || { echo "?"; return; }
     local last_ts now_ts
     last_ts=$(git -C "$clone" log -1 --format=%ct HEAD 2>/dev/null || echo "")
     [[ -z "$last_ts" ]] && { echo "?"; return; }
