@@ -354,53 +354,74 @@ const WhatsNew = () => (
       <div className="relative">
         <div className="inline-flex items-center gap-2 bg-vibrant-green/10 text-vibrant-green text-xs font-bold font-mono px-4 py-1.5 rounded-full border border-vibrant-green/20 mb-6 uppercase tracking-widest">
           <Brain className="w-3 h-3" />
-          New in v0.7
+          New in v0.7 · v0.7.0 → v0.7.3
         </div>
-        <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-4">Cross-feature review, before the PR opens</h2>
+        <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-4">Catch problems before the worker spawns</h2>
         <p className="text-text-muted text-base md:text-lg max-w-3xl leading-relaxed mb-8">
-          Per-feature reviewers see one feature's diff against one feature's AC,
-          in fresh context. They are structurally blind to cross-feature bugs —
-          stale lockfiles bumped by F03 and reverted by F12, no-op stubs left
-          behind, design.md sections no feature claimed. v0.7 closes that gap
-          with a final-pass agent and a hard archive gate, motivated by real
-          bugs caught (and missed) on two end-to-end epics.
+          The v0.7 line is a shift-left arc. Three gates fire before any
+          worker burns tokens, plus one final-pass gate before the PR
+          opens. Each one closes a failure mode observed on real epics:
+          cross-feature bugs per-feature reviewers can't see, components
+          built but never wired into the host app, and toolchain surprises
+          that surface mid-feature with{" "}
+          <code className="text-vibrant-green font-mono text-xs">command not found</code>.
+          v0.7.3 added a meta-lesson on top: heuristics must be verified
+          on a real app, not just synthetic smoke fixtures.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-surface-container border border-slate-border rounded-2xl p-6">
             <ClipboardCheck className="w-6 h-6 text-fuchsia-400 mb-3" />
-            <h3 className="font-bold text-white mb-2">feature-epic-reviewer agent</h3>
+            <h3 className="font-bold text-white mb-2">feature-epic-reviewer (v0.7.0)</h3>
             <p className="text-text-muted text-sm leading-relaxed">
-              Fresh-context agent runs after every feature merges. Checks lockfile/manifest churn, no-op stubs, orphaned refs, resource lifecycle symmetry, design-trace coverage, and rubber-stamping. Emits{" "}
-              <code className="text-fuchsia-400 font-mono text-xs">Verdict: APPROVE_EPIC</code>.
+              Final-pass agent runs after every feature merges. Audits the
+              cumulative diff for lockfile churn, no-op stubs, orphaned
+              refs, lifecycle symmetry, design-trace coverage, and
+              rubber-stamping. Emits{" "}
+              <code className="text-fuchsia-400 font-mono text-xs">Verdict: APPROVE_EPIC</code>;{" "}
+              <code className="text-fuchsia-400 font-mono text-xs">pi-epic-complete</code>{" "}
+              refuses to archive otherwise (L-043).
             </p>
           </div>
           <div className="bg-surface-container border border-slate-border rounded-2xl p-6">
             <Flag className="w-6 h-6 text-vibrant-green mb-3" />
-            <h3 className="font-bold text-white mb-2">pi-epic-complete gate (L-043)</h3>
+            <h3 className="font-bold text-white mb-2">integration-shell validator (v0.7.1 + v0.7.3)</h3>
             <p className="text-text-muted text-sm leading-relaxed">
-              Refuses to archive an epic unless{" "}
-              <code className="text-vibrant-green font-mono text-xs">epic-review.md</code>{" "}
-              ends with{" "}
-              <code className="text-vibrant-green font-mono text-xs">APPROVE_EPIC</code>.{" "}
-              Bypass with{" "}
-              <code className="text-vibrant-green font-mono text-xs">--skip-epic-review</code>{" "}
-              for spike epics; bypass is logged to run-log.jsonl for audit.
+              <code className="text-vibrant-green font-mono text-xs">pi-epic-validate-decomposition</code>{" "}
+              errors when an AC contains{" "}
+              <code className="text-vibrant-green font-mono text-xs">wire</code>/<code className="text-vibrant-green font-mono text-xs">register</code>/<code className="text-vibrant-green font-mono text-xs">integrate</code>{" "}
+              but{" "}
+              <code className="text-vibrant-green font-mono text-xs">scope_files</code>{" "}
+              lacks a language-appropriate shell ({" "}
+              <code className="text-vibrant-green font-mono text-xs">App.tsx</code>,{" "}
+              <code className="text-vibrant-green font-mono text-xs">main.tsx</code>,{" "}
+              <code className="text-vibrant-green font-mono text-xs">*.csproj</code>,{" "}
+              <code className="text-vibrant-green font-mono text-xs">pyproject.toml</code>...). Closes the ~58 deviations across two real epics that all shared the same shape: worker built the new thing but forgot to wire it. v0.7.3 fixed the heuristic against a real Vite+React app (L-045, L-047).
             </p>
           </div>
           <div className="bg-surface-container border border-slate-border rounded-2xl p-6">
             <Lightbulb className="w-6 h-6 text-amber-400 mb-3" />
-            <h3 className="font-bold text-white mb-2">pi-epic-extend (v0.6.3)</h3>
+            <h3 className="font-bold text-white mb-2">required_toolchain pre-flight (v0.7.2)</h3>
             <p className="text-text-muted text-sm leading-relaxed">
-              First-class extend verb. Un-archives a finished epic, appends new features (F&lt;max+1&gt; onward), and snapshots{" "}
-              <code className="text-amber-400 font-mono text-xs">original_feature_count</code>.{" "}
-              &ge;30% growth hard-halts without a{" "}
-              <code className="text-amber-400 font-mono text-xs">Decomposition lesson:</code>{" "}
-              entry in deviations.md (L-042).
+              Detect + suggest, NOT auto-install.{" "}
+              <code className="text-amber-400 font-mono text-xs">epic-config.yaml</code>{" "}
+              gains a{" "}
+              <code className="text-amber-400 font-mono text-xs">required_toolchain</code>{" "}
+              block; the validator runs each{" "}
+              <code className="text-amber-400 font-mono text-xs">validate_cmd</code>,{" "}
+              compares to{" "}
+              <code className="text-amber-400 font-mono text-xs">min_version</code>,{" "}
+              and on failure emits the{" "}
+              <code className="text-amber-400 font-mono text-xs">install_hint</code>{" "}
+              verbatim. Defers to{" "}
+              <code className="text-amber-400 font-mono text-xs">.mise.toml</code>{" "}
+              /{" "}
+              <code className="text-amber-400 font-mono text-xs">.tool-versions</code>{" "}
+              when present. pi-epicflow never executes the hint (L-046).
             </p>
           </div>
         </div>
         <div className="mt-8 flex flex-wrap items-center gap-3 text-sm">
-          <a href={`${REPO}/blob/main/CHANGELOG.md#070--2026-05-15`} className="text-vibrant-green hover:underline">
+          <a href={`${REPO}/blob/main/CHANGELOG.md`} className="text-vibrant-green hover:underline">
             Full v0.7 changelog →
           </a>
           <span className="text-text-muted">·</span>

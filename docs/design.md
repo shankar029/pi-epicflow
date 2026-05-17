@@ -237,6 +237,52 @@ Why:
   clauses where there's no good mechanical proxy — those stay as
   reviewer must-cite rules).
 
+### Shift-left: gate at decomposition time, not mid-feature (v0.7)
+
+The v0.7 release line is one design principle expressed four ways: the
+cheapest place to catch a problem is *before any worker spawns*. A halt
+at F08 in a 20-feature epic costs ~7 features worth of context,
+subagent spend, and operator attention. The same problem caught at
+`pi-epic-validate-decomposition` costs nothing — the operator fixes a
+yaml file. So v0.7 added three pre-spawn gates plus one post-merge
+gate, motivated by failure modes observed on two real end-to-end epics
+(harmony, gen-ui):
+
+- **`feature-epic-reviewer` + archive gate (v0.7.0, L-043).** *Post-merge,
+  pre-PR.* Per-feature reviewers see one feature against one AC in fresh
+  context — structurally blind to cross-feature bugs (stale lockfiles
+  bumped by F03 and reverted by F12, no-op stubs, design.md sections no
+  feature claimed). A final-pass agent audits the cumulative diff;
+  `pi-epic-complete` refuses to archive unless its verdict is
+  `APPROVE_EPIC`.
+- **Integration-shell validator (v0.7.1 + v0.7.3, L-045, L-047).**
+  *Decomposition-time.* When an AC contains a trigger verb
+  (`wire`/`register`/`integrate`/etc.) but `scope_files` lacks a
+  language-appropriate shell (`App.tsx`, `main.tsx`, `*.csproj`,
+  `pyproject.toml`, ...), the validator errors. Closes the largest
+  single deviation class observed across both real epics: ~58
+  deviations that all shared the same shape (worker built the new
+  thing but forgot to wire it).
+- **`required_toolchain` pre-flight (v0.7.2, L-046).**
+  *Decomposition-time.* `epic-config.yaml` gains a list of
+  `{name, min_version, validate_cmd, install_hint}` entries; the
+  validator runs each `validate_cmd`, compares to `min_version`, and on
+  failure emits the `install_hint` verbatim. pi-epicflow detects + suggests;
+  it does NOT auto-install (security, portability, state pollution, and
+  concern-boundary reasons spelled out in L-046).
+- **Real-app verification of heuristics (v0.7.3, L-047).** *Release-time.*
+  Smoke fixtures cover the schema; real apps cover the *distribution*. Any
+  heuristic-shaped feature (file-name shell lists, AC trigger-verb regexes,
+  language detectors) must be exercised on a real codebase before release,
+  added to `RELEASE-CHECKLIST.md` as a hard gate.
+
+The broader principle generalizes: a workflow tool's quality is bounded
+by the cheapest detection point it offers for each class of failure.
+Keep adding earlier gates; resist the temptation to absorb the work
+those gates *prevent* (auto-install, auto-rebase, auto-fixup — each one
+trades a sharp "fail loudly here, operator fix" for a fuzzy "try to
+guess, sometimes break worse").
+
 ## The two operating modes
 
 ### Manual mode
