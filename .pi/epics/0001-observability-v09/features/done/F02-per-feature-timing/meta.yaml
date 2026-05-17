@@ -1,12 +1,12 @@
 # Per-feature structured fields. Updated by pi as work proceeds.
 id: F02-per-feature-timing
 title: >
-state: in-progress
+state: merged
 branch: feat/observability-v09/F02-per-feature-timing
 worktree: "/home/shbs/code/experiments/pi-epicflow-F02"
 depends_on: [F01]
 started: 2026-05-17
 updated: 2026-05-17
-merged_at: ""
-merge_commit_sha: ""
+merged_at: 2026-05-17
+merge_commit_sha: 81e34259470636c318bd77a8fb92fff54a58d33a
 last_halt: ""                     # filename of most recent halt-report
