@@ -1,0 +1,12 @@
+# Per-feature structured fields. Updated by pi as work proceeds.
+id: F01-modularize-and-json-skeleton
+title: >
+state: in-progress
+branch: feat/observability-v09/F01-modularize-and-json-skeleton
+worktree: "/home/shbs/code/experiments/pi-epicflow-F01"
+depends_on: []                    # mirrored from decomposition.yaml
+started: 2026-05-17
+updated: 2026-05-17
+merged_at: ""
+merge_commit_sha: ""
+last_halt: ""                     # filename of most recent halt-report

@@ -1,7 +1,7 @@
 # Epic-level structured fields. Updated by pi as work proceeds.
 id: 0001-observability-v09
 title: v0.9 Observability
-status: design
+status: "in-progress"
 branch: epic/observability-v09
 default_branch: main
 owner: shankar029
