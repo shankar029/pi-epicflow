@@ -1,92 +1,202 @@
-# Feature decomposition for this epic.
-# Produced by `pi-epic-decompose`, reviewed and approved by the human ONCE,
-# then consumed by `pi-epic-next-feature` in the auto-mode loop.
+# Feature decomposition for v0.9 Observability epic.
 #
-# Contract (L-027): `acceptance_criteria` is NORMATIVE — it's what
-# `pi-feature-complete` and the reviewer measure against. `summary` is
-# INFORMATIVE — prose context for humans and the planner. When the two
-# disagree, the implementation MUST follow `acceptance_criteria`.
-# Decomposers: when proposing this file, re-read each feature's summary
-# against its AC list before finalizing; if they conflict, rewrite the
-# summary as a one-line restatement of the AC + design references.
+# Shape (revised after pre-flight check):
+#   F01 (root, serial) — modularize pi-epic-status into lib/*.sh sub-files
+#       AND ship the --json output skeleton. The refactor is the
+#       prerequisite for F02-F04 having DISJOINT scope_files.
+#   {F02, F03, F04} parallel — each owns a separate lib/ sub-file
+#       (timing render / batch render / halt render). True parallel
+#       batch under max_workers: 3.
+#   F05 (integrator, serial) — wire pi-epicflow-doctor + smoke phases.
 #
-# Rules enforced by `pi-epic-validate-decomposition`:
-#   - Every feature has: id, slug, summary, depends_on, scope_files,
-#     acceptance_criteria, estimated_hours.
-#   - Feature IDs are F01, F02, ... (zero-padded, sequential).
-#     Spikes use S01, S02, ... sharing the same numeric counter.
-#   - depends_on references valid feature IDs (no cycles, no self-deps).
-#   - estimated_hours <= 16 per feature (≤2 days; split if larger).
-#     Spikes capped at 8h.
-#   - acceptance_criteria are test-shaped for features, decision-shaped
-#     for spikes (option B: decision / evidence / impact).
-#   - Acceptance-criterion strings starting with `*`, `&`, `!`, `|`, `>`,
-#     `%`, `@`, or backtick MUST be quoted (strict-YAML hygiene).
-#   - scope_files non-glob entries whose parent dir is missing produce a
-#     warning (likely stale paths from an earlier layout).
+# Why this shape: the original decomposition had F02/F03/F04 all
+# touching pi-epic-status (a 299-line monolithic bash script). L-049's
+# conflict pre-check would have correctly refused the parallel batch —
+# real signal that the codebase needed modularization before parallel
+# work was possible. F01 pays that cost up front so the dogfood epic
+# genuinely exercises parallel dispatch on a real codebase.
 
-epic: NNNN-<slug>
+epic: 0001-observability-v09
 
-# Optional: epic-level reference paths the planner-subagent will read when
-# planning any feature flagged `needs_planner: true`. Paths >100KB are
-# truncated. Same paths are advertised to feature workers as "prior art
-# worth skimming" but not made mandatory.
-reference_paths: []
-  # - samples/<reference-poc>/
-  # - docs/<findings-or-reference>.md
+reference_paths:
+  - skills/epic-feature-workflow/scripts/pi-epic-status
+  - skills/epic-feature-workflow/scripts/pi-epicflow-doctor
+  - skills/epic-feature-workflow/scripts/_common.sh
+  - install/smoke-test.sh
+  - docs/recovery.md
 
 features:
 
   - id: F01
-    slug: <kebab-slug>
-    summary: <one sentence>
-    kind: feature                          # feature | spike (default: feature)
-    depends_on: []                         # list of feature IDs that must be merged first
-    estimated_hours: 4
-    # Set needs_planner: true if ≥2 of these triggers fire (see prompts/epic-decompose.md):
-    #   - AC references an existing subsystem whose call sites are NOT verified
-    #   - AC contains literal sample I/O, exit codes, or schema shapes
-    #   - scope_files crosses ≥2 module/package boundaries
-    #   - depends_on chain depth ≥3
-    #   - estimated_hours ≥10
-    #   - AC count ≥6
-    #   - Description contains: thread/wire/integrate/migrate/default/rollout/deprecate
-    needs_planner: false
-    planner_triggers: []                   # audit trail of which triggers fired (when needs_planner=true)
-    scope_files:                           # globs; pi tries to stay within these but may deviate (logged)
-      - path/to/file.cs
-      - path/to/dir/**
-    acceptance_criteria:                   # each one should imply a test or observable check
-      - <criterion 1>
-      - <criterion 2>
-    references:                            # links to design.md sections, external docs, etc.
-      - design.md#section
+    slug: modularize-and-json-skeleton
+    summary: >
+      Extract pi-epic-status's render branches into skills/epic-feature-workflow/lib/
+      sub-files (renderers + JSON emitter). pi-epic-status becomes a thin
+      dispatcher that sources the sub-files. Behavior unchanged for the
+      existing human-rendered output. Add --json that emits the v1
+      schema documented in design.md §1.
+    kind: feature
+    depends_on: []
+    estimated_hours: 8
+    # AC count >= 6 AND scope crosses 2+ files AND description contains
+    # "integrate"/"migrate". Planner trigger justified.
+    needs_planner: true
+    planner_triggers:
+      - "AC count >= 6 (refactor + new feature combined)"
+      - "scope_files crosses 2+ module boundaries (scripts/ + new lib/)"
+      - "description contains migrate/extract"
+    scope_files:
+      - skills/epic-feature-workflow/scripts/pi-epic-status
+      - skills/epic-feature-workflow/lib/**
+    acceptance_criteria:
+      - "skills/epic-feature-workflow/lib/ directory created with sub-files: pi-epic-status-features.sh (current feature-table render), pi-epic-status-runlog.sh (recent run-log section), pi-epic-status-halts.sh (current halt-reports section), pi-epic-status-ready.sh (--ready mode), pi-epic-status-json.sh (new JSON emitter)."
+      - "pi-epic-status becomes a dispatcher: sources _common.sh, sources each lib/ sub-file, dispatches by flags. Total lines in pi-epic-status drop from ~299 to ~80 (dispatch + arg parsing)."
+      - "Existing `pi-epic-status` (no flags) output is byte-for-byte identical to the v0.8.1 baseline. Comparison test: diff baseline-output-v0.8.1.txt against post-F01 output on the /tmp/pe-v8-realapp sample epic produces no diff."
+      - "`pi-epic-status --ready` and `pi-epic-status --ready --quiet` outputs unchanged."
+      - "`pi-epic-status --json` exits 0 inside an epic worktree and emits valid JSON parsable by `jq`."
+      - "`.schema_version` equals integer 1; top-level keys present: schema_version, epic, features, batches, halts, ready_now, blocked_on_deps."
+      - "`.epic` is an object with: id, title, slug, branch, status, started, updated."
+      - "`.features` array; each entry has id, slug, status, branch, plus (when applicable) merge_sha, started_at, completed_at, duration_sec, halts."
+      - "`.batches`, `.halts`, `.ready_now`, `.blocked_on_deps` arrays present (empty if no data)."
+      - "`pi-epic-status --json` outside an epic exits 2 with stderr JSON `{\"error\": \"not in an epic working tree\"}`."
+      - "bash -n on pi-epic-status and every lib/*.sh passes."
+      - "All v0.8.1 smoke phases (24/24) still pass on a clean run."
+    references:
+      - design.md#1-json-output-pi-epic-status---json
+      - design.md#8-risks
     notes: |
-      Optional freeform context for pi at implementation time.
+      The refactor is THE prerequisite for parallel dispatch in this
+      epic. Without it, F02-F04 all touch pi-epic-status and the L-049
+      pre-check serializes them. The refactor should be mechanical:
+      cut existing sections into separate files, source them in order,
+      no logic changes. The JSON emitter is new but reads the same
+      bash variables already computed for the human renderer.
+      DO NOT change the human output. The diff against v0.8.1 baseline
+      is the safety net.
 
   - id: F02
-    slug: <kebab-slug>
-    summary: <one sentence>
+    slug: per-feature-timing
+    summary: >
+      Add started/duration columns to the human feature-table render.
+      Touches ONLY lib/pi-epic-status-features.sh.
+    kind: feature
     depends_on: [F01]
-    estimated_hours: 6
+    estimated_hours: 4
+    needs_planner: false
+    planner_triggers: []
     scope_files:
-      - path/to/other.cs
+      - skills/epic-feature-workflow/lib/pi-epic-status-features.sh
+      - skills/epic-feature-workflow/lib/pi-epic-status-json.sh
     acceptance_criteria:
-      - <criterion>
+      - "Human output of `pi-epic-status` includes per-feature `started` column showing UTC time (HH:MM:SS) of feature-start event, or `-` if not started."
+      - "Human output includes per-feature `duration` column: completed features show wall-clock between start/complete events; in-progress features show elapsed-since-start."
+      - "Duration formatting: < 60s renders as `Xs`; 60s..3600s as `MM:SS`; > 3600s as `H:MM:SS`."
+      - "`--json` output: each feature object includes `started_at` (ISO 8601) and `duration_sec` (integer or null)."
+      - "Existing column headers (status/id/slug/branch) remain in place; new columns appended to the right."
+      - "On the /tmp/pe-v8-realapp sample epic, duration shows non-empty values for F01-F05 in the merged epic."
+    references:
+      - design.md#2-per-feature-timing-column
+    notes: |
+      scope_files overlaps F03 and F04 ONLY via pi-epic-status-json.sh
+      (the JSON emitter). All three parallel features need to add their
+      respective JSON fields. Decision: split the JSON sub-file into
+      separate emitter functions per concern in F01 so F02/F03/F04 can
+      each own a function-scoped section without textual overlap.
+      Implementation hint for F01: emit_features_json(),
+      emit_batches_json(), emit_halts_json() — each a separate function
+      in lib/pi-epic-status-json.sh; touching one doesn't conflict with
+      touching another at the line level. The L-049 pre-check is line-
+      agnostic (file-level only), so if this approach proves
+      insufficient, split lib/pi-epic-status-json.sh into 4 sub-files
+      (one per concern) in F01. Recorded as a known risk.
 
-  # Example spike (uncomment if your epic has decision-shaped work that
-  # blocks downstream features). Spikes ship a decision artifact, not
-  # production code. AC is decision-shaped: decision + evidence + impact.
-  #
-  # - id: S01
-  #   kind: spike
-  #   slug: <kebab-slug>
-  #   summary: Decide <X> seam / approach before <F0N..F0M> can start
-  #   depends_on: []
-  #   estimated_hours: 4
-  #   scope_files: []                     # spikes typically have none
-  #   acceptance_criteria:
-  #     - Decision logged in deviations.md with chosen option
-  #     - Evidence cited (call sites, code refs, benchmark, prototype)
-  #     - Impact on blocked features documented
-  #   blocks: [F0N, F0M]                  # informational; advise downstream planning
+  - id: F03
+    slug: batch-visualization
+    summary: >
+      Group concurrent feature-start events (within 5s window) into
+      Batch N blocks with wall-clock + speedup. Touches ONLY
+      lib/pi-epic-status-batches.sh (new file from F01) plus
+      pi-epic-status-json.sh.
+    kind: feature
+    depends_on: [F01]
+    estimated_hours: 5
+    needs_planner: false
+    planner_triggers: []
+    scope_files:
+      - skills/epic-feature-workflow/lib/pi-epic-status-batches.sh
+      - skills/epic-feature-workflow/lib/pi-epic-status-json.sh
+    acceptance_criteria:
+      - "When run-log.jsonl contains >=2 feature-start events with timestamps within 5s of each other and no intervening feature-complete, human output renders a `Batch N` block grouping those features."
+      - "Batch block shows: wall_clock (max end - min start), serial_sum (sum durations), speedup_ratio (serial_sum/wall_clock, 2 decimals), theoretical_max (min(max_workers, batch_size))."
+      - "Per-feature start offset within a batch: `+0s`, `+1s`, etc."
+      - "`--json .batches[]` populated with one entry per batch: id, started_at, ended_at, wall_clock_sec, serial_sum_sec, speedup_ratio, feature_ids[]."
+      - "When max_workers == 1 or unset, `.batches` is empty and no Batch block renders."
+      - "Running against /tmp/pe-v8-realapp/.pi/epics/0001-parallel-todo/run-log.jsonl reports exactly 1 batch grouping F02+F03+F04 with speedup_ratio between 2.7 and 3.0."
+    references:
+      - design.md#3-batch-visualization
+    notes: |
+      F01 creates lib/pi-epic-status-batches.sh as an EMPTY stub
+      (header + sourced from pi-epic-status as a no-op). F03 fills it
+      in. This is the canonical pattern for adding a new render branch
+      without conflicting with siblings.
+
+  - id: F04
+    slug: halt-visibility
+    summary: >
+      Replace the existing halt-reports section with a prominent
+      ⚠ HALTS header listing each unresolved halt with H-code,
+      file path, and recovery.md anchor. Touches ONLY
+      lib/pi-epic-status-halts.sh plus pi-epic-status-json.sh.
+    kind: feature
+    depends_on: [F01]
+    estimated_hours: 4
+    needs_planner: false
+    planner_triggers: []
+    scope_files:
+      - skills/epic-feature-workflow/lib/pi-epic-status-halts.sh
+      - skills/epic-feature-workflow/lib/pi-epic-status-json.sh
+    acceptance_criteria:
+      - "When any feature directory under .pi/epics/<id>/features/ contains a halt-*.md WITHOUT a sibling resolved-halt-*.md, human output prepends an `⚠ HALTS` section listing each unresolved halt."
+      - "Each listed halt shows: feature id, halt code (H1..H10), short description from the code table, halt file path, recovery anchor (e.g. docs/recovery.md#r6-out-of-scope)."
+      - "Recovery anchor by convention: halt-h6-*.md → #r6-..., halt-h1-*.md → #r1-..."
+      - "`.halts[]` mirrors the section: feature_id, halt_code, halt_file, recovery_anchor."
+      - "When no unresolved halts, no ⚠ HALTS section renders and `.halts` is empty."
+      - "Halt presence does NOT alter feature table / batches sections below."
+    references:
+      - design.md#4-halt-visibility--recovery-hints
+    notes: |
+      F01 creates lib/pi-epic-status-halts.sh seeded with the EXISTING
+      halt-reports rendering (so the byte-for-byte diff in F01 passes).
+      F04 then replaces that content with the new ⚠ HALTS format.
+
+  - id: F05
+    slug: doctor-integration-and-smoke
+    summary: >
+      pi-epicflow-doctor reads pi-epic-status --json and surfaces
+      Recent epic activity. Smoke phases 25-29 cover F01-F04.
+    kind: feature
+    depends_on: [F02, F03, F04]
+    estimated_hours: 5
+    needs_planner: false
+    planner_triggers: []
+    scope_files:
+      - skills/epic-feature-workflow/scripts/pi-epicflow-doctor
+      - install/smoke-test.sh
+    acceptance_criteria:
+      - "`pi-epicflow-doctor` in a repo containing an in-flight epic invokes `pi-epic-status --json` and parses the result."
+      - "Doctor output gains a `Recent epic activity` section showing: active halts (count if any), last batch summary (if any), any feature stuck in-progress > 30 minutes."
+      - "When no in-flight epic is present, doctor's existing output is unchanged."
+      - "Smoke phase 25 `[25/29] L-053 pi-epic-status --json schema`: creates a minimal epic, asserts --json emits schema_version=1 and all documented top-level keys."
+      - "Smoke phase 26 `[26/29] L-053 per-feature timing`: completes a feature, asserts duration column non-empty in human output."
+      - "Smoke phase 27 `[27/29] L-053 batch detection`: fabricates run-log with 2 feature-start within 5s, asserts Batch block renders + .batches[0] populated."
+      - "Smoke phase 28 `[28/29] L-053 halt visibility`: writes halt-h6-test.md, asserts ⚠ HALTS section surfaces with #r6-out-of-scope anchor."
+      - "Smoke phase 29 `[29/29] L-053 doctor integration`: runs doctor in an epic worktree, asserts output mentions 'Recent epic activity'."
+      - "All 29 smoke phases pass on a clean run; smoke `[N/29]` headers all updated."
+    references:
+      - design.md#5-integration-with-pi-epicflow-doctor
+      - design.md#6-smoke-coverage
+    notes: |
+      L-045 integration-shell trigger: AC contains 'wire' / 'integrate'.
+      scope_files declares pi-epicflow-doctor (the integration shell)
+      and smoke-test.sh (verification harness). L-045 pre-check satisfied.
+      Smoke header bump 24→29 follows the v0.8.1 24-phase pattern.

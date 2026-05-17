@@ -75,7 +75,7 @@ push_epic_branch_during_work: false
 # race on the same files" (L-049). False positive cost: those two run
 # serially instead of in parallel — not "the build breaks."
 parallel:
-  max_workers: 1
+  max_workers: 3
   conflict_precheck: true
 
 # PR options.
