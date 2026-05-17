@@ -5,7 +5,7 @@ harmony-design-studio (20-feat serial) and gen-ui (36-feat parallel) epic
 retrospectives, culminating in a parallel dispatcher whose evidence-gate
 (L-035) has now been satisfied by the gen-ui 2.97× speedup.
 
-**Status:** in progress — v0.7.0 + v0.7.1 + v0.7.2 + v0.7.3 + **v0.8.0** shipped.
+**Status:** in progress — v0.7.0 + v0.7.1 + v0.7.2 + v0.7.3 + v0.8.0 + **v0.8.1** shipped (v0.8.1 = postinstall hotfix from v0.8.0 real-app verification, L-050/L-051/L-052).
 
 ## Evidence base
 

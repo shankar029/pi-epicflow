@@ -6,6 +6,108 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.1] — 2026-05-17
+
+**Hotfix release from v0.8.0 real-app verification.** Drove the v0.8.0
+parallel dispatcher end-to-end against a Vite+React TODO sample with
+three real `feature-worker` subagents running concurrently (2.87x
+empirical speedup vs theoretical 3.00x). The dispatcher itself worked
+as designed; the verification surfaced three issues, one
+release-blocking. See `docs/v0.8.0-real-app-verification.md` for the
+full report.
+
+### Fixed
+
+- **🚨 CRITICAL: `postinstall.mjs` did not install
+  `feature-epic-reviewer.md`** (L-050). The hardcoded agent-list in
+  postinstall was last updated in v0.6, and never picked up the
+  `feature-epic-reviewer` agent that v0.7.0 introduced for the L-043
+  epic-review gate. Every user who ran `pi install pi-epicflow` and
+  upgraded to any release between v0.7.0 and v0.8.0 (inclusive) shipped
+  with a broken epic-review gate — `/epic-run-auto` would error with
+  `Unknown agent: feature-epic-reviewer` at the gate, and the only
+  escape was `pi-epic-complete --skip-epic-review` which negates the
+  entire L-043 feature. Fix: postinstall now derives the agent list
+  from `readdirSync(AGENTS_SRC)` so adding a new agent never requires
+  touching `postinstall.mjs` again. New smoke phase 24 asserts every
+  `.md` in `agents/` lands in the install destination, specifically
+  including `feature-epic-reviewer.md` (regression guard).
+
+- **`pi-epic-complete` failed non-gracefully when there is no `origin`
+  remote** (L-052). After all the local work succeeded (squash-merge
+  tally, epic-review gate, archive rename, lessons distillation), the
+  final `git push --set-upstream origin epic/<slug>` would error out on
+  sample/scratch repos or offline development. The epic stayed in
+  `state: in-progress` even though every local finalization succeeded.
+  Fix: wrap the push step in a `git remote get-url origin` guard that
+  warns + skips with a copy-paste-able `git remote add` recipe if no
+  origin is configured. Local archive succeeds either way.
+
+### Added
+
+- **L-050, L-051, L-052** lessons codifying the discoveries (now 52
+  total). L-051 specifically: workers should `contact_supervisor`
+  before running dependency installs that touch shared metadata files
+  (`package-lock.json`, `Cargo.lock`, etc.), not log a deviation after
+  the fact — under parallel mode this pattern is a real H6 risk.
+
+- **`docs/v0.8.0-real-app-verification.md`** — the verification report
+  documenting what worked (2.87x speedup, linear history under parallel
+  execution, all v0.7 gates honored) and what didn't (the three
+  findings above).
+
+- **Smoke phase 24 (regression guard for L-050).** Runs postinstall
+  against a temp dir and asserts every `agents/*.md` in the repo lands
+  at the destination. The check `[ -f $DEST/feature-epic-reviewer.md ]`
+  is called out explicitly with a comment naming the regression.
+
+### Real-app verification (per L-047)
+
+The v0.8.0 release notes promised real-app verification of the
+`/epic-run-auto.md` parallel branch in a follow-up; v0.8.1 includes
+that verification. Sample: `/tmp/pe-v8-realapp` (Vite+React TODO
+scaffold) with a 5-feature parallel-friendly DAG:
+
+- F01 (root: types + id helper) ran serially.
+- F02 + F03 + F04 (disjoint helpers) ran as a **real parallel batch**
+  via three concurrent `feature-worker` subagents. Wall-clock measured
+  from session logs:
+  - F02: 75.0s
+  - F03: 84.3s
+  - F04: 85.3s
+  - Batch wall-clock total: **85.3s** vs **244.7s serial sum** =
+    **2.87x speedup**
+- F05 (integration, touches App.tsx + new TodoList component) ran
+  serially against the merged batch. Validated L-045's integration-
+  shell check (App.tsx in scope_files).
+- `feature-epic-reviewer` was invoked at `pi-epic-complete` time per
+  L-043 and emitted `APPROVE_EPIC` with 2 soft findings (stale comment
+  in main.tsx, no per-feature reviewer artifacts for the verification
+  run — expected; verification deliberately skipped per-feature
+  reviewers to control token budget).
+
+Evidence preserved in `.pi/epics/0001-parallel-todo/run-log.jsonl`:
+three `feature-start` events at `01:25:21Z`/`01:25:21Z`/`01:25:22Z`,
+three `feature-complete` events at `01:27:58Z`. The serial-merge
+invariant (one `pi-feature-complete` at a time) is visible in the
+final `git log --oneline` on `epic/parallel-todo` — four sequential
+squash commits, zero merge commits, linear history despite three
+concurrent workers.
+
+### Known limitations carrying forward
+
+- The v0.8 verification did not exercise an H6 collision from a worker
+  going out-of-scope into a sibling's territory (smoke covers this
+  with a forced collision; the real run avoided it because the
+  orchestrator pre-staged `npm install` between F01 and the parallel
+  batch).
+- Did not exercise a worker-halt mid-batch (one of 3 workers halts
+  while the other 2 continue).
+- Did not stress `max_workers > 3` for an optimal-value signal.
+
+These are good v0.9+ targets: heavier real-app epics will exercise
+them naturally.
+
 ## [0.8.0] — 2026-05-17
 
 **Parallel feature dispatcher.** First concurrency feature in pi-epicflow.

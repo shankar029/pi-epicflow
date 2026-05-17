@@ -282,6 +282,15 @@ pr_body=$(mktemp)
 
 # Push + PR
 if [[ $no_pr -eq 0 ]]; then
+    # L-052 (v0.8.1): tolerate missing 'origin' remote so sample/scratch repos
+    # and offline development don't error out at the very end of an otherwise
+    # successful epic-complete. Discovered by v0.8.0 real-app verification.
+    if ! git remote get-url origin >/dev/null 2>&1; then
+        log "no 'origin' remote configured — skipping push + PR."
+        log "epic/$epic_slug archived locally. To publish later:"
+        log "  git remote add origin <url> && git push -u origin epic/$epic_slug"
+        log "  (PR body draft: $pr_body)"
+    else
     log "pushing epic/$epic_slug..."
     git push --set-upstream origin "epic/$epic_slug" --quiet
 
@@ -298,6 +307,7 @@ if [[ $no_pr -eq 0 ]]; then
         echo "  Body: $pr_body"
         echo
     fi
+    fi  # close 'origin exists?' guard (v0.8.1 L-052)
 fi
 
 # Archive epic folder. We use `git mv` so the rename is staged + committed

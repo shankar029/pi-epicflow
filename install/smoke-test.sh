@@ -18,6 +18,10 @@
 
 set -euo pipefail
 
+# Capture repo root at startup, before any cd, so phase 24 can find postinstall.mjs.
+_SMOKE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+REPO_ROOT="$(cd "$_SMOKE_DIR/.." && pwd)"
+
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PKG_ROOT="$(cd "$HERE/.." && pwd)"
 SCRIPTS_DIR="$PKG_ROOT/skills/epic-feature-workflow/scripts"
@@ -42,7 +46,7 @@ echo "# smoke" > README.md
 git add README.md && git commit -qm "init"
 
 # 1. epic-init
-echo "[1/23] pi-epic-init"
+echo "[1/24] pi-epic-init"
 cat > /tmp/pi-epicflow-smoke-design.md <<'EOF'
 # Smoke
 Two features.
@@ -53,7 +57,7 @@ EPIC_ID=$(ls .pi/epics/ | grep -E '^0[0-9]+-' | head -1)
 [ "$(git rev-parse --abbrev-ref HEAD)" = "epic/smoke" ] && pass "on epic branch" || fail "not on epic branch"
 
 # 2. decomposition
-echo "[2/23] decomposition.yaml"
+echo "[2/24] decomposition.yaml"
 cat > ".pi/epics/$EPIC_ID/decomposition.yaml" <<EOF
 epic: $EPIC_ID
 features:
@@ -76,12 +80,12 @@ git add .pi/ && git commit -qm "decomp"
 pass "decomposition committed"
 
 # 3. next-feature dispatch
-echo "[3/23] pi-epic-next-feature"
+echo "[3/24] pi-epic-next-feature"
 NEXT=$(pi-epic-next-feature)
 [ "$NEXT" = "F01" ] && pass "next-feature returns F01" || fail "expected F01, got '$NEXT'"
 
 # 4. feature-start with L-012 (halt file present) + L-013 (status advance)
-echo "[4/23] pi-feature-start F01 (with halt-fake.md present)"
+echo "[4/24] pi-feature-start F01 (with halt-fake.md present)"
 echo "fake halt content" > ".pi/epics/$EPIC_ID/halt-fake.md"
 echo "extra line for design" >> ".pi/epics/$EPIC_ID/design.md"
 pi-feature-start F01 > /dev/null
@@ -98,7 +102,7 @@ fi
 [ -f ".pi/epics/$EPIC_ID/halt-fake.md" ] && pass "halt file still on disk" || fail "halt file was removed"
 
 # 5. worker simulation + feature-complete (v0.6: worker-report.md with evidence section)
-echo "[5/23] simulate worker + pi-feature-complete F01"
+echo "[5/24] simulate worker + pi-feature-complete F01"
 WT_PATH="$(grep -E "^worktree:" ".pi/epics/$EPIC_ID/features/F01-alpha/meta.yaml" | sed -E 's/^worktree:\s*"?([^"]*)"?.*/\1/')"
 [ -d "$WT_PATH" ] || fail "feature worktree missing: $WT_PATH"
 (
@@ -153,14 +157,14 @@ else
 fi
 
 # 6. dispatcher unblocks F02 after F01 merged
-echo "[6/23] pi-epic-next-feature after F01"
+echo "[6/24] pi-epic-next-feature after F01"
 NEXT=$(pi-epic-next-feature)
 [ "$NEXT" = "F02" ] && pass "dispatcher returns F02 after F01 merged" || fail "expected F02, got '$NEXT'"
 
 # 7. L-023: spike workflow end-to-end. Add a fresh epic with a single
 # spike and confirm pi-feature-start + (simulated) worker writing journal
 # to MAIN_REPO + pi-feature-complete all succeed without manual recovery.
-echo "[7/23] L-023 spike workflow"
+echo "[7/24] L-023 spike workflow"
 cd "$SANDBOX"
 # Clean .pi/ from the half-finished first epic so a fresh init works.
 rm -rf .pi/
@@ -220,7 +224,7 @@ else
 fi
 
 # 8. L-025: pi-epic-complete should leave the tree clean.
-echo "[8/23] L-025 clean tree after pi-epic-complete"
+echo "[8/24] L-025 clean tree after pi-epic-complete"
 # Complete the spike epic. --no-pr skips the push step (no origin);
 # --skip-epic-review bypasses the v0.7.0 L-043 gate (this phase tests archive
 # mechanics, not the epic-review gate; phase 18 tests the gate).
@@ -238,7 +242,7 @@ else
 fi
 
 # 9. L-029: range syntax in depends_on must be rejected with a specific error.
-echo "[9/23] L-029 depends_on range syntax detection"
+echo "[9/24] L-029 depends_on range syntax detection"
 L29_DIR=$(mktemp -d)
 cd "$L29_DIR"
 git init -q -b main && git config user.email t@t && git config user.name T
@@ -289,7 +293,7 @@ else
 fi
 
 # 10. L-030: parent-dir-missing warning suppressed when 2+ scope_files share parent.
-echo "[10/23] L-030 parent-dir warning suppression"
+echo "[10/24] L-030 parent-dir warning suppression"
 L30_DIR=$(mktemp -d)
 cd "$L30_DIR"
 git init -q -b main && git config user.email t@t && git config user.name T
@@ -336,7 +340,7 @@ else
 fi
 
 # 11. L-032: pi-feature-complete rejects a worker-report without '## Completion evidence'.
-echo "[11/23] L-032 evidence-gate rejects missing-evidence report"
+echo "[11/24] L-032 evidence-gate rejects missing-evidence report"
 L32_DIR=$(mktemp -d)
 cd "$L32_DIR"
 git init -q -b main && git config user.email t@t && git config user.name T
@@ -380,7 +384,7 @@ else
 fi
 
 # 12. L-032: --skip-evidence override permits merge for legacy/edge cases.
-echo "[12/23] L-032 --skip-evidence override works"
+echo "[12/24] L-032 --skip-evidence override works"
 L32B_DIR=$(mktemp -d)
 cd "$L32B_DIR"
 git init -q -b main && git config user.email t@t && git config user.name T
@@ -418,7 +422,7 @@ else
 fi
 
 # 13. L-035: pi-epic-status --ready filters by dep-merged + own-state-dispatchable.
-echo "[13/23] L-035 pi-epic-status --ready ready-set correctness"
+echo "[13/24] L-035 pi-epic-status --ready ready-set correctness"
 L35_DIR=$(mktemp -d)
 cd "$L35_DIR"
 git init -q -b main && git config user.email t@t && git config user.name T
@@ -480,7 +484,7 @@ rm -rf "$L35_DIR"
 
 # ── v0.6.2 phases ──
 
-echo "[14/23] L-038 test_cmd-bypass warning surfaces in pi-epic-status"
+echo "[14/24] L-038 test_cmd-bypass warning surfaces in pi-epic-status"
 L38_DIR="$SANDBOX/l38"
 mkdir -p "$L38_DIR" && cd "$L38_DIR"
 git init -q -b main
@@ -510,7 +514,7 @@ fi
 cd "$SANDBOX"
 rm -rf "$L38_DIR"
 
-echo "[15/23] L-036 user-lessons.md is populated by pi-epic-complete"
+echo "[15/24] L-036 user-lessons.md is populated by pi-epic-complete"
 L36_DIR="$SANDBOX/l36"
 mkdir -p "$L36_DIR" && cd "$L36_DIR"
 git init -q -b main
@@ -562,7 +566,7 @@ export HOME="$REAL_HOME"
 cd "$SANDBOX"
 rm -rf "$L36_DIR"
 
-echo "[16/23] L-040 gitignore covers node_modules* family"
+echo "[16/24] L-040 gitignore covers node_modules* family"
 L40_DIR="$SANDBOX/l40"
 mkdir -p "$L40_DIR" && cd "$L40_DIR"
 git init -q -b main
@@ -588,7 +592,7 @@ rm -rf "$L40_DIR"
 
 # ── v0.6.3 phase ──
 
-echo "[17/23] L-042 pi-epic-extend round-trip"
+echo "[17/24] L-042 pi-epic-extend round-trip"
 L42_DIR="$SANDBOX/l42"
 mkdir -p "$L42_DIR" && cd "$L42_DIR"
 git init -q -b main
@@ -681,7 +685,7 @@ rm -rf "$L42_DIR"
 
 # ── v0.7.0 phase ──
 
-echo "[18/23] L-043 epic-review gate in pi-epic-complete"
+echo "[18/24] L-043 epic-review gate in pi-epic-complete"
 L43_DIR="$SANDBOX/l43"
 mkdir -p "$L43_DIR" && cd "$L43_DIR"
 git init -q -b main
@@ -805,7 +809,7 @@ rm -f /tmp/pe-l43-*.log
 
 # ── v0.7.1 phase ──
 
-echo "[19/23] L-045 integration-shell completeness validator"
+echo "[19/24] L-045 integration-shell completeness validator"
 L45_DIR="$SANDBOX/l45"
 mkdir -p "$L45_DIR" && cd "$L45_DIR"
 git init -q -b main
@@ -971,7 +975,7 @@ rm -f /tmp/pe-l45-*.log
 
 # ── v0.7.2 phase ──
 
-echo "[20/23] L-046 required_toolchain pre-flight"
+echo "[20/24] L-046 required_toolchain pre-flight"
 L46_DIR="$SANDBOX/l46"
 mkdir -p "$L46_DIR" && cd "$L46_DIR"
 git init -q -b main
@@ -1114,7 +1118,7 @@ rm -f /tmp/pe-l46-*.log
 # H6 halt-with-classification. The /epic-run-auto.md parallel orchestration
 # prompt is verified by real-app verification (per L-047), not by smoke.
 
-echo "[21/23] L-049 pi-epic-next-feature --batch (conflict pre-check)"
+echo "[21/24] L-049 pi-epic-next-feature --batch (conflict pre-check)"
 L48_DIR="$SANDBOX/l48-batch"
 mkdir -p "$L48_DIR" && cd "$L48_DIR"
 git init -q -b main
@@ -1227,7 +1231,7 @@ cd "$SANDBOX"
 rm -rf "$L48_DIR"
 rm -f /tmp/pi-l48-*.log
 
-echo "[22/23] L-049 pi-epic-next-feature --batch flag validation"
+echo "[22/24] L-049 pi-epic-next-feature --batch flag validation"
 L48F_DIR="$SANDBOX/l48-flag"
 mkdir -p "$L48F_DIR" && cd "$L48F_DIR"
 git init -q -b main
@@ -1269,7 +1273,7 @@ cd "$SANDBOX"
 rm -rf "$L48F_DIR"
 rm -f /tmp/pe-l48f-*.log
 
-echo "[23/23] L-048 parallel-mode template wiring"
+echo "[23/24] L-048 parallel-mode template wiring"
 L48T_DIR="$SANDBOX/l48-template"
 mkdir -p "$L48T_DIR" && cd "$L48T_DIR"
 git init -q -b main
@@ -1293,6 +1297,52 @@ fi
 cd "$SANDBOX"
 rm -rf "$L48T_DIR"
 rm -f /tmp/pi-l48t-*.log
+
+echo "[24/24] L-050 postinstall copies every agent under agents/"
+# Reproduces the v0.7.0–v0.8.0 ship-blocker that real-app verification
+# caught: postinstall.mjs hardcoded a 3-agent list and never copied the
+# v0.7.0 feature-epic-reviewer.md. Fixed in v0.8.1 by deriving the list
+# from readdirSync(AGENTS_SRC).
+L50_DIR="$SANDBOX/l50-postinstall"
+mkdir -p "$L50_DIR/agents" "$L50_DIR/bin"
+# Locate the repo via the smoke script path captured at startup
+if [ ! -f "$REPO_ROOT/install/postinstall.mjs" ]; then
+    fail "L-050: postinstall.mjs not found at $REPO_ROOT/install/postinstall.mjs"
+fi
+
+# Run postinstall against the temp dirs
+PI_EPICFLOW_AGENTS_DIR="$L50_DIR/agents" \
+    PI_EPICFLOW_BIN_DIR="$L50_DIR/bin" \
+    PKG_ROOT="$REPO_ROOT" \
+    PATH="/usr/bin:/bin" \
+    node "$REPO_ROOT/install/postinstall.mjs" > /tmp/pe-l50.log 2>&1 || true
+
+# Every .md in agents/ in the repo must land at the destination
+missing=""
+for f in "$REPO_ROOT/agents/"*.md; do
+    base=$(basename "$f")
+    if [ ! -f "$L50_DIR/agents/$base" ]; then
+        missing="$missing $base"
+    fi
+done
+if [ -z "$missing" ]; then
+    n=$(ls "$REPO_ROOT/agents/"*.md 2>/dev/null | wc -l)
+    pass "L-050: postinstall installed all $n agents under agents/ (no drift)"
+else
+    sed 's/^/  /' /tmp/pe-l50.log >&2
+    fail "L-050: postinstall missed:$missing"
+fi
+
+# Critical: feature-epic-reviewer.md MUST be present (the v0.7.0 ship-blocker)
+if [ -f "$L50_DIR/agents/feature-epic-reviewer.md" ]; then
+    pass "L-050: feature-epic-reviewer.md installed (v0.7.0–v0.8.0 regression closed)"
+else
+    fail "L-050: feature-epic-reviewer.md MISSING — the v0.7.0 ship-blocker is back"
+fi
+
+cd "$SANDBOX"
+rm -rf "$L50_DIR"
+rm -f /tmp/pe-l50.log
 
 echo ""
 echo "🎉 smoke test passed"

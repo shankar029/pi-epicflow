@@ -29,7 +29,7 @@ const Navbar = () => (
         <Terminal className="text-vibrant-green w-6 h-6" />
         <span className="text-white">pi-epicflow</span>
         <span className="ml-2 px-2 py-0.5 text-[10px] font-mono uppercase tracking-widest text-vibrant-green border border-vibrant-green/30 rounded">
-          v0.8.0
+          v0.8.1
         </span>
       </div>
       <nav className="hidden md:flex gap-8 items-center text-sm font-medium">
@@ -57,7 +57,7 @@ const Hero = () => (
       className="inline-flex items-center gap-2 bg-vibrant-green/10 text-vibrant-green text-xs font-bold font-mono px-4 py-1.5 rounded-full border border-vibrant-green/20 mb-6 uppercase tracking-widest"
     >
       <Brain className="w-3 h-3" />
-      v0.8.0 — parallel feature dispatcher
+      v0.8.1 — postinstall hotfix (L-050)
     </motion.div>
 
     <motion.h1
@@ -413,7 +413,7 @@ const WhatsNew = () => (
           </a>
           <span className="text-text-muted">·</span>
           <a href={`${REPO}/blob/main/skills/epic-feature-workflow/lessons.md`} className="text-vibrant-green hover:underline">
-            All 49 lessons →
+            All 52 lessons →
           </a>
         </div>
       </div>

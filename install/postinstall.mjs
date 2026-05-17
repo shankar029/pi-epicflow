@@ -6,11 +6,14 @@
  *
  * Three side-effects:
  *
- *   1. Copies the three helper agents (feature-worker, feature-reviewer,
- *      feature-planner) to ~/.pi/agent/agents/ so that pi-subagents can
- *      find them. Pi-packages have no native "agents" resource type and
- *      pi-subagents only scans user/project agent dirs, so a postinstall
- *      copy is the cleanest path.
+ *   1. Copies every agent under agents/*.md (currently four:
+ *      feature-worker, feature-reviewer, feature-planner,
+ *      feature-epic-reviewer) to ~/.pi/agent/agents/ so that
+ *      pi-subagents can find them. Pi-packages have no native "agents"
+ *      resource type and pi-subagents only scans user/project agent
+ *      dirs, so a postinstall copy is the cleanest path. The list is
+ *      derived from the repo (readdirSync) so adding a new agent never
+ *      requires touching postinstall.mjs again (L-050).
  *
  *   2. Symlinks each pi-* CLI script from
  *      skills/epic-feature-workflow/scripts/  into
@@ -135,7 +138,21 @@ function symlinkScriptSafely(src, binDir) {
 // ── Step 1: agents ─────────────────────────────────────────────────────────
 out(`installing agents to ${AGENTS_DST}`);
 if (ensureDir(AGENTS_DST)) {
-  for (const f of ["feature-worker.md", "feature-reviewer.md", "feature-planner.md"]) {
+  // L-050: derive the agent list from the repo, never from a hardcoded
+  // sibling list. v0.7.0 added feature-epic-reviewer.md to agents/ but
+  // the hardcoded list here wasn't updated for four releases (v0.7.0
+  // through v0.8.0), so every `pi install pi-epicflow` shipped a broken
+  // epic-review gate. Discovered by real-app verification (L-047).
+  let agentFiles = [];
+  try {
+    agentFiles = fs.readdirSync(AGENTS_SRC).filter(n => n.endsWith(".md"));
+  } catch (e) {
+    warn(`could not read ${AGENTS_SRC}: ${e.message}`);
+  }
+  if (agentFiles.length === 0) {
+    warn(`no agent .md files found under ${AGENTS_SRC}`);
+  }
+  for (const f of agentFiles) {
     copyAgentSafely(path.join(AGENTS_SRC, f), AGENTS_DST);
   }
 }
