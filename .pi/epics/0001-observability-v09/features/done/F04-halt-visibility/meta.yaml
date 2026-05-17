@@ -1,12 +1,12 @@
 # Per-feature structured fields. Updated by pi as work proceeds.
 id: F04-halt-visibility
-title: >
-state: in-progress
+title: "Halt visibility with ⚠ HALTS section and JSON .halts[]"
+state: merged
 branch: feat/observability-v09/F04-halt-visibility
 worktree: "/home/shbs/code/experiments/pi-epicflow-F04"
 depends_on: [F01]
 started: 2026-05-17
 updated: 2026-05-17
-merged_at: ""
-merge_commit_sha: ""
-last_halt: ""                     # filename of most recent halt-report
+merged_at: 2026-05-17
+merge_commit_sha: 0e79dc5d5e3b5ef6ad1aa0c0a173cf680913651a
+last_halt: ""

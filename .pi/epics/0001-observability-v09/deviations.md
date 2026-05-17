@@ -39,3 +39,10 @@
 - What: Added 2 lines to `scripts/pi-epic-status`: `source "$__LIB_DIR/pi-epic-status-batches.sh"` and `render_batches "$epic_dir"` before `render_features`.
 - Why: F01 was supposed to create pi-epic-status-batches.sh as a stub AND wire it into the dispatcher (per decomposition.yaml F01 notes: "F01 creates lib/pi-epic-status-batches.sh as an EMPTY stub"). F01 created stubs for emit_batches_json/emit_halts_json in the JSON file but omitted: (a) creating the batches.sh lib file, (b) adding the source line in the dispatcher, (c) adding the render_batches call. Without these 2 lines, the human-mode batch rendering has no entry point.
 - Decomposition lesson: When a root feature (F01) is responsible for creating stub files that siblings will fill in, the AC should explicitly list "dispatcher sources the new file and calls the stub render function" as a checkable criterion, not just "lib/ directory created with sub-files".
+
+## F04 — halt-visibility
+
+### 2026-05-17 12:30 — out-of-scope file edit (dispatcher reorder)
+- What: Moved `render_halts "$epic_dir"` call from after `render_runlog` to before `render_batches` in `scripts/pi-epic-status` (1 line moved).
+- Why: Design §4 requires halts to be "the first thing the operator sees" — before the feature table. F01 placed render_halts last in the dispatcher ordering. Same deviation pattern as F03's dispatcher edit.
+- Decomposition lesson: Same as F03 — F01's AC should have specified the call order for render functions, not just that they exist.
