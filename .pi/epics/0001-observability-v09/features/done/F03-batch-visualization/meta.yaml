@@ -1,12 +1,12 @@
 # Per-feature structured fields. Updated by pi as work proceeds.
 id: F03-batch-visualization
 title: >
-state: in-progress
+state: merged
 branch: feat/observability-v09/F03-batch-visualization
 worktree: "/home/shbs/code/experiments/pi-epicflow-F03"
 depends_on: [F01]
 started: 2026-05-17
 updated: 2026-05-17
-merged_at: ""
-merge_commit_sha: ""
+merged_at: 2026-05-17
+merge_commit_sha: 93153430265fe963c48674ddc4a191b1c3597422
 last_halt: ""                     # filename of most recent halt-report
