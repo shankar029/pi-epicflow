@@ -330,8 +330,61 @@ PY
 }
 
 emit_halts_json() {
-    # Stub: F04 fills in halt scanning
-    printf '[]'
+    local epic_dir="$1"
+    local features_dir="$epic_dir/features"
+
+    if [[ ! -d "$features_dir" ]]; then
+        printf '[]'
+        return 0
+    fi
+
+    python3 - "$features_dir" <<'PY'
+import sys, os, re, json, glob
+
+features_dir = sys.argv[1]
+result = []
+
+for fdir_name in sorted(os.listdir(features_dir)):
+    fdir = os.path.join(features_dir, fdir_name)
+    if not os.path.isdir(fdir):
+        continue
+    # Extract feature id (e.g. F04 from F04-halt-visibility)
+    fid = fdir_name.split('-')[0] if '-' in fdir_name else fdir_name
+
+    for fname in sorted(os.listdir(fdir)):
+        if not fname.startswith('halt-') or not fname.endswith('.md'):
+            continue
+        # Check for resolved sibling
+        resolved = 'resolved-' + fname
+        if os.path.exists(os.path.join(fdir, resolved)):
+            continue
+
+        # Parse halt code and rest from filename: halt-h6-out-of-scope.md
+        stem = fname[:-3]  # halt-h6-out-of-scope
+        after_halt = stem[5:]  # h6-out-of-scope
+        parts = after_halt.split('-', 1)
+        code_lower = parts[0]  # h6
+        rest = parts[1] if len(parts) > 1 else ''
+        halt_code = code_lower.upper()  # H6
+
+        # Recovery anchor: h6 -> r6
+        code_num = code_lower[1:]  # strip 'h' prefix -> '6'
+        if rest:
+            recovery_anchor = f'docs/recovery.md#r{code_num}-{rest}'
+        else:
+            recovery_anchor = f'docs/recovery.md#r{code_num}'
+
+        halt_file = os.path.join(fdir, fname)
+
+        result.append({
+            'feature_id': fid,
+            'halt_code': halt_code,
+            'halt_file': halt_file,
+            'recovery_anchor': recovery_anchor
+        })
+
+print(json.dumps(result))
+PY
 }
 
 emit_ready_json() {
