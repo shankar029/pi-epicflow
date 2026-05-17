@@ -1,0 +1,12 @@
+# Per-feature structured fields. Updated by pi as work proceeds.
+id: F05-doctor-integration-and-smoke
+title: >
+state: in-progress
+branch: feat/observability-v09/F05-doctor-integration-and-smoke
+worktree: "/home/shbs/code/experiments/pi-epicflow-F05"
+depends_on: [F02,F03,F04]
+started: 2026-05-17
+updated: 2026-05-17
+merged_at: ""
+merge_commit_sha: ""
+last_halt: ""                     # filename of most recent halt-report
