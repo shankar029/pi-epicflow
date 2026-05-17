@@ -52,6 +52,7 @@ __LIB_DIR="$__SCRIPT_DIR/../lib"
 source "$__LIB_DIR/pi-epic-status-ready.sh"
 source "$__LIB_DIR/pi-epic-status-features.sh"
 source "$__LIB_DIR/pi-epic-status-runlog.sh"
+source "$__LIB_DIR/pi-epic-status-batches.sh"
 source "$__LIB_DIR/pi-epic-status-halts.sh"
 source "$__LIB_DIR/pi-epic-status-json.sh"
 
@@ -83,6 +84,7 @@ case "$mode" in
         render_test_cmd_warning "$epic_dir"
         render_version_info
         render_meta "$epic_dir"
+        render_batches "$epic_dir"
         render_features "$epic_dir"
         render_runlog "$epic_dir"
         render_halts "$epic_dir"

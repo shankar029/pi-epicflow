@@ -173,8 +173,160 @@ PY
 }
 
 emit_batches_json() {
-    # Stub: F03 fills in batch detection
-    printf '[]'
+    local epic_dir="$1"
+    local max_workers
+    max_workers=$(yaml_get "$epic_dir/epic-config.yaml" parallel.max_workers 2>/dev/null || echo "")
+    [[ -z "$max_workers" ]] && max_workers=1
+    if (( max_workers <= 1 )); then
+        printf '[]'
+        return 0
+    fi
+
+    local runlog="$epic_dir/run-log.jsonl"
+    if [[ ! -f "$runlog" ]]; then
+        printf '[]'
+        return 0
+    fi
+
+    python3 - "$runlog" "$max_workers" <<'PY'
+import sys, json
+from datetime import datetime, timezone
+
+runlog_path, max_workers = sys.argv[1], int(sys.argv[2])
+
+events = []
+with open(runlog_path, encoding='utf-8') as f:
+    for line in f:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            ev = json.loads(line)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        events.append(ev)
+
+def parse_iso(ts_str):
+    ts_str = ts_str.rstrip('Z') + '+00:00' if ts_str.endswith('Z') else ts_str
+    try:
+        return datetime.fromisoformat(ts_str)
+    except (ValueError, TypeError):
+        return None
+
+def fid_of(feature_str):
+    return feature_str.split('-')[0] if '-' in feature_str else feature_str
+
+starts = []
+completes = {}
+
+for ev in events:
+    event = ev.get('event', '')
+    feature = ev.get('feature', '')
+    ts = ev.get('ts') or ev.get('timestamp', '')
+    if not feature or not ts:
+        continue
+    fid = fid_of(feature)
+    dt = parse_iso(ts)
+    if dt is None:
+        continue
+    if event == 'feature-start':
+        starts.append((dt, fid, ts))
+    elif event == 'feature-complete':
+        completes[fid] = (dt, ts)
+
+if len(starts) < 2:
+    print('[]')
+    sys.exit(0)
+
+starts.sort(key=lambda x: x[0])
+
+all_events = []
+for ev in events:
+    event = ev.get('event', '')
+    ts = ev.get('ts') or ev.get('timestamp', '')
+    if not ts:
+        continue
+    dt = parse_iso(ts)
+    if dt is None:
+        continue
+    all_events.append((dt, event, ev.get('feature', '')))
+all_events.sort(key=lambda x: x[0])
+
+def has_complete_between(ts1, ts2):
+    for dt, event, _ in all_events:
+        if dt <= ts1:
+            continue
+        if dt >= ts2:
+            break
+        if event == 'feature-complete':
+            return True
+    return False
+
+groups = []
+current_group = [starts[0]]
+
+for i in range(1, len(starts)):
+    prev_dt = current_group[-1][0]
+    curr_dt, curr_fid, curr_ts = starts[i]
+    pair_delta = (curr_dt - prev_dt).total_seconds()
+    if pair_delta <= 5 and not has_complete_between(prev_dt, curr_dt):
+        current_group.append(starts[i])
+    else:
+        if len(current_group) >= 2:
+            groups.append(current_group)
+        current_group = [starts[i]]
+
+if len(current_group) >= 2:
+    groups.append(current_group)
+
+result = []
+for batch_idx, group in enumerate(groups):
+    batch_id = batch_idx + 1
+    batch_size = len(group)
+    theoretical_max = min(max_workers, batch_size)
+    batch_start_dt = group[0][0]
+    batch_start_ts = group[0][2]
+
+    feature_ids = [g[1] for g in group]
+    all_complete = True
+    batch_end_dt = None
+    batch_end_ts = None
+    serial_sum = 0
+
+    for dt, fid, ts in group:
+        if fid in completes:
+            c_dt, c_ts = completes[fid]
+            dur = (c_dt - dt).total_seconds()
+            serial_sum += dur
+            if batch_end_dt is None or c_dt > batch_end_dt:
+                batch_end_dt = c_dt
+                batch_end_ts = c_ts
+        else:
+            all_complete = False
+
+    wall_clock = None
+    speedup = None
+    ended_at = None
+    if all_complete and batch_end_dt:
+        wall_clock = int((batch_end_dt - batch_start_dt).total_seconds())
+        ended_at = batch_end_ts
+        if wall_clock > 0:
+            speedup = round(serial_sum / wall_clock, 2)
+
+    entry = {
+        "id": batch_id,
+        "started_at": batch_start_ts,
+        "ended_at": ended_at,
+        "wall_clock_sec": wall_clock,
+        "serial_sum_sec": int(serial_sum) if all_complete else None,
+        "speedup_ratio": speedup,
+        "theoretical_max": theoretical_max,
+        "feature_ids": feature_ids
+    }
+    result.append(entry)
+
+print(json.dumps(result))
+PY
 }
 
 emit_halts_json() {
