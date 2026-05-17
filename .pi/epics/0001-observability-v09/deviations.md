@@ -16,3 +16,10 @@
 - Decomposition lesson: <what should have been in the original plan>
 
 -->
+
+## F01 — modularize-and-json-skeleton
+
+### 2026-05-17 17:06 — out-of-scope file edit
+- What: Changed `-d "$clone/.git"` to `-e "$clone/.git"` in `_common.sh:pi_epicflow_age_days()`
+- Why: Pre-existing bug — git worktrees have `.git` as a file (not directory), causing version-age to show "?" instead of the correct value. This broke byte-for-byte AC 3 output match when running from the F01 worktree.
+- Decomposition lesson: `_common.sh` should be in scope_files when features depend on correct behavior from worktrees; alternatively, the bug should have been fixed in a prep commit before the epic.

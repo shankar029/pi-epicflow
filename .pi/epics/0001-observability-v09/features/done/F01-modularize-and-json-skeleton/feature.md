@@ -34,25 +34,23 @@ the epic's `design.md` §4.
 
 ## 4. Plan (mandatory; fill BEFORE first edit)
 
-Worker must populate this section before making ANY code edits. Reviewer
-validates the diff against this plan. If reality diverges, log to
-`deviations.md` with rationale.
+See plan.md for full details.
 
 **Files I will touch:**
-- `<path>` — <why>
+- `skills/epic-feature-workflow/scripts/pi-epic-status` — rewrite to ~90-line dispatcher
+- `skills/epic-feature-workflow/lib/pi-epic-status-features.sh` — feature-table + meta renderer (new)
+- `skills/epic-feature-workflow/lib/pi-epic-status-runlog.sh` — run-log renderer (new)
+- `skills/epic-feature-workflow/lib/pi-epic-status-halts.sh` — halt-reports renderer (new)
+- `skills/epic-feature-workflow/lib/pi-epic-status-ready.sh` — --ready mode (new)
+- `skills/epic-feature-workflow/lib/pi-epic-status-json.sh` — JSON emitter (new)
+- `skills/epic-feature-workflow/scripts/_common.sh` — 1-char bug fix for worktree `.git` detection
 
-**Files I will read for context (not edit):**
-- `<path>` — <why>
-
-**AC interpretation (literal expected behavior per criterion):**
-- AC 1: <literal expected output / behavior — exact string, exact exit code, exact schema>
-- AC 2: ...
-
-**Ambiguities (HALT with H1 if any are blocking):**
-- _(none)_  OR  - <question for orchestrator>
-
-**Anti-scope (explicitly NOT in this feature):**
-- _(none)_  OR  - <out-of-scope item, deferred to F0N>
+**Anti-scope:**
+- Do NOT add timing columns (F02)
+- Do NOT implement batch detection (F03)
+- Do NOT change halt rendering format (F04)
+- Do NOT add smoke phases (F05)
+- Do NOT populate batches/halts/ready_now/blocked_on_deps with real data (emit empty arrays)
 
 ## 5. TODO checklist (optional)
 
@@ -61,13 +59,11 @@ validates the diff against this plan. If reality diverges, log to
 
 ## 6. Progress log (append-only, newest on top)
 
-<!-- Add new entries on top.
-
-### YYYY-MM-DD HH:MM
-- changes: <files touched>
-- why: <one-line rationale>
-- next: <what to pick up next session>
--->
+### 2026-05-17 17:06
+- changes: pi-epic-status rewritten as dispatcher (90 lines); 5 lib/*.sh files created; _common.sh 1-char fix
+- why: F01 implementation — modularize + add --json skeleton
+- result: all 12 AC pass; 24/24 smoke; byte-for-byte baseline match confirmed
+- next: review + merge
 
 ## 7. Open questions
 
