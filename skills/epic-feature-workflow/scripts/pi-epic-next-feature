@@ -10,6 +10,16 @@
 #   - all depends_on are state=merged
 #
 # Picks the lowest ID among ready features (deterministic).
+#
+# v0.8.0 / L-048+L-049 — batch mode for parallel dispatcher:
+#   --batch N    print up to N ready features (one per line) instead of
+#                just the next one. Applies a hard conflict pre-check:
+#                two features whose declared scope_files overlap are
+#                NEVER returned in the same batch. The pre-check is the
+#                mechanical enforcement of "no parallel dispatch of
+#                features with overlapping declared scope" (L-049). The
+#                in-process orchestrator queue handles the actual
+#                concurrency in /epic-run-auto.md.
 
 set -euo pipefail
 # Resolve script dir through symlinks so we can source siblings reliably.
@@ -22,6 +32,30 @@ done
 __SCRIPT_DIR="$(cd -P "$(dirname "$__src")" && pwd)"
 source "$__SCRIPT_DIR/_common.sh"
 
+BATCH_N=1
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --batch)
+            BATCH_N="${2:-}"
+            [[ "$BATCH_N" =~ ^[0-9]+$ && $BATCH_N -ge 1 ]] || {
+                echo "ERROR: --batch requires a positive integer (got: '$BATCH_N')" >&2; exit 2;
+            }
+            shift 2;;
+        --help|-h)
+            cat <<EOF
+Usage: pi-epic-next-feature [--batch N]
+
+  --batch N   Print up to N ready feature IDs (one per line) instead of
+              the single next one. Features whose declared scope_files
+              overlap with another feature already in the batch are
+              skipped — the pre-check ensures parallel dispatch never
+              sends two workers at the same shared file (L-049).
+EOF
+            exit 0;;
+        *) echo "ERROR: unknown flag: $1" >&2; exit 2;;
+    esac
+done
+
 epic_dir=$(active_epic_dir)
 decomp="$epic_dir/decomposition.yaml"
 features_dir="$epic_dir/features"
@@ -30,10 +64,11 @@ done_dir="$features_dir/done"
 
 mkdir -p "$features_dir" "$done_dir"
 
-python3 - "$decomp" "$features_dir" "$done_dir" <<'PY'
+python3 - "$decomp" "$features_dir" "$done_dir" "$BATCH_N" <<'PY'
 import sys, os, re, glob
 
 decomp_path, feats_dir, done_dir = sys.argv[1], sys.argv[2], sys.argv[3]
+batch_n = int(sys.argv[4])
 
 # Reuse the parser logic — minimal duplication
 def parse(p):
@@ -122,5 +157,29 @@ ready = sorted([ft['id'] for ft in features if is_ready(ft)])
 if not ready:
     print("HALT:no-ready-feature-and-none-in-progress"); sys.exit(0)
 
-print(ready[0])
+if batch_n == 1:
+    print(ready[0]); sys.exit(0)
+
+# v0.8.0 batch mode: apply hard conflict pre-check.
+# Build fid → scope_files map; greedily admit features into the batch
+# only when their scope is disjoint from every already-admitted member.
+scope = {}
+for ft in features:
+    sf = ft.get('scope_files') or []
+    scope[ft['id']] = set(s for s in sf if s)
+
+admitted = []
+for fid in ready:
+    if len(admitted) >= batch_n:
+        break
+    overlap = False
+    for already in admitted:
+        if scope[fid] & scope[already]:
+            overlap = True
+            break
+    if not overlap:
+        admitted.append(fid)
+
+for fid in admitted:
+    print(fid)
 PY

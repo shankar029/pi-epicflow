@@ -367,6 +367,89 @@ not branch history. The orchestrator's §STALL HANDLING budget is also
 
 ---
 
+## R9 — Parallel-merge conflict (H6, v0.8.0+)
+
+**Symptom.** Running with `parallel.max_workers > 1`. Two features
+dispatched concurrently. One merged first; the second's
+`pi-feature-complete` failed with halt code H6 and a structured
+deviations.md entry classifying the conflicting files as **in-scope**
+or **out-of-scope** of the second feature.
+
+**Where pi-epicflow already did the work for you.**
+
+- `feat/<epic-slug>/<fid>-<slug>` branch still exists; the second
+  feature's worker output is fully reachable.
+- The worktree is untouched (the merge happened on the epic branch,
+  not in the feature worktree).
+- `meta.yaml` has `state: halted` and `halt_code: H6`.
+- A new section was appended to `deviations.md` listing the conflicting
+  paths under either *In-scope conflicts (decomposition-feedback)* or
+  *Out-of-scope conflicts (worker-discipline)*.
+
+### Case 9a — In-scope conflicts (decomposition-feedback)
+
+The failing feature's `scope_files` overlapped with another feature
+that merged first. The conflict pre-check should have prevented this
+dispatch — but the pre-check only looks at *declared* scopes; if your
+decomposition listed the same shared file in both features'
+`scope_files` it would have caught it.
+
+Most likely explanation: a third feature in the same batch caused the
+overlap (transitively, via a file that wasn't in either of the
+conflicting features' declared scope but was in the *third* feature's
+scope). Rare; usually it's just decomposition oversight.
+
+**Fix.**
+1. `cd MAIN_REPO && git status` shows the unmerged paths.
+2. Resolve by hand. The squash-merge is staged but not committed.
+3. `git add <resolved-paths>` and `pi-feature-complete <fid> --skip-tests`.
+   The script will commit on top of the staged resolution.
+4. Open `decomposition.yaml` and add the shared file to **both**
+   features' `scope_files`. Next run, the pre-check will serialize
+   them automatically.
+5. Log a `Decomposition lesson:` block in `deviations.md` (L-042).
+
+### Case 9b — Out-of-scope conflicts (worker-discipline)
+
+The failing worker touched a file it didn't declare in `scope_files`,
+and that file was modified by a sibling that merged first. The
+per-feature reviewer **should** have caught this (out-of-scope edits
+are a hard finding) and didn't. Two things to fix:
+
+**Immediate fix.**
+1. `git status` on the epic branch. Inspect the conflict.
+2. Decide whether the out-of-scope edit was *correct but missing from
+   scope_files* (decomposition was incomplete) or *incorrect and
+   should be reverted* (worker drift).
+3. If correct-but-undeclared: resolve, `pi-feature-complete <fid>
+   --skip-tests`, then patch `decomposition.yaml` to declare it for
+   future runs.
+4. If incorrect: `git checkout --ours -- <path>` (keep the merged
+   sibling's version), `pi-feature-complete <fid> --skip-tests`. The
+   worker's accidental edit is dropped. Verify behavior; rerun tests.
+
+**Systemic fix.**
+- Re-read the reviewer's report for this feature. Did it cite
+  `git diff --name-only` against scope_files? If not, the reviewer
+  rubber-stamped — that's an L-043 violation. Note it for the
+  feature-epic-reviewer end-of-epic audit.
+- Consider tightening the worker's plan in future features: require
+  the worker to re-check scope_files before every edit (already in
+  the worker contract; reinforce in the planner if you have one).
+
+### Preventing H6 next time
+
+- Always declare shared files (`package.json`, lockfiles, barrel
+  `index.ts`, etc.) in **both** features' `scope_files` if both could
+  reasonably touch them. The pre-check will then serialize.
+- Consider `parallel.max_workers: 2` (not 4+). N=2 captures most of
+  the wall-clock win with the lowest collision rate.
+- For epics with heavy shared-config churn (monorepos, big lockfiles),
+  stay on `max_workers: 1`. Parallel pays off most when features touch
+  truly disjoint subdirectories.
+
+---
+
 ## Cross-links
 
 - Halt codes reference: `docs/design.md` §"Halt codes"

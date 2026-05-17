@@ -29,7 +29,7 @@ const Navbar = () => (
         <Terminal className="text-vibrant-green w-6 h-6" />
         <span className="text-white">pi-epicflow</span>
         <span className="ml-2 px-2 py-0.5 text-[10px] font-mono uppercase tracking-widest text-vibrant-green border border-vibrant-green/30 rounded">
-          v0.7.3
+          v0.8.0
         </span>
       </div>
       <nav className="hidden md:flex gap-8 items-center text-sm font-medium">
@@ -57,7 +57,7 @@ const Hero = () => (
       className="inline-flex items-center gap-2 bg-vibrant-green/10 text-vibrant-green text-xs font-bold font-mono px-4 py-1.5 rounded-full border border-vibrant-green/20 mb-6 uppercase tracking-widest"
     >
       <Brain className="w-3 h-3" />
-      v0.7.3 — real-app verification hotfix
+      v0.8.0 — parallel feature dispatcher
     </motion.div>
 
     <motion.h1
@@ -354,83 +354,66 @@ const WhatsNew = () => (
       <div className="relative">
         <div className="inline-flex items-center gap-2 bg-vibrant-green/10 text-vibrant-green text-xs font-bold font-mono px-4 py-1.5 rounded-full border border-vibrant-green/20 mb-6 uppercase tracking-widest">
           <Brain className="w-3 h-3" />
-          New in v0.7 · v0.7.0 → v0.7.3
+          New in v0.8.0
         </div>
-        <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-4">Catch problems before the worker spawns</h2>
+        <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-4">Parallel feature execution. One linear epic.</h2>
         <p className="text-text-muted text-base md:text-lg max-w-3xl leading-relaxed mb-8">
-          The v0.7 line is a shift-left arc. Three gates fire before any
-          worker burns tokens, plus one final-pass gate before the PR
-          opens. Each one closes a failure mode observed on real epics:
-          cross-feature bugs per-feature reviewers can't see, components
-          built but never wired into the host app, and toolchain surprises
-          that surface mid-feature with{" "}
-          <code className="text-vibrant-green font-mono text-xs">command not found</code>.
-          v0.7.3 added a meta-lesson on top: heuristics must be verified
-          on a real app, not just synthetic smoke fixtures.
+          v0.8 is the first concurrency feature in pi-epicflow. Opt in via{" "}
+          <code className="text-vibrant-green font-mono text-xs">parallel.max_workers</code>{" "}
+          and the orchestrator dispatches up to N feature workers concurrently when the DAG permits AND their declared{" "}
+          <code className="text-vibrant-green font-mono text-xs">scope_files</code>{" "}
+          don't overlap. The serial merge property is preserved: only one{" "}
+          <code className="text-vibrant-green font-mono text-xs">pi-feature-complete</code>{" "}
+          runs at a time, so the epic branch stays a linear sequence of squash commits. No filesystem locks. No IPC. Coordination lives in the orchestrator's loop variables (L-048).
         </p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-surface-container border border-slate-border rounded-2xl p-6">
-            <ClipboardCheck className="w-6 h-6 text-fuchsia-400 mb-3" />
-            <h3 className="font-bold text-white mb-2">feature-epic-reviewer (v0.7.0)</h3>
+            <Brain className="w-6 h-6 text-vibrant-green mb-3" />
+            <h3 className="font-bold text-white mb-2">In-process merge queue (L-048)</h3>
             <p className="text-text-muted text-sm leading-relaxed">
-              Final-pass agent runs after every feature merges. Audits the
-              cumulative diff for lockfile churn, no-op stubs, orphaned
-              refs, lifecycle symmetry, design-trace coverage, and
-              rubber-stamping. Emits{" "}
-              <code className="text-fuchsia-400 font-mono text-xs">Verdict: APPROVE_EPIC</code>;{" "}
-              <code className="text-fuchsia-400 font-mono text-xs">pi-epic-complete</code>{" "}
-              refuses to archive otherwise (L-043).
+              The orchestrator is one pi session; it owns dispatch AND merge. No{" "}
+              <code className="text-vibrant-green font-mono text-xs">flock</code>, no{" "}
+              <code className="text-vibrant-green font-mono text-xs">.locks/</code>{" "}
+              directory, no Windows-vs-POSIX divergence. Parallel workers run in their own worktrees; only the orchestrator's FIFO ever calls{" "}
+              <code className="text-vibrant-green font-mono text-xs">pi-feature-complete</code>. Single trusted writer + many subagent workers → in-process variables, not kernel primitives.
             </p>
           </div>
           <div className="bg-surface-container border border-slate-border rounded-2xl p-6">
-            <Flag className="w-6 h-6 text-vibrant-green mb-3" />
-            <h3 className="font-bold text-white mb-2">integration-shell validator (v0.7.1 + v0.7.3)</h3>
+            <Flag className="w-6 h-6 text-fuchsia-400 mb-3" />
+            <h3 className="font-bold text-white mb-2">Conflict pre-check (L-049)</h3>
             <p className="text-text-muted text-sm leading-relaxed">
-              <code className="text-vibrant-green font-mono text-xs">pi-epic-validate-decomposition</code>{" "}
-              errors when an AC contains{" "}
-              <code className="text-vibrant-green font-mono text-xs">wire</code>/<code className="text-vibrant-green font-mono text-xs">register</code>/<code className="text-vibrant-green font-mono text-xs">integrate</code>{" "}
-              but{" "}
-              <code className="text-vibrant-green font-mono text-xs">scope_files</code>{" "}
-              lacks a language-appropriate shell ({" "}
-              <code className="text-vibrant-green font-mono text-xs">App.tsx</code>,{" "}
-              <code className="text-vibrant-green font-mono text-xs">main.tsx</code>,{" "}
-              <code className="text-vibrant-green font-mono text-xs">*.csproj</code>,{" "}
-              <code className="text-vibrant-green font-mono text-xs">pyproject.toml</code>...). Closes the ~58 deviations across two real epics that all shared the same shape: worker built the new thing but forgot to wire it. v0.7.3 fixed the heuristic against a real Vite+React app (L-045, L-047).
+              <code className="text-fuchsia-400 font-mono text-xs">pi-epic-next-feature --batch N</code>{" "}
+              refuses to dispatch two features whose declared{" "}
+              <code className="text-fuchsia-400 font-mono text-xs">scope_files</code>{" "}
+              overlap. The data was already in the decomposition. False positives serialize when they could've paralleled (low cost). False negatives reduce to an existing rule: declare scope honestly. If a worker still goes out-of-scope, the H6 halt at merge time classifies the conflict as <em>in-scope</em> (decomposition was wrong) or <em>out-of-scope</em> (worker drift) for the operator.
             </p>
           </div>
           <div className="bg-surface-container border border-slate-border rounded-2xl p-6">
             <Lightbulb className="w-6 h-6 text-amber-400 mb-3" />
-            <h3 className="font-bold text-white mb-2">required_toolchain pre-flight (v0.7.2)</h3>
+            <h3 className="font-bold text-white mb-2">Opt-in, backward-compatible</h3>
             <p className="text-text-muted text-sm leading-relaxed">
-              Detect + suggest, NOT auto-install.{" "}
-              <code className="text-amber-400 font-mono text-xs">epic-config.yaml</code>{" "}
-              gains a{" "}
-              <code className="text-amber-400 font-mono text-xs">required_toolchain</code>{" "}
-              block; the validator runs each{" "}
-              <code className="text-amber-400 font-mono text-xs">validate_cmd</code>,{" "}
-              compares to{" "}
-              <code className="text-amber-400 font-mono text-xs">min_version</code>,{" "}
-              and on failure emits the{" "}
-              <code className="text-amber-400 font-mono text-xs">install_hint</code>{" "}
-              verbatim. Defers to{" "}
-              <code className="text-amber-400 font-mono text-xs">.mise.toml</code>{" "}
-              /{" "}
-              <code className="text-amber-400 font-mono text-xs">.tool-versions</code>{" "}
-              when present. pi-epicflow never executes the hint (L-046).
+              Default{" "}
+              <code className="text-amber-400 font-mono text-xs">max_workers: 1</code>{" "}
+              is byte-for-byte the v0.7 path. Operators opt in by editing{" "}
+              <code className="text-amber-400 font-mono text-xs">epic-config.yaml</code>. v0.7's gates (feature-epic-reviewer, integration-shell validator, required_toolchain pre-flight) all apply unchanged — v0.8 adds concurrency without relaxing any safety property.
             </p>
           </div>
         </div>
         <div className="mt-8 flex flex-wrap items-center gap-3 text-sm">
           <a href={`${REPO}/blob/main/CHANGELOG.md`} className="text-vibrant-green hover:underline">
-            Full v0.7 changelog →
+            Full v0.8 changelog →
           </a>
           <span className="text-text-muted">·</span>
-          <a href={`${REPO}/blob/main/agents/feature-epic-reviewer.md`} className="text-vibrant-green hover:underline">
-            feature-epic-reviewer contract →
+          <a href={`${REPO}/blob/main/docs/sketch-parallel.md`} className="text-vibrant-green hover:underline">
+            Parallel design doc →
+          </a>
+          <span className="text-text-muted">·</span>
+          <a href={`${REPO}/blob/main/docs/recovery.md`} className="text-vibrant-green hover:underline">
+            R9 recovery recipe →
           </a>
           <span className="text-text-muted">·</span>
           <a href={`${REPO}/blob/main/skills/epic-feature-workflow/lessons.md`} className="text-vibrant-green hover:underline">
-            All 47 lessons →
+            All 49 lessons →
           </a>
         </div>
       </div>

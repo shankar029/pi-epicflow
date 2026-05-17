@@ -258,6 +258,157 @@ a halt condition fires.
 14. Loop.
 ```
 
+## Parallel mode (v0.8.0 — max_workers > 1)
+
+> **Read this section ONLY if `parallel.max_workers > 1` in
+> `EPIC_DIR/epic-config.yaml`.** When `max_workers: 1` (the default),
+> ignore everything below and use the serial loop above unchanged. The
+> serial path is byte-for-byte the v0.7 path.
+
+**Goal.** Run up to `max_workers` features concurrently when the DAG
+permits AND their declared `scope_files` do not overlap, without
+relaxing any safety property of the serial path.
+
+**Property preserved.** Squash-merge is still the single serialization
+point. Workers run in parallel; **only one `pi-feature-complete` runs
+at a time.** The epic branch remains a linear sequence of squash
+commits, the recovery playbook stays tractable, the human-readable
+history stays clean.
+
+**No locks needed.** This orchestrator is one pi session. Coordination
+lives in this loop's variables. Workers are subagents — they don't
+talk to each other.
+
+### Parallel loop
+
+Read `parallel.max_workers` once at the top of the run and call it `N`.
+Keep a local in-process state structure:
+```
+in_flight = {}        # fid → {state: 'worker'|'reviewer'|'ready-to-merge', run_id, paths...}
+ready_to_merge = []   # ordered FIFO of fids whose reviewer APPROVED
+merged_this_run = 0
+```
+
+Repeat until DONE-or-halt:
+
+**P0. BUDGET CHECK.** Same as serial step 0 (respect `--max-features`).
+
+**P1. ADMIT new workers up to N.**
+   While `len(in_flight) < N`:
+   - Call `pi-epic-next-feature --batch (N - len(in_flight))`.
+   - For each fid returned:
+     - If the fid is already in `in_flight`, skip. (Shouldn't happen —
+       the script reads state from meta.yaml — but defensive.)
+     - Run `pi-feature-start <fid>` (cheap, sequential is fine).
+     - Resolve MAIN_REPO/EPIC_DIR/FEATURE_DIR/WORKTREE/REPORT_PATH as
+       in serial step 5.
+     - Apply the PLANNING GATE (serial step 3.5). If the planner is
+       effective, spawn it foreground (sequential) for this fid before
+       admitting the worker. **Planner runs are short and benefit from
+       linear context; don't try to parallelize the planner.**
+     - Spawn the worker via `subagent` exactly as in serial step 5
+       (agent: feature-worker, cwd: WORKTREE, fresh context, file-only
+       output, same task lines) — but pass `async: true` (or capture
+       the run id and don't block). Record:
+       `in_flight[fid] = {state: 'worker', run_id, FEATURE_DIR, WORKTREE}`
+     - POST STATUS: `phase: parallel-admitted <fid> (n_inflight=K/N)`.
+   - If `pi-epic-next-feature --batch` returned **HALT:no-ready-...**
+     AND `len(in_flight) == 0` AND `len(ready_to_merge) == 0`, the
+     entire DAG is blocked — goto HALT.
+   - If it returned **HALT:no-ready-...** but workers are still in
+     flight, that's normal: their merges will unblock downstream
+     features. Don't halt; proceed to P2.
+   - If it returned **DONE**, no more work to admit. Drain.
+   - If it returned `HALT:feature-halted:<fid>`, an earlier soft-halt
+     left a halted feature blocking progress. Goto HALT.
+
+**P2. AWAIT any in-flight worker/reviewer completion.**
+   Use `subagent` with `action: "status"` (or just wait on the parallel
+   run handles) to detect the first completion. When a fid's `subagent`
+   call returns:
+
+   **P2a. Worker completion (fid was state='worker').** Read its
+   `worker-report.md`. Apply serial step 6 logic:
+   - state: BLOCKED with `halt_code: H10` → soft halt this fid. Mark
+     its meta.yaml `state: halted-ambiguous`. **Remove from in_flight.**
+     Do NOT kill siblings. Continue.
+   - state: BLOCKED (other) → hard halt. Kill all sibling in-flight
+     workers via `subagent action: "interrupt"`. Goto §ESCALATION.
+   - state: READY → spawn the reviewer (serial step 8), update
+     `in_flight[fid] = {state: 'reviewer', run_id, ...}`.
+   - missing/malformed report → halt as serial step 6.
+
+   **P2b. Reviewer completion (fid was state='reviewer').** Read
+   `review-report.md`. Apply serial step 8 logic:
+   - APPROVE → push fid to `ready_to_merge` FIFO. Set
+     `in_flight[fid].state = 'ready-to-merge'` but keep the entry until
+     P3 actually merges it.
+   - REQUEST_CHANGES → re-spawn worker with hint, increment cycle
+     count, transition back to state='worker'. Same 3-cycle cap as
+     serial.
+   - BLOCK → hard halt. Kill siblings. Goto HALT (H1).
+
+**P3. DRAIN the merge queue (serial).**
+   While `ready_to_merge` is non-empty:
+   - Pop the head fid.
+   - `cd` to MAIN_REPO. Run `pi-feature-complete <fid>` (serial step 10).
+   - Handle non-zero exit:
+     - **Exit with H6 in `meta.yaml`** (squash-merge conflict; the
+       script wrote `halt_code: H6` and a deviations entry classifying
+       in-scope vs out-of-scope). **Hard halt.** Kill all sibling
+       in-flight workers. Goto HALT (H6). The deviations.md entry is
+       the operator's recovery breadcrumb.
+     - Test failure → HALT (H1). Kill siblings.
+     - Other → HALT with stderr.
+   - On success: append run-log entry as serial step 11, remove fid
+     from `in_flight`, increment `merged_this_run`.
+   - POST STATUS: `phase: merged <fid> (queue=K, in_flight=K/N)`.
+   - After each successful merge, loop back to P1 to admit fresh
+     features (their deps may have just unblocked).
+
+**P4. Exit conditions.**
+   - `len(in_flight) == 0` AND `len(ready_to_merge) == 0` AND
+     `pi-epic-next-feature` returned DONE → goto FINALIZE.
+   - Hard halt at any step → cleanup (interrupt running subagents),
+     write halt report including a list of fids in each state, goto HALT.
+
+### Halt isolation table
+
+| Halt class | One worker hits it | What about siblings? |
+|---|---|---|
+| H10 (soft, AC ambiguity) | mark `halted-ambiguous`, remove from in_flight | keep running |
+| H1 (test failure) | hard halt | **interrupt** all in-flight |
+| H2 (dirty tree) | hard halt | **interrupt** all in-flight |
+| H4 (deps drift) | hard halt | **interrupt** all in-flight |
+| H5 (fatal env) | hard halt | **interrupt** all in-flight |
+| H6 (merge conflict, parallel collision) | hard halt | **interrupt** all in-flight |
+| H7 (stall) | hard halt for THAT worker; siblings continue if responsive | keep running |
+| H9 (planner-blocked) | hard halt (planner runs before admit) | n/a (no siblings yet) |
+
+When you interrupt siblings, you MAY find they were close to finishing.
+That's fine — their partial work is in their worktree and reachable on
+their feat branch; nothing is lost. The next `/epic-run-auto` invocation
+will `pi-epic-next-feature`'s in-progress-first rule (L-010) re-pick
+them up if their state is still pending/in-progress.
+
+### Conflict pre-check is the orchestrator's safety net
+
+`pi-epic-next-feature --batch` already refuses to dispatch two features
+whose declared `scope_files` overlap. But a worker can still go
+out-of-scope: it can edit a file outside its declared scope_files, and
+if that file was edited by a sibling feature that merged first, the
+result is a parallel-merge collision caught at `pi-feature-complete`.
+That path emits halt code H6 with a deviations.md entry classifying
+the conflict as in-scope (decomposition was wrong) or out-of-scope
+(worker went rogue). Either way: hard halt, operator decides.
+
+### Observability under parallel
+
+The run-log.jsonl gains a `worker_id` for parallel runs (just the fid,
+or a synthesized `w<index>` if you prefer). POST STATUS lines should
+include `n_inflight=K/N` so the user always knows how many workers are
+doing what. Linear narrative is harder; that's the cost of concurrency.
+
 ## §STALL HANDLING (worker / reviewer appears stuck)
 
 > **§RECOVERY — stuck git state, not stuck subagent.** When the stuck-state

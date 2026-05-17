@@ -55,6 +55,29 @@ worktree_pattern: "../{repo}-{feature}"
 # false = local only until pi-epic-complete opens the PR.
 push_epic_branch_during_work: false
 
+# v0.8.0 / L-048+L-049 — parallel feature dispatcher.
+#
+# Default: max_workers = 1 (identical behavior to v0.5/v0.6/v0.7 —
+# features run serially through the DAG, one at a time). Operators
+# opt in to parallel execution by bumping max_workers; the orchestrator
+# (in /epic-run-auto.md) dispatches up to max_workers features
+# concurrently when the DAG permits AND their declared scope_files do
+# not overlap (L-049 hard conflict pre-check).
+#
+# The serial merge queue stays serial regardless of max_workers — only
+# ONE pi-feature-complete (squash + advance epic branch) runs at a time.
+# That property is what keeps the epic branch a linear sequence of
+# squash commits, which is what makes recovery tractable.
+#
+# conflict_precheck: true (default) makes pi-epic-next-feature --batch
+# refuse to dispatch two features whose declared scope_files overlap.
+# This is the mechanical enforcement of "workers in parallel must not
+# race on the same files" (L-049). False positive cost: those two run
+# serially instead of in parallel — not "the build breaks."
+parallel:
+  max_workers: 1
+  conflict_precheck: true
+
 # PR options.
 pr:
   draft: false

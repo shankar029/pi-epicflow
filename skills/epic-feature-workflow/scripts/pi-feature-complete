@@ -197,10 +197,102 @@ if ! git merge --squash "$feat_branch" --quiet; then
             git add -- "$p"
         done
     else
-        echo "ERROR: squash-merge failed with conflicts outside the journal directory:" >&2
-        echo "$other" | sed 's/^/  /' >&2
-        echo "Resolve on epic branch (git status), commit, then re-run pi-feature-complete --skip-tests." >&2
+        # v0.8.0 / L-049 — the parallel-merge conflict path.
+        # Classify conflicting files as in-scope or out-of-scope of this
+        # feature's declared scope_files. In-scope means the decomposition
+        # predicted disjoint scopes and was wrong (decomposition-feedback).
+        # Out-of-scope means the worker went beyond what it declared and
+        # collided with an already-merged sibling (worker-discipline
+        # failure; per-feature reviewer should have caught).
+        scope_decl=$(python3 - "$epic_dir/decomposition.yaml" "$fid" <<'PYS' 2>/dev/null || true
+import sys, re
+p, fid = sys.argv[1], sys.argv[2]
+in_block = False; cur=None; sf=[]
+with open(p) as f:
+    for line in f:
+        s=line.rstrip('\n')
+        if not s.strip() or s.lstrip().startswith('#'): continue
+        if s.startswith('  - ') and 'id:' in s:
+            m=re.match(r'^\s*-\s*id:\s*(\S+)', s)
+            cur=m.group(1).strip().strip('"').strip("'") if m else None
+            in_block=False
+            continue
+        if cur==fid:
+            m=re.match(r'^\s+scope_files\s*:\s*(.*)$', s)
+            if m:
+                rest=m.group(1).strip()
+                if rest and rest.startswith('['):
+                    inner=rest[1:-1].strip()
+                    sf=[x.strip().strip('"').strip("'") for x in inner.split(',') if x.strip()]
+                    in_block=False
+                else:
+                    in_block=True
+                continue
+            if in_block:
+                m=re.match(r'^\s+-\s*(.+)$', s)
+                if m: sf.append(m.group(1).strip().strip('"').strip("'"))
+                else: in_block=False
+print('\n'.join(sf))
+PYS
+)
+        in_scope=""
+        out_scope=""
+        while IFS= read -r conflict_path; do
+            [[ -z "$conflict_path" ]] && continue
+            matched=0
+            while IFS= read -r decl; do
+                [[ -z "$decl" ]] && continue
+                if [[ "$conflict_path" == "$decl" || "$conflict_path" == "$decl"/* ]]; then
+                    matched=1; break
+                fi
+            done <<< "$scope_decl"
+            if (( matched )); then
+                in_scope="${in_scope}${conflict_path}\n"
+            else
+                out_scope="${out_scope}${conflict_path}\n"
+            fi
+        done <<< "$other"
+
+        echo "" >&2
+        echo "⛔ HALT: H6 — squash-merge conflict (parallel-merge collision)" >&2
+        echo "" >&2
+        if [[ -n "$in_scope" ]]; then
+            echo "  In-scope conflicts (declared by $fid in decomposition.yaml):" >&2
+            printf "$in_scope" | sed '/^$/d; s/^/    /' >&2
+            echo "    → Decomposition predicted disjoint scopes and was wrong." >&2
+            echo "      Decomposition-feedback class. Resolve by hand, then either:" >&2
+            echo "        - retry pi-feature-complete --skip-tests, or" >&2
+            echo "        - amend decomposition.yaml so future runs serialize these." >&2
+            echo "" >&2
+        fi
+        if [[ -n "$out_scope" ]]; then
+            echo "  Out-of-scope conflicts (NOT in $fid's declared scope_files):" >&2
+            printf "$out_scope" | sed '/^$/d; s/^/    /' >&2
+            echo "    → Worker went out of scope and collided with an already-" >&2
+            echo "      merged sibling feature. Worker-discipline failure; per-" >&2
+            echo "      feature reviewer should have caught this. Log a deviation." >&2
+            echo "" >&2
+        fi
+        echo "  Recovery: docs/recovery.md §R9 (parallel-merge conflict)." >&2
+        echo "  After resolving, re-run pi-feature-complete --skip-tests." >&2
+        # Append a structured deviations.md entry for the orchestrator/reviewer.
+        dev="$epic_dir/deviations.md"
+        {
+            echo ""
+            echo "### H6: parallel-merge conflict on $fid ($(date -u +%FT%TZ))"
+            if [[ -n "$in_scope" ]]; then
+                echo ""
+                echo "**In-scope conflicts (decomposition-feedback):**"
+                printf "$in_scope" | sed '/^$/d; s/^/- /'
+            fi
+            if [[ -n "$out_scope" ]]; then
+                echo ""
+                echo "**Out-of-scope conflicts (worker-discipline):**"
+                printf "$out_scope" | sed '/^$/d; s/^/- /'
+            fi
+        } >> "$dev"
         yaml_set "$feat_dir/meta.yaml" state "halted"
+        yaml_set "$feat_dir/meta.yaml" halt_code "H6"
         exit 1
     fi
 fi

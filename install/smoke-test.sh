@@ -42,7 +42,7 @@ echo "# smoke" > README.md
 git add README.md && git commit -qm "init"
 
 # 1. epic-init
-echo "[1/20] pi-epic-init"
+echo "[1/23] pi-epic-init"
 cat > /tmp/pi-epicflow-smoke-design.md <<'EOF'
 # Smoke
 Two features.
@@ -53,7 +53,7 @@ EPIC_ID=$(ls .pi/epics/ | grep -E '^0[0-9]+-' | head -1)
 [ "$(git rev-parse --abbrev-ref HEAD)" = "epic/smoke" ] && pass "on epic branch" || fail "not on epic branch"
 
 # 2. decomposition
-echo "[2/20] decomposition.yaml"
+echo "[2/23] decomposition.yaml"
 cat > ".pi/epics/$EPIC_ID/decomposition.yaml" <<EOF
 epic: $EPIC_ID
 features:
@@ -76,12 +76,12 @@ git add .pi/ && git commit -qm "decomp"
 pass "decomposition committed"
 
 # 3. next-feature dispatch
-echo "[3/20] pi-epic-next-feature"
+echo "[3/23] pi-epic-next-feature"
 NEXT=$(pi-epic-next-feature)
 [ "$NEXT" = "F01" ] && pass "next-feature returns F01" || fail "expected F01, got '$NEXT'"
 
 # 4. feature-start with L-012 (halt file present) + L-013 (status advance)
-echo "[4/20] pi-feature-start F01 (with halt-fake.md present)"
+echo "[4/23] pi-feature-start F01 (with halt-fake.md present)"
 echo "fake halt content" > ".pi/epics/$EPIC_ID/halt-fake.md"
 echo "extra line for design" >> ".pi/epics/$EPIC_ID/design.md"
 pi-feature-start F01 > /dev/null
@@ -98,7 +98,7 @@ fi
 [ -f ".pi/epics/$EPIC_ID/halt-fake.md" ] && pass "halt file still on disk" || fail "halt file was removed"
 
 # 5. worker simulation + feature-complete (v0.6: worker-report.md with evidence section)
-echo "[5/20] simulate worker + pi-feature-complete F01"
+echo "[5/23] simulate worker + pi-feature-complete F01"
 WT_PATH="$(grep -E "^worktree:" ".pi/epics/$EPIC_ID/features/F01-alpha/meta.yaml" | sed -E 's/^worktree:\s*"?([^"]*)"?.*/\1/')"
 [ -d "$WT_PATH" ] || fail "feature worktree missing: $WT_PATH"
 (
@@ -153,14 +153,14 @@ else
 fi
 
 # 6. dispatcher unblocks F02 after F01 merged
-echo "[6/20] pi-epic-next-feature after F01"
+echo "[6/23] pi-epic-next-feature after F01"
 NEXT=$(pi-epic-next-feature)
 [ "$NEXT" = "F02" ] && pass "dispatcher returns F02 after F01 merged" || fail "expected F02, got '$NEXT'"
 
 # 7. L-023: spike workflow end-to-end. Add a fresh epic with a single
 # spike and confirm pi-feature-start + (simulated) worker writing journal
 # to MAIN_REPO + pi-feature-complete all succeed without manual recovery.
-echo "[7/20] L-023 spike workflow"
+echo "[7/23] L-023 spike workflow"
 cd "$SANDBOX"
 # Clean .pi/ from the half-finished first epic so a fresh init works.
 rm -rf .pi/
@@ -220,7 +220,7 @@ else
 fi
 
 # 8. L-025: pi-epic-complete should leave the tree clean.
-echo "[8/20] L-025 clean tree after pi-epic-complete"
+echo "[8/23] L-025 clean tree after pi-epic-complete"
 # Complete the spike epic. --no-pr skips the push step (no origin);
 # --skip-epic-review bypasses the v0.7.0 L-043 gate (this phase tests archive
 # mechanics, not the epic-review gate; phase 18 tests the gate).
@@ -238,7 +238,7 @@ else
 fi
 
 # 9. L-029: range syntax in depends_on must be rejected with a specific error.
-echo "[9/20] L-029 depends_on range syntax detection"
+echo "[9/23] L-029 depends_on range syntax detection"
 L29_DIR=$(mktemp -d)
 cd "$L29_DIR"
 git init -q -b main && git config user.email t@t && git config user.name T
@@ -289,7 +289,7 @@ else
 fi
 
 # 10. L-030: parent-dir-missing warning suppressed when 2+ scope_files share parent.
-echo "[10/20] L-030 parent-dir warning suppression"
+echo "[10/23] L-030 parent-dir warning suppression"
 L30_DIR=$(mktemp -d)
 cd "$L30_DIR"
 git init -q -b main && git config user.email t@t && git config user.name T
@@ -336,7 +336,7 @@ else
 fi
 
 # 11. L-032: pi-feature-complete rejects a worker-report without '## Completion evidence'.
-echo "[11/20] L-032 evidence-gate rejects missing-evidence report"
+echo "[11/23] L-032 evidence-gate rejects missing-evidence report"
 L32_DIR=$(mktemp -d)
 cd "$L32_DIR"
 git init -q -b main && git config user.email t@t && git config user.name T
@@ -380,7 +380,7 @@ else
 fi
 
 # 12. L-032: --skip-evidence override permits merge for legacy/edge cases.
-echo "[12/20] L-032 --skip-evidence override works"
+echo "[12/23] L-032 --skip-evidence override works"
 L32B_DIR=$(mktemp -d)
 cd "$L32B_DIR"
 git init -q -b main && git config user.email t@t && git config user.name T
@@ -418,7 +418,7 @@ else
 fi
 
 # 13. L-035: pi-epic-status --ready filters by dep-merged + own-state-dispatchable.
-echo "[13/20] L-035 pi-epic-status --ready ready-set correctness"
+echo "[13/23] L-035 pi-epic-status --ready ready-set correctness"
 L35_DIR=$(mktemp -d)
 cd "$L35_DIR"
 git init -q -b main && git config user.email t@t && git config user.name T
@@ -480,7 +480,7 @@ rm -rf "$L35_DIR"
 
 # ── v0.6.2 phases ──
 
-echo "[14/20] L-038 test_cmd-bypass warning surfaces in pi-epic-status"
+echo "[14/23] L-038 test_cmd-bypass warning surfaces in pi-epic-status"
 L38_DIR="$SANDBOX/l38"
 mkdir -p "$L38_DIR" && cd "$L38_DIR"
 git init -q -b main
@@ -510,7 +510,7 @@ fi
 cd "$SANDBOX"
 rm -rf "$L38_DIR"
 
-echo "[15/20] L-036 user-lessons.md is populated by pi-epic-complete"
+echo "[15/23] L-036 user-lessons.md is populated by pi-epic-complete"
 L36_DIR="$SANDBOX/l36"
 mkdir -p "$L36_DIR" && cd "$L36_DIR"
 git init -q -b main
@@ -562,7 +562,7 @@ export HOME="$REAL_HOME"
 cd "$SANDBOX"
 rm -rf "$L36_DIR"
 
-echo "[16/20] L-040 gitignore covers node_modules* family"
+echo "[16/23] L-040 gitignore covers node_modules* family"
 L40_DIR="$SANDBOX/l40"
 mkdir -p "$L40_DIR" && cd "$L40_DIR"
 git init -q -b main
@@ -588,7 +588,7 @@ rm -rf "$L40_DIR"
 
 # ── v0.6.3 phase ──
 
-echo "[17/20] L-042 pi-epic-extend round-trip"
+echo "[17/23] L-042 pi-epic-extend round-trip"
 L42_DIR="$SANDBOX/l42"
 mkdir -p "$L42_DIR" && cd "$L42_DIR"
 git init -q -b main
@@ -681,7 +681,7 @@ rm -rf "$L42_DIR"
 
 # ── v0.7.0 phase ──
 
-echo "[18/20] L-043 epic-review gate in pi-epic-complete"
+echo "[18/23] L-043 epic-review gate in pi-epic-complete"
 L43_DIR="$SANDBOX/l43"
 mkdir -p "$L43_DIR" && cd "$L43_DIR"
 git init -q -b main
@@ -805,7 +805,7 @@ rm -f /tmp/pe-l43-*.log
 
 # ── v0.7.1 phase ──
 
-echo "[19/20] L-045 integration-shell completeness validator"
+echo "[19/23] L-045 integration-shell completeness validator"
 L45_DIR="$SANDBOX/l45"
 mkdir -p "$L45_DIR" && cd "$L45_DIR"
 git init -q -b main
@@ -971,7 +971,7 @@ rm -f /tmp/pe-l45-*.log
 
 # ── v0.7.2 phase ──
 
-echo "[20/20] L-046 required_toolchain pre-flight"
+echo "[20/23] L-046 required_toolchain pre-flight"
 L46_DIR="$SANDBOX/l46"
 mkdir -p "$L46_DIR" && cd "$L46_DIR"
 git init -q -b main
@@ -1106,6 +1106,193 @@ rm -f .tool-versions
 cd "$SANDBOX"
 rm -rf "$L46_DIR"
 rm -f /tmp/pe-l46-*.log
+
+# ── v0.8.0 phase ──
+#
+# These tests exercise the SCRIPT-level building blocks for parallel mode:
+# pi-epic-next-feature --batch (conflict pre-check) and pi-feature-complete's
+# H6 halt-with-classification. The /epic-run-auto.md parallel orchestration
+# prompt is verified by real-app verification (per L-047), not by smoke.
+
+echo "[21/23] L-049 pi-epic-next-feature --batch (conflict pre-check)"
+L48_DIR="$SANDBOX/l48-batch"
+mkdir -p "$L48_DIR" && cd "$L48_DIR"
+git init -q -b main
+git config user.email smoke@local
+git config user.name "Smoke"
+echo init > r.md
+git add -A && git commit -qm init >/dev/null
+printf 'title: Batch\nslug: batch-test\nrationale: smoke\n' > /tmp/pi-l48-design.md
+pi-epic-init batch-test --from /tmp/pi-l48-design.md --title "Batch" >/dev/null
+E48_ID=$(ls .pi/epics | grep -v done | head -1)
+
+# Three features: F01 (no deps), F02 (deps F01) sharing pkg.json with F03 (deps F01).
+cat > ".pi/epics/$E48_ID/decomposition.yaml" <<DEC48
+epic: $E48_ID
+features:
+  - id: F01
+    slug: setup
+    summary: Setup
+    depends_on: []
+    scope_files:
+      - r.md
+    acceptance_criteria:
+      - r.md exists
+    estimated_hours: 1
+  - id: F02
+    slug: shared-a
+    summary: Touch shared package.json
+    depends_on: [F01]
+    scope_files:
+      - package.json
+      - src/a.ts
+    acceptance_criteria:
+      - package.json updated
+    estimated_hours: 1
+  - id: F03
+    slug: shared-b
+    summary: Also touch shared package.json
+    depends_on: [F01]
+    scope_files:
+      - package.json
+      - src/b.ts
+    acceptance_criteria:
+      - package.json updated
+    estimated_hours: 1
+  - id: F04
+    slug: disjoint
+    summary: Disjoint file under src/c
+    depends_on: [F01]
+    scope_files:
+      - src/c.ts
+    acceptance_criteria:
+      - c.ts exists
+    estimated_hours: 1
+DEC48
+
+# Case A: default (no --batch) returns just F01
+out=$(pi-epic-next-feature)
+if [[ "$out" == "F01" ]]; then
+    pass "L-049: default pi-epic-next-feature returns single ready feature"
+else
+    echo "  got: $out" >&2; fail "L-049: default should return F01 only"
+fi
+
+# Case B: --batch 4 with only F01 ready returns just F01
+out=$(pi-epic-next-feature --batch 4)
+if [[ "$out" == "F01" ]]; then
+    pass "L-049: --batch 4 returns only the ready set (just F01)"
+else
+    echo "  got: $out" >&2; fail "L-049: --batch 4 should return F01 only when others have unmet deps"
+fi
+
+# Case C: simulate F01 merged so F02/F03/F04 are ready;
+# pre-check must drop one of {F02,F03} from same batch (both touch package.json).
+mkdir -p ".pi/epics/$E48_ID/features/done/F01-setup"
+cat > ".pi/epics/$E48_ID/features/done/F01-setup/meta.yaml" <<META
+id: F01
+state: merged
+META
+out=$(pi-epic-next-feature --batch 4 | tr '\n' ' ')
+# Must include F04 (disjoint) and exactly ONE of {F02, F03}
+if echo "$out" | grep -q F04; then
+    if (echo "$out" | grep -q F02 && ! echo "$out" | grep -q F03) ||
+       (echo "$out" | grep -q F03 && ! echo "$out" | grep -q F02); then
+        pass "L-049: --batch admits F04 + exactly one of {F02,F03} (pre-check fires)"
+    else
+        echo "  got: $out" >&2; fail "L-049: pre-check should admit exactly one of F02/F03, not both/neither"
+    fi
+else
+    echo "  got: $out" >&2; fail "L-049: --batch should include disjoint F04"
+fi
+
+# Case D: --batch with all-disjoint scope_files admits everyone
+python3 - <<PY
+import yaml
+p='.pi/epics/$E48_ID/decomposition.yaml'
+d=yaml.safe_load(open(p))
+for f in d['features']:
+    if f['id']=='F02': f['scope_files']=['src/a.ts']
+    if f['id']=='F03': f['scope_files']=['src/b.ts']
+open(p,'w').write(yaml.safe_dump(d,sort_keys=False))
+PY
+out=$(pi-epic-next-feature --batch 4 | tr '\n' ' ')
+if echo "$out" | grep -q F02 && echo "$out" | grep -q F03 && echo "$out" | grep -q F04; then
+    pass "L-049: --batch admits all three when scope_files are disjoint"
+else
+    echo "  got: $out" >&2; fail "L-049: all-disjoint scopes should yield F02+F03+F04"
+fi
+
+cd "$SANDBOX"
+rm -rf "$L48_DIR"
+rm -f /tmp/pi-l48-*.log
+
+echo "[22/23] L-049 pi-epic-next-feature --batch flag validation"
+L48F_DIR="$SANDBOX/l48-flag"
+mkdir -p "$L48F_DIR" && cd "$L48F_DIR"
+git init -q -b main
+git config user.email smoke@local
+git config user.name "Smoke"
+echo init > r.md
+git add -A && git commit -qm init >/dev/null
+printf 'title: Flag\nslug: flag\nrationale: smoke\n' > /tmp/pi-l48f-design.md
+pi-epic-init flag --from /tmp/pi-l48f-design.md --title "Flag" >/dev/null
+E48F_ID=$(ls .pi/epics | grep -v done | head -1)
+cat > ".pi/epics/$E48F_ID/decomposition.yaml" <<DEC48F
+epic: $E48F_ID
+features:
+  - id: F01
+    slug: only
+    summary: Only feature
+    depends_on: []
+    scope_files: [r.md]
+    acceptance_criteria: ["r.md exists"]
+    estimated_hours: 1
+DEC48F
+if pi-epic-next-feature --batch abc >/tmp/pe-l48f.log 2>&1; then
+    fail "L-049: --batch must reject non-numeric argument"
+else
+    pass "L-049: --batch rejects non-numeric argument with non-zero exit"
+fi
+if pi-epic-next-feature --batch 0 >/tmp/pe-l48f.log 2>&1; then
+    fail "L-049: --batch must reject 0 (require positive integer)"
+else
+    pass "L-049: --batch rejects 0"
+fi
+if pi-epic-next-feature --batch 1 >/dev/null 2>&1; then
+    pass "L-049: --batch 1 is accepted (equivalent to default)"
+else
+    fail "L-049: --batch 1 should be valid"
+fi
+
+cd "$SANDBOX"
+rm -rf "$L48F_DIR"
+rm -f /tmp/pe-l48f-*.log
+
+echo "[23/23] L-048 parallel-mode template wiring"
+L48T_DIR="$SANDBOX/l48-template"
+mkdir -p "$L48T_DIR" && cd "$L48T_DIR"
+git init -q -b main
+git config user.email smoke@local
+git config user.name "Smoke"
+echo init > r.md
+git add -A && git commit -qm init >/dev/null
+printf 'title: Tmpl\nslug: tmpl\nrationale: smoke\n' > /tmp/pi-l48t-design.md
+pi-epic-init tmpl --from /tmp/pi-l48t-design.md --title "Tmpl" >/dev/null
+E48T_ID=$(ls .pi/epics | grep -v done | head -1)
+# Confirm the seeded epic-config.yaml includes the parallel block with safe defaults.
+if grep -q '^parallel:' ".pi/epics/$E48T_ID/epic-config.yaml" &&
+   grep -q '  max_workers: 1' ".pi/epics/$E48T_ID/epic-config.yaml" &&
+   grep -q '  conflict_precheck: true' ".pi/epics/$E48T_ID/epic-config.yaml"; then
+    pass "L-048: epic-config.yaml template ships parallel.max_workers=1 (serial-by-default)"
+else
+    sed 's/^/  /' ".pi/epics/$E48T_ID/epic-config.yaml" >&2
+    fail "L-048: epic-config.yaml template missing or wrong parallel block"
+fi
+
+cd "$SANDBOX"
+rm -rf "$L48T_DIR"
+rm -f /tmp/pi-l48t-*.log
 
 echo ""
 echo "🎉 smoke test passed"

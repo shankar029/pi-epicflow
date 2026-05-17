@@ -1,9 +1,31 @@
 # Sketch: parallel feature dispatch (v0.7+ candidate)
 
-> **Status:** sketch only — not implemented in v0.6.x. This document
-> captures the design so it isn't lost; the decision to ship is gated on
-> real wall-clock evidence from at least one ≥20-feature epic (see
-> §Decision gate).
+> **Status: IMPLEMENTED in v0.8.0** (2026-05-17). This document is
+> preserved as the design-intent record. The implementation closely
+> follows the sketch with two revisions:
+>
+> 1. **No `flock` / no lock dir.** The sketch's "Serial merge queue"
+>    became a Python-style FIFO list inside the orchestrator's loop
+>    (one pi session). No IPC primitives needed; see L-048.
+> 2. **Default `max_workers: 1`, not `2`.** Operators opt in per epic;
+>    backward compatibility was prioritized over turning on a feature
+>    operators haven't asked for. Sketch's `2` is the *recommended
+>    opt-in value*, not the *out-of-the-box default*.
+>
+> Sketch decisions taken as-is: hard conflict pre-check (L-049),
+> halt-and-ask on H6 (no auto-rebase), single-point-of-merge
+> serialization, opt-in via `epic-config.yaml`, halt isolation
+> per-class, lessons L-048/L-049 (sketch had placeholders
+> L-035/L-036/L-037).
+>
+> See `CHANGELOG.md` v0.8.0 entry and `docs/recovery.md` §R9 for
+> the operator-facing detail. This sketch is the *why*; those are
+> the *what*.
+>
+> **Original sketch status (preserved for history):** sketch only —
+> not implemented in v0.6.x. This document captures the design so it
+> isn't lost; the decision to ship is gated on real wall-clock evidence
+> from at least one ≥20-feature epic (see §Decision gate).
 >
 > **Author:** pi-epicflow maintainers, 2026-05-15.
 > **Related:** L-034 (mechanical-enforcement principle),

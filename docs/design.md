@@ -283,6 +283,32 @@ those gates *prevent* (auto-install, auto-rebase, auto-fixup — each one
 trades a sharp "fail loudly here, operator fix" for a fuzzy "try to
 guess, sometimes break worse").
 
+### Concurrency without losing linearity (v0.8)
+
+v0.8.0 adds opt-in parallel feature execution (`parallel.max_workers > 1`
+in `epic-config.yaml`). The design preserves every v0.5/v0.6/v0.7 safety
+property by funneling parallel workers through a **single in-process
+serial merge queue**: the orchestrator runs `pi-feature-complete` one
+feature at a time, so the epic branch remains a linear sequence of
+squash commits even when N workers ran concurrently. Pre-dispatch, a
+`scope_files` conflict pre-check (L-049) refuses to admit two features
+whose declared scopes overlap into the same batch — the parallel-merge
+bug class is mechanically prevented rather than runtime-detected. Two
+design choices fell out of building this:
+
+- The merge queue is **in-process** (L-048). One pi session owns both
+  dispatch and merge; coordination lives in loop variables, not in
+  `flock`/sqlite/redis. The kernel coordination apparatus evaporates.
+- The conflict guard is **mechanical, not advisory** (L-049). False
+  positives serialize when they could have paralleled (low cost);
+  false negatives reduce to an existing rule (workers declare scope
+  honestly, L-006). No new operator-facing discipline rule.
+
+The v0.8 parallel mode is opt-in by default (`max_workers: 1`); the
+upgrade path is byte-for-byte unchanged unless the operator bumps the
+field. See `docs/sketch-parallel.md` for the full design and L-048/L-049
+for the lessons.
+
 ## The two operating modes
 
 ### Manual mode

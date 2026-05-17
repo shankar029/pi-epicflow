@@ -6,6 +6,142 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-05-17
+
+**Parallel feature dispatcher.** First concurrency feature in pi-epicflow.
+Operators opt in via `epic-config.yaml` → `parallel.max_workers > 1`;
+when enabled, the orchestrator dispatches up to N features concurrently
+when the DAG permits AND their declared `scope_files` do not overlap.
+Serial merge property preserved: only one `pi-feature-complete` runs at
+a time, so the epic branch remains a linear sequence of squash commits.
+
+The design is in `docs/sketch-parallel.md` (authored during the v0.6.0
+retrospective, deferred to v0.7+, now implemented). Two lessons codify
+the design choices that fell out of building it:
+
+- **L-048**: in-process orchestrator queue beats IPC for single-host
+  parallelism. We started with a `flock(2)` design and ended without
+  any locks at all — coordination lives in the orchestrator's loop
+  variables. Falls out of "one trusted writer + many subagent workers."
+- **L-049**: conflict pre-check from declared `scope_files` is the
+  cheap mechanical guard. The data is already in the decomposition;
+  the check is O(N²) on tiny N; false positives serialize when they
+  could've paralleled (low cost); false negatives reduce to an
+  existing rule (workers must declare their scope honestly, L-006).
+
+### Added
+
+- **`epic-config.yaml` new field: `parallel:` block.**
+  ```yaml
+  parallel:
+    max_workers: 1          # default = serial = current behavior
+    conflict_precheck: true # set false to disable the L-049 hard guard
+  ```
+  Default `max_workers: 1` is identical-to-v0.7 behavior; the template
+  ships with the block + commented docs so operators discover the
+  capability when they edit epic-config.yaml.
+
+- **`pi-epic-next-feature --batch N`.** Returns up to N ready features
+  (one ID per line), applying a hard conflict pre-check that admits
+  no two features whose declared `scope_files` overlap into the same
+  batch. Greedy admission in DAG-topological order. Default behavior
+  (no `--batch`) unchanged — returns a single feature ID per the v0.7
+  contract.
+
+- **`pi-feature-complete` H6 halt with classification.** The existing
+  squash-merge-conflict path is now tagged with halt code `H6` in
+  `meta.yaml`, prints a structured stderr block, and appends a
+  classified entry to `deviations.md`. Conflicts on files inside the
+  failing feature's declared `scope_files` are tagged
+  *In-scope conflicts (decomposition-feedback)*; conflicts on files
+  outside scope are tagged *Out-of-scope conflicts (worker-discipline)*.
+  Same path triggers for serial-mode conflicts too; the v0.8.0 work is
+  the tagging + classification + deviations.md entry, not the
+  conflict detection itself.
+
+- **`prompts/epic-run-auto.md` parallel-mode subsection.**
+  Operator-facing orchestration prompt gains a new section ("Parallel
+  mode (v0.8.0 — max_workers > 1)") with an explicit step-by-step
+  loop: P0 budget check, P1 admit workers, P2 await completion, P3
+  drain merge queue, P4 exit conditions. Halt-isolation table covers
+  H1/H2/H4/H5/H6/H7/H9/H10. Serial loop unchanged — the parallel
+  branch is additive and gated on `max_workers > 1`.
+
+- **R9 recovery recipe in `docs/recovery.md`.** Step-by-step for
+  both in-scope and out-of-scope H6 cases, plus a "preventing H6 next
+  time" subsection covering when to declare shared files in both
+  features' `scope_files` (let the pre-check serialize them) vs.
+  when to drop to `max_workers: 1` (heavy shared-config epics).
+
+- **Smoke phases 21–23** — 9 new pass cases:
+  - phase 21 (4 cases): `--batch` returns correct ready set; pre-check
+    drops overlapping features; admits disjoint features; respects
+    DAG (no premature admission)
+  - phase 22 (3 cases): `--batch` flag validation (rejects non-numeric,
+    rejects zero, accepts 1 as no-op)
+  - phase 23 (1 case): template ships `parallel.max_workers: 1`
+
+- **L-048 + L-049 lessons.** Detailed write-ups in
+  `skills/epic-feature-workflow/lessons.md`.
+
+- **Design.md v0.8 callout.** Brief addendum to the v0.7 shift-left
+  section noting v0.8's "serial merge queue preserves linear history
+  under parallel execution" property.
+
+- **`docs/sketch-parallel.md` IMPLEMENTED banner.** Sketch kept as
+  historical record; banner cites v0.8.0 and notes which sketch
+  choices were taken as-is and which were revised.
+
+### Real-app verification (per L-047)
+
+Drove the parallel dispatcher's script-level surfaces against
+`/tmp/pe-sample-todo-v8`, a Vite+React skeleton with a deliberate
+parallel-friendly DAG (1 root → 3 disjoint helpers → 1 integrator).
+Verified:
+  - `pi-epic-next-feature --batch 3` returns F02+F03+F04 concurrently
+    after F01 merges
+  - drops down to F03+F04 when F02 also merges (DAG-aware admission)
+  - returns F05 alone when only F05 remains ready
+  - returns `DONE` when all merge
+  - `pi-feature-complete` on a forced out-of-scope `package.json`
+    conflict produces the H6 halt with correct *Out-of-scope conflicts
+    (worker-discipline)* classification, and the deviations.md entry
+    is structurally correct.
+
+The `/epic-run-auto.md` parallel branch itself is not exercised by
+automated smoke (it requires real subagent invocations); operators
+verifying this release should drive a 4-feature parallel-friendly epic
+through `/epic-run-auto` with `parallel.max_workers: 2` and confirm
+from `run-log.jsonl` timestamps that feature workers ran concurrently.
+
+### Migration notes
+
+- Existing epics: no action required. `max_workers: 1` default is
+  identical to v0.7 behavior. Operators who want to try parallel
+  edit `epic-config.yaml` and bump `max_workers`.
+- Existing decompositions: scope_files declarations should be
+  *complete* (declare every file the worker will touch) for the
+  L-049 pre-check to be effective. If your scope_files are aspirational
+  ("new file at path X") and the worker also touches shared files,
+  consider declaring those shared files explicitly so the pre-check
+  can serialize them.
+- v0.7 features ship unchanged: feature-epic-reviewer gate (L-043),
+  integration-shell validator (L-045/L-047), required_toolchain
+  pre-flight (L-046).
+
+### Known limitations (intentional v0.8.0 scope)
+
+- No auto-rebase on conflict. H6 halts the feature; operator resolves.
+  Rationale in `docs/sketch-parallel.md` and L-049.
+- No cross-feature work stealing. Each subagent context dies at
+  feature boundaries.
+- No multi-machine dispatch. Single-host parallelism only.
+- `max_workers: auto` not supported — the value must be an explicit
+  integer in `epic-config.yaml`.
+- Smoke does not exercise the `/epic-run-auto.md` parallel branch
+  end-to-end (would require running real subagents). Operator
+  verification covers that path.
+
 ## [0.7.3] — 2026-05-16
 
 **Heuristic hotfix found by real-app verification (L-047).** v0.7.1
