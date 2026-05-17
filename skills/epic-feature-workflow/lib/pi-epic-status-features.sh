@@ -79,9 +79,11 @@ render_features() {
     local epic_dir="$1"
 
     echo "── features ──"
-    python3 - "$epic_dir/decomposition.yaml" "$epic_dir/features" <<'PY'
-import sys, os, re
-decomp_path, feats_dir = sys.argv[1], sys.argv[2]
+    python3 - "$epic_dir/decomposition.yaml" "$epic_dir/features" "$epic_dir" <<'PY'
+import sys, os, re, json
+from datetime import datetime, timezone
+
+decomp_path, feats_dir, epic_dir = sys.argv[1], sys.argv[2], sys.argv[3]
 done_dir = os.path.join(feats_dir, 'done')
 
 def parse(p):
@@ -123,14 +125,86 @@ def state_of(fid):
                             if m: return m.group(1).strip().strip('"').strip("'")
     return 'pending'
 
+def parse_runlog(epic_dir):
+    """Parse run-log.jsonl and return per-feature start/complete timestamps."""
+    starts = {}  # fid -> ISO timestamp string
+    completes = {}  # fid -> ISO timestamp string
+    runlog = os.path.join(epic_dir, 'run-log.jsonl')
+    if not os.path.isfile(runlog):
+        return starts, completes
+    with open(runlog, encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                ev = json.loads(line)
+            except (json.JSONDecodeError, ValueError):
+                continue
+            event = ev.get('event', '')
+            feature = ev.get('feature', '')
+            ts = ev.get('ts') or ev.get('timestamp', '')
+            if not feature or not ts:
+                continue
+            # Extract bare feature id (e.g. "F01" from "F01-modularize-...")
+            fid = feature.split('-')[0] if '-' in feature else feature
+            if event == 'feature-start':
+                starts[fid] = ts
+            elif event == 'feature-complete':
+                completes[fid] = ts
+    return starts, completes
+
+def parse_iso(ts_str):
+    """Parse ISO 8601 timestamp to datetime (UTC)."""
+    ts_str = ts_str.rstrip('Z') + '+00:00' if ts_str.endswith('Z') else ts_str
+    try:
+        return datetime.fromisoformat(ts_str)
+    except (ValueError, TypeError):
+        return None
+
+def format_duration(secs):
+    """Format duration: <60s as Xs, 60-3599 as MM:SS, >=3600 as H:MM:SS."""
+    secs = int(secs)
+    if secs < 60:
+        return f"{secs}s"
+    elif secs < 3600:
+        return f"{secs // 60:02d}:{secs % 60:02d}"
+    else:
+        h = secs // 3600
+        remainder = secs % 3600
+        return f"{h}:{remainder // 60:02d}:{remainder % 60:02d}"
+
 ICON = {'pending':'⏳','in-progress':'⚙️ ','tests-passing':'✅','merged':'✓ ','halted':'⛔','halted-ambiguous':'❔'}
 features = parse(decomp_path)
+starts, completes = parse_runlog(epic_dir)
+now = datetime.now(timezone.utc)
+
 for ft in features:
     fid = ft.get('id','?')
     st = state_of(fid)
     deps = ','.join(ft.get('depends_on') or []) or '-'
     hrs = ft.get('estimated_hours','?')
-    print(f"  {ICON.get(st,'? ')} {fid}  [{st:14}]  deps:{deps:10}  ~{hrs}h  {ft.get('summary','')}")
+
+    # Timing columns
+    started_str = '-'
+    duration_str = '-'
+    if fid in starts:
+        start_dt = parse_iso(starts[fid])
+        if start_dt:
+            started_str = start_dt.strftime('%H:%M:%S')
+            if fid in completes:
+                end_dt = parse_iso(completes[fid])
+                if end_dt:
+                    dur = int((end_dt - start_dt).total_seconds())
+                    if dur >= 0:
+                        duration_str = format_duration(dur)
+            else:
+                # In-progress: elapsed since start
+                dur = int((now - start_dt).total_seconds())
+                if dur >= 0:
+                    duration_str = format_duration(dur)
+
+    print(f"  {ICON.get(st,'? ')} {fid}  [{st:14}]  deps:{deps:10}  ~{hrs}h  started:{started_str:>8}  duration:{duration_str:>8}  {ft.get('summary','')}")
 PY
     echo
 }

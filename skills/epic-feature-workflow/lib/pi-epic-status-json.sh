@@ -38,9 +38,11 @@ emit_epic_json() {
 
 emit_features_json() {
     local epic_dir="$1"
-    python3 - "$epic_dir/decomposition.yaml" "$epic_dir/features" <<'PY'
+    python3 - "$epic_dir/decomposition.yaml" "$epic_dir/features" "$epic_dir" <<'PY'
 import sys, os, re, json
-decomp_path, feats_dir = sys.argv[1], sys.argv[2]
+from datetime import datetime, timezone
+
+decomp_path, feats_dir, epic_dir = sys.argv[1], sys.argv[2], sys.argv[3]
 done_dir = os.path.join(feats_dir, 'done')
 
 def parse(p):
@@ -90,7 +92,45 @@ def state_of(fid):
     m = meta_of(fid)
     return m.get('state', 'pending')
 
+def parse_runlog(epic_dir):
+    """Parse run-log.jsonl and return per-feature start/complete timestamps."""
+    starts = {}  # fid -> ISO timestamp string
+    completes = {}  # fid -> ISO timestamp string
+    runlog = os.path.join(epic_dir, 'run-log.jsonl')
+    if not os.path.isfile(runlog):
+        return starts, completes
+    with open(runlog, encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                ev = json.loads(line)
+            except (json.JSONDecodeError, ValueError):
+                continue
+            event = ev.get('event', '')
+            feature = ev.get('feature', '')
+            ts = ev.get('ts') or ev.get('timestamp', '')
+            if not feature or not ts:
+                continue
+            fid = feature.split('-')[0] if '-' in feature else feature
+            if event == 'feature-start':
+                starts[fid] = ts
+            elif event == 'feature-complete':
+                completes[fid] = ts
+    return starts, completes
+
+def parse_iso(ts_str):
+    """Parse ISO 8601 timestamp to datetime (UTC)."""
+    ts_str = ts_str.rstrip('Z') + '+00:00' if ts_str.endswith('Z') else ts_str
+    try:
+        return datetime.fromisoformat(ts_str)
+    except (ValueError, TypeError):
+        return None
+
 features = parse(decomp_path)
+starts, completes = parse_runlog(epic_dir)
+now = datetime.now(timezone.utc)
 result = []
 for ft in features:
     fid = ft.get('id', '')
@@ -99,15 +139,31 @@ for ft in features:
     slug = ft.get('slug', '')
     status = state_of(fid)
     branch = meta.get('branch', '')
+
+    # Compute started_at and duration_sec from run-log
+    started_at = None
+    duration_sec = None
+    if fid in starts:
+        started_at = starts[fid]
+        start_dt = parse_iso(starts[fid])
+        if start_dt:
+            if fid in completes:
+                end_dt = parse_iso(completes[fid])
+                if end_dt:
+                    duration_sec = int((end_dt - start_dt).total_seconds())
+            else:
+                # In-progress: elapsed since start
+                duration_sec = int((now - start_dt).total_seconds())
+
     entry = {
         "id": fid,
         "slug": slug,
         "status": status,
         "branch": branch,
         "merge_sha": meta.get('merge_sha') or None,
-        "started_at": meta.get('started_at') or None,
-        "completed_at": meta.get('completed_at') or None,
-        "duration_sec": int(meta['duration_sec']) if 'duration_sec' in meta and meta['duration_sec'].isdigit() else None,
+        "started_at": started_at,
+        "completed_at": completes.get(fid) if fid in completes else None,
+        "duration_sec": duration_sec,
         "halts": []
     }
     result.append(entry)
