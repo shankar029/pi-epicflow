@@ -348,13 +348,53 @@ const FitSection = () => (
 );
 
 const WhatsNew = () => (
-  <section className="px-4 py-16 max-w-7xl mx-auto">
+  <section className="px-4 py-16 max-w-7xl mx-auto space-y-8">
+    {/* v0.8.1 hotfix banner — critical install bug for v0.7.0–v0.8.0 upgraders */}
+    <div className="bg-amber-500/5 border border-amber-500/40 rounded-3xl p-6 md:p-8 relative overflow-hidden">
+      <div className="flex items-start gap-4">
+        <div className="flex-shrink-0">
+          <div className="w-10 h-10 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
+            <Flag className="w-5 h-5 text-amber-400" />
+          </div>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-3 mb-2">
+            <span className="inline-flex items-center bg-amber-500/15 text-amber-300 text-xs font-bold font-mono px-3 py-1 rounded-full border border-amber-500/30 uppercase tracking-wider">
+              v0.8.1 · hotfix · upgrade required
+            </span>
+          </div>
+          <h3 className="text-xl md:text-2xl font-bold text-white tracking-tight mb-2">
+            If you installed v0.7.0–v0.8.0, re-run <code className="font-mono text-amber-300 text-base">pi install pi-epicflow</code>.
+          </h3>
+          <p className="text-text-muted text-sm md:text-base leading-relaxed mb-3">
+            v0.7.0 introduced the <code className="text-amber-300 font-mono text-xs">feature-epic-reviewer</code> agent for the L-043 epic-review gate, but{" "}
+            <code className="text-amber-300 font-mono text-xs">install/postinstall.mjs</code>{" "}
+            still copied only the original three agents. Four releases shipped a broken gate — every <code className="text-amber-300 font-mono text-xs">/epic-run-auto</code> that reached <code className="text-amber-300 font-mono text-xs">pi-epic-complete</code> errored with{" "}
+            <code className="text-amber-300 font-mono text-xs">Unknown agent: feature-epic-reviewer</code>, forcing operators into <code className="text-amber-300 font-mono text-xs">--skip-epic-review</code> which negates the entire L-043 feature. v0.8.1 fixes postinstall to derive the agent list from the repo, plus adds a regression-guard smoke phase. Caught by real-app verification (L-047), the exact heuristic the v0.7.3 lesson predicted would catch issues automated smoke can't. Also fixes <code className="text-amber-300 font-mono text-xs">pi-epic-complete</code> erroring on remote-less sample/offline repos (L-052).
+          </p>
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <a href={`${REPO}/blob/main/CHANGELOG.md#081--2026-05-17`} className="text-amber-300 hover:underline font-medium">
+              v0.8.1 changelog →
+            </a>
+            <span className="text-text-muted">·</span>
+            <a href={`${REPO}/blob/main/docs/v0.8.0-real-app-verification.md`} className="text-amber-300 hover:underline font-medium">
+              Real-app verification report →
+            </a>
+            <span className="text-text-muted">·</span>
+            <a href={`${REPO}/releases/tag/v0.8.1`} className="text-amber-300 hover:underline font-medium">
+              v0.8.1 release →
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div className="bg-slate-surface border border-vibrant-green/30 rounded-3xl p-8 md:p-12 relative overflow-hidden">
       <div className="absolute -top-20 -right-20 w-80 h-80 bg-vibrant-green/10 rounded-full blur-3xl pointer-events-none" />
       <div className="relative">
         <div className="inline-flex items-center gap-2 bg-vibrant-green/10 text-vibrant-green text-xs font-bold font-mono px-4 py-1.5 rounded-full border border-vibrant-green/20 mb-6 uppercase tracking-widest">
           <Brain className="w-3 h-3" />
-          New in v0.8.0
+          New in v0.8 (· v0.8.1 hotfix)
         </div>
         <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-4">Parallel feature execution. One linear epic.</h2>
         <p className="text-text-muted text-base md:text-lg max-w-3xl leading-relaxed mb-8">
@@ -402,6 +442,10 @@ const WhatsNew = () => (
         <div className="mt-8 flex flex-wrap items-center gap-3 text-sm">
           <a href={`${REPO}/blob/main/CHANGELOG.md`} className="text-vibrant-green hover:underline">
             Full v0.8 changelog →
+          </a>
+          <span className="text-text-muted">·</span>
+          <a href={`${REPO}/blob/main/docs/v0.8.0-real-app-verification.md`} className="text-vibrant-green hover:underline">
+            Real-app verification report →
           </a>
           <span className="text-text-muted">·</span>
           <a href={`${REPO}/blob/main/docs/sketch-parallel.md`} className="text-vibrant-green hover:underline">
