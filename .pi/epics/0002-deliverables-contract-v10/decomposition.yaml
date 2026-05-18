@@ -1,92 +1,299 @@
-# Feature decomposition for this epic.
-# Produced by `pi-epic-decompose`, reviewed and approved by the human ONCE,
-# then consumed by `pi-epic-next-feature` in the auto-mode loop.
+# Feature decomposition for v0.10 — Decomposition as the deliverables contract.
 #
-# Contract (L-027): `acceptance_criteria` is NORMATIVE — it's what
-# `pi-feature-complete` and the reviewer measure against. `summary` is
-# INFORMATIVE — prose context for humans and the planner. When the two
-# disagree, the implementation MUST follow `acceptance_criteria`.
-# Decomposers: when proposing this file, re-read each feature's summary
-# against its AC list before finalizing; if they conflict, rewrite the
-# summary as a one-line restatement of the AC + design references.
+# Shape:
+#   F01 (root, serial) — schema upgrade: new optional decomposition.yaml fields,
+#       new epic-config.yaml e2e: block, template updates. Pure schema +
+#       templates; no enforcement yet.
+#   F02 (serial) — validator: trigger → required-deliverable engine in
+#       pi-epic-validate-decomposition. Reads strict_deliverables flag from
+#       epic-config.yaml. Off by default.
+#   F03 (serial, after F02) — decomposer prompt teaches the new fields:
+#       prompts/epic-decompose.md is rewritten to emit e2e_scenarios,
+#       mock_fixtures, docs_updates, changelog_entry when triggers fire.
+#   F04 (serial, after F01) — worker contract: agents/feature-worker.md
+#       gains "Declared deliverables" section; pi-feature-complete gains
+#       pre-merge check that every declared deliverable file was modified.
+#   F05 (serial, after F01) — reviewer rubric extension: mock-honesty +
+#       E2E-selector-quality audits added to feature-reviewer and
+#       feature-epic-reviewer prompts. Soft findings in v0.10.
+#   F06 (serial, after F02) — pi-epic-complete E2E gate: shells out to
+#       operator-declared e2e.run_cmd between feature merges and the L-043
+#       epic-review gate. Halt code H11 + recovery anchor. Opt-in.
+#   F07 (final, after F01-F06) — real-app verification (L-047 mandate):
+#       build a fresh Vite+React+Stripe-mock fixture, run an epic through
+#       it with strict_deliverables=true, prove E2E catches a planted bug.
 #
-# Rules enforced by `pi-epic-validate-decomposition`:
-#   - Every feature has: id, slug, summary, depends_on, scope_files,
-#     acceptance_criteria, estimated_hours.
-#   - Feature IDs are F01, F02, ... (zero-padded, sequential).
-#     Spikes use S01, S02, ... sharing the same numeric counter.
-#   - depends_on references valid feature IDs (no cycles, no self-deps).
-#   - estimated_hours <= 16 per feature (≤2 days; split if larger).
-#     Spikes capped at 8h.
-#   - acceptance_criteria are test-shaped for features, decision-shaped
-#     for spikes (option B: decision / evidence / impact).
-#   - Acceptance-criterion strings starting with `*`, `&`, `!`, `|`, `>`,
-#     `%`, `@`, or backtick MUST be quoted (strict-YAML hygiene).
-#   - scope_files non-glob entries whose parent dir is missing produce a
-#     warning (likely stale paths from an earlier layout).
+# Likely serial because F01/F03/F06 all touch templates+prompts (shared
+# aggregator files — see L-053). This is declared upfront, not fought.
+# F04 and F05 could run parallel after F01 (disjoint files); F02 and F06
+# also overlap (both touch validator+gate scripts via pre-check helper).
+# Practical expectation: 2-3 of the 7 features get parallel batching.
 
-epic: NNNN-<slug>
+epic: 0002-deliverables-contract-v10
 
-# Optional: epic-level reference paths the planner-subagent will read when
-# planning any feature flagged `needs_planner: true`. Paths >100KB are
-# truncated. Same paths are advertised to feature workers as "prior art
-# worth skimming" but not made mandatory.
-reference_paths: []
-  # - samples/<reference-poc>/
-  # - docs/<findings-or-reference>.md
+reference_paths:
+  - prompts/epic-decompose.md
+  - skills/epic-feature-workflow/templates/decomposition.yaml
+  - skills/epic-feature-workflow/templates/epic-config.yaml
+  - skills/epic-feature-workflow/templates/meta.yaml
+  - skills/epic-feature-workflow/scripts/pi-epic-validate-decomposition
+  - skills/epic-feature-workflow/scripts/pi-feature-complete
+  - skills/epic-feature-workflow/scripts/pi-epic-complete
+  - skills/epic-feature-workflow/scripts/_common.sh
+  - agents/feature-worker.md
+  - agents/feature-reviewer.md
+  - agents/feature-epic-reviewer.md
+  - docs/recovery.md
+  - install/smoke-test.sh
 
 features:
 
   - id: F01
-    slug: <kebab-slug>
-    summary: <one sentence>
-    kind: feature                          # feature | spike (default: feature)
-    depends_on: []                         # list of feature IDs that must be merged first
-    estimated_hours: 4
-    # Set needs_planner: true if ≥2 of these triggers fire (see prompts/epic-decompose.md):
-    #   - AC references an existing subsystem whose call sites are NOT verified
-    #   - AC contains literal sample I/O, exit codes, or schema shapes
-    #   - scope_files crosses ≥2 module/package boundaries
-    #   - depends_on chain depth ≥3
-    #   - estimated_hours ≥10
-    #   - AC count ≥6
-    #   - Description contains: thread/wire/integrate/migrate/default/rollout/deprecate
+    slug: schema-upgrade
+    summary: >
+      Add optional per-feature deliverable fields (e2e_scenarios,
+      mock_fixtures, docs_updates, changelog_entry) to
+      decomposition.yaml template. Add e2e: block and
+      strict_deliverables flag to epic-config.yaml template. Pure
+      schema + template work; no enforcement yet, fully backward
+      compatible.
+    kind: feature
+    depends_on: []
+    estimated_hours: 3
     needs_planner: false
-    planner_triggers: []                   # audit trail of which triggers fired (when needs_planner=true)
-    scope_files:                           # globs; pi tries to stay within these but may deviate (logged)
-      - path/to/file.cs
-      - path/to/dir/**
-    acceptance_criteria:                   # each one should imply a test or observable check
-      - <criterion 1>
-      - <criterion 2>
-    references:                            # links to design.md sections, external docs, etc.
-      - design.md#section
+    planner_triggers: []
+    scope_files:
+      - skills/epic-feature-workflow/templates/decomposition.yaml
+      - skills/epic-feature-workflow/templates/epic-config.yaml
+      - skills/epic-feature-workflow/templates/meta.yaml
+    acceptance_criteria:
+      - "decomposition.yaml template features section adds 4 new optional fields per feature, in this order after acceptance_criteria: e2e_scenarios (list, default []), mock_fixtures (list, default []), docs_updates (list, default []), changelog_entry (bool, default false)."
+      - "Each new field is documented inline with a 1-3 line comment explaining purpose + when to populate."
+      - "epic-config.yaml template adds top-level strict_deliverables: false (with comment: 'v0.10: opt-in capability; v0.11 will flip default to true')."
+      - "epic-config.yaml template adds top-level e2e: block with enabled: false (default), and commented examples of install_hint, start_cmd, start_url, ready_check, ready_timeout_sec, shutdown_cmd, run_cmd."
+      - "meta.yaml template gains a deliverables_summary section that mirrors the per-feature deliverable counts (optional; populated by pi-epic-init if decomposition.yaml has them)."
+      - "A fresh `pi-epic-init <slug>` on a clean repo produces templates with the new fields present + commented."
+      - "An existing v0.9-era decomposition.yaml (without the new fields) continues to validate without error under the v0.10 template parser."
+    references:
+      - design.md#41-decompositionyaml-gains-optional-deliverable-fields
+      - design.md#42-epic-configyaml-gains-an-e2e-block
     notes: |
-      Optional freeform context for pi at implementation time.
+      No script changes in this feature. ONLY edits to templates +
+      meta.yaml structure. The validator (F02) and worker (F04) read
+      the new fields; this feature just declares them. Keep field
+      names exactly as documented in design §4.1 — F02-F07 all depend
+      on stable names.
 
   - id: F02
-    slug: <kebab-slug>
-    summary: <one sentence>
+    slug: validator-trigger-engine
+    summary: >
+      Extend pi-epic-validate-decomposition with a trigger →
+      required-deliverable engine. Reads strict_deliverables from
+      epic-config.yaml; when false (v0.10 default) the engine runs in
+      warn-only mode. When true, hard-rejects features where a trigger
+      fires but the required deliverable is empty.
+    kind: feature
     depends_on: [F01]
-    estimated_hours: 6
+    estimated_hours: 5
+    needs_planner: true
+    planner_triggers:
+      - "AC contains literal sample output and exit codes (validator messages must match)"
+      - "scope_files crosses script + helper boundaries"
+      - "estimated_hours >= 5"
     scope_files:
-      - path/to/other.cs
+      - skills/epic-feature-workflow/scripts/pi-epic-validate-decomposition
+      - skills/epic-feature-workflow/scripts/_common.sh
     acceptance_criteria:
-      - <criterion>
+      - "pi-epic-validate-decomposition gains a new validation phase 'deliverables' that runs after existing phases."
+      - "Default rule set (hardcoded for v0.10): (a) AC text matching regex `\\b(user|click|see|display|navigate|submit|GET /|POST /|PUT /|DELETE /)\\b` requires e2e_scenarios non-empty; (b) scope_files containing imports/references to known SDK names (stripe, openai, anthropic, twilio, sendgrid, @aws-sdk) — detected by string match in file paths or by listing scope_files content if file exists — requires mock_fixtures non-empty."
+      - "When epic-config.yaml has strict_deliverables: false (or missing), trigger violations emit `[warn]` lines but do not fail validation."
+      - "When epic-config.yaml has strict_deliverables: true, trigger violations emit `[error]` lines and validation exits non-zero."
+      - "Error messages are actionable: include the feature id, the triggering AC text or scope file, the required deliverable field, and a one-line example fix."
+      - "An e2e_skip_reason field at the feature level suppresses e2e_scenarios trigger; absence of e2e_skip_reason when scenarios are empty + trigger fired produces the violation."
+      - "Existing v0.9-era decomposition.yaml files (observability-v09 archived) validate without new errors under strict=false."
+      - "bash -n on the updated script passes."
+    references:
+      - design.md#43-pi-epic-validate-decomposition-enforces-trigger--deliverable
+    notes: |
+      Rule set is intentionally hardcoded for v0.10. v0.11 will move
+      it to a deliverable_rules: section in epic-config.yaml so
+      operators can tune. Keep the implementation readable; F03+
+      depend on the trigger semantics being stable.
 
-  # Example spike (uncomment if your epic has decision-shaped work that
-  # blocks downstream features). Spikes ship a decision artifact, not
-  # production code. AC is decision-shaped: decision + evidence + impact.
-  #
-  # - id: S01
-  #   kind: spike
-  #   slug: <kebab-slug>
-  #   summary: Decide <X> seam / approach before <F0N..F0M> can start
-  #   depends_on: []
-  #   estimated_hours: 4
-  #   scope_files: []                     # spikes typically have none
-  #   acceptance_criteria:
-  #     - Decision logged in deviations.md with chosen option
-  #     - Evidence cited (call sites, code refs, benchmark, prototype)
-  #     - Impact on blocked features documented
-  #   blocks: [F0N, F0M]                  # informational; advise downstream planning
+  - id: F03
+    slug: decomposer-prompt-teaches-deliverables
+    summary: >
+      Update prompts/epic-decompose.md so the decomposer agent emits
+      e2e_scenarios, mock_fixtures, docs_updates, changelog_entry
+      fields whenever the corresponding triggers fire. New rubric
+      section + worked examples + reminder to call
+      pi-epic-validate-decomposition before finalizing.
+    kind: feature
+    depends_on: [F01, F02]
+    estimated_hours: 3
+    needs_planner: false
+    planner_triggers: []
+    scope_files:
+      - prompts/epic-decompose.md
+    acceptance_criteria:
+      - "prompts/epic-decompose.md gains a new section titled 'Deliverables (v0.10+)' that documents the four new fields with one paragraph each."
+      - "The new section lists the same trigger rules as F02's validator (user-facing AC verbs → e2e_scenarios; external SDK import → mock_fixtures; user-observable behavior → changelog_entry; public API mention → docs_updates)."
+      - "The prompt includes 2 worked examples: one user-facing feature with all four deliverable fields populated; one pure refactor with e2e_skip_reason and empty deliverables (and explanation)."
+      - "The prompt's checklist at the end gains an item: 'Run pi-epic-validate-decomposition; if strict_deliverables is true, ensure every trigger has a matching deliverable or e2e_skip_reason.'"
+      - "Prompt word count grows by ≤ 30% to avoid bloating context."
+    references:
+      - design.md#5-worker-contract-changes
+    notes: |
+      This feature does NOT change behavior — only the decomposer's
+      knowledge. The actual enforcement is in F02 (validator) and F04
+      (worker). The worked examples should reference real-looking
+      paths (tests/e2e/, _fixtures/, docs/) but not refer to any
+      specific epic.
+
+  - id: F04
+    slug: worker-contract-deliverables
+    summary: >
+      Extend agents/feature-worker.md with a Declared Deliverables
+      section. Extend pi-feature-complete with a pre-merge check that
+      every file listed in e2e_scenarios/mock_fixtures/docs_updates
+      exists in the worktree AND was modified in the feature's
+      commits.
+    kind: feature
+    depends_on: [F01]
+    estimated_hours: 4
+    needs_planner: true
+    planner_triggers:
+      - "scope_files crosses agents/ + scripts/ + _common.sh"
+      - "AC count >= 5"
+      - "description contains 'integrate'"
+    scope_files:
+      - agents/feature-worker.md
+      - skills/epic-feature-workflow/scripts/pi-feature-complete
+      - skills/epic-feature-workflow/scripts/_common.sh
+    acceptance_criteria:
+      - "agents/feature-worker.md gains a 'Declared deliverables' section explaining that e2e_scenarios + mock_fixtures + docs_updates files are first-class scope_files; READY requires producing them."
+      - "worker-report.md template (referenced in feature-worker.md) gains a '## Declared deliverables' subsection listing each declared file with checked/unchecked status."
+      - "pi-feature-complete gains a new pre-merge check phase 'deliverables' after the existing scope_files check."
+      - "For each file in the feature's e2e_scenarios + mock_fixtures + docs_updates: file must exist in the feature's worktree; file must appear in `git diff <epic_base>..HEAD --name-only` for the feature's branch."
+      - "When a declared deliverable file is missing or unmodified, pi-feature-complete exits non-zero with message: 'Declared deliverable not produced: <path> (feature F<id>). Worker may have skipped this output; re-dispatch or update decomposition.yaml.'"
+      - "When changelog_entry is true: CHANGELOG.md must appear in the feature's diff under the [Unreleased] section. If CHANGELOG.md does not exist in the repo, emit a warning (not an error) suggesting addition."
+      - "Existing features (v0.9 era, no deliverable fields) bypass this check entirely."
+      - "_common.sh gains a helper `feature_declared_deliverables <feature_id>` that yaml-parses decomposition.yaml and emits the deliverable file list, one per line. Used by both pi-feature-complete and (future) pi-epic-complete."
+      - "bash -n on pi-feature-complete and _common.sh passes."
+    references:
+      - design.md#5-worker-contract-changes
+    notes: |
+      The check is mechanical: file exists + file modified. NO content
+      checks in v0.10 (that's the per-feature reviewer's job, F05).
+      Keep the helper feature_declared_deliverables small and dumb so
+      pi-epic-complete can reuse it for the E2E gate's expectations
+      bookkeeping.
+
+  - id: F05
+    slug: reviewer-rubric-mocks-and-e2e-quality
+    summary: >
+      Extend feature-reviewer.md with rubric items for mock honesty
+      (does the fixture match the real SDK contract?) and E2E
+      selector quality (stable selectors vs cargo-cult). Extend
+      feature-epic-reviewer.md to read tests/e2e-report.json as
+      evidence when present.
+    kind: feature
+    depends_on: [F01]
+    estimated_hours: 3
+    needs_planner: false
+    planner_triggers: []
+    scope_files:
+      - agents/feature-reviewer.md
+      - agents/feature-epic-reviewer.md
+    acceptance_criteria:
+      - "agents/feature-reviewer.md gains a 'Mock honesty (soft)' rubric item: reviewer reads each mock_fixtures file and the production code that imports the real SDK; flags fixtures whose response shapes don't plausibly match the real API (hallucinated fields, missing required fields)."
+      - "agents/feature-reviewer.md gains an 'E2E selector quality (soft)' rubric item: reviewer reads each e2e_scenarios file and flags fragile selectors (random class names, deep xpath, text-only matches without role). Prefers data-testid, role-based, label-based selectors."
+      - "Both new items are explicitly SOFT findings in v0.10 (do not block APPROVE)."
+      - "agents/feature-epic-reviewer.md adds a 'E2E coverage rate' rubric item that reads tests/e2e-report.json when present and reports: total declared scenarios, passing, failing, skipped (with reasons), features whose declared scenarios are missing from the run."
+      - "Both reviewer prompts add a note that v0.11 may promote mock-honesty from soft to hard; v0.10 is a calibration release."
+      - "Word count growth in each agent prompt ≤ 20%."
+    references:
+      - design.md#6-reviewer-contract-changes
+    notes: |
+      No script changes. Pure prompt updates. The epic-reviewer's
+      tests/e2e-report.json reader should gracefully no-op when the
+      file is absent (e2e.enabled: false in epic-config.yaml).
+
+  - id: F06
+    slug: pi-epic-complete-e2e-gate
+    summary: >
+      Insert an optional E2E gate into pi-epic-complete between the
+      per-feature merge phase and the L-043 epic-review gate. Reads
+      epic-config.yaml e2e: block; brings up the app, polls
+      ready_check, runs run_cmd, captures output, always tears down.
+      Failure produces halt-h11-e2e-<timestamp>.md with a recovery
+      anchor.
+    kind: feature
+    depends_on: [F01, F02]
+    estimated_hours: 4
+    needs_planner: true
+    planner_triggers:
+      - "AC contains literal halt-file name format and recovery anchor"
+      - "scope_files crosses script + docs"
+      - "estimated_hours >= 4"
+    scope_files:
+      - skills/epic-feature-workflow/scripts/pi-epic-complete
+      - skills/epic-feature-workflow/scripts/_common.sh
+      - docs/recovery.md
+      - skills/epic-feature-workflow/templates/epic-config.yaml
+    acceptance_criteria:
+      - "pi-epic-complete inserts a new phase 'e2e-gate' between the existing feature-merge phase and the epic-review phase."
+      - "When epic-config.yaml e2e.enabled is false or absent, the phase logs '[e2e-gate] skipped (e2e.enabled: false)' and proceeds."
+      - "When e2e.enabled is true: (1) run e2e.start_cmd as background job; (2) poll e2e.ready_check every 2s up to e2e.ready_timeout_sec (default 60); (3) run e2e.run_cmd, capture stdout+stderr to .pi/epics/<id>/e2e-output.log + exit code; (4) ALWAYS run e2e.shutdown_cmd in a bash trap."
+      - "On non-zero exit code from run_cmd: write .pi/epics/<id>/halt-h11-e2e-<UTC-timestamp>.md containing the failing command, exit code, last 50 lines of stdout/stderr, and a link to docs/recovery.md#r11-e2e-failure. Exit pi-epic-complete with non-zero status."
+      - "On zero exit: write tests/e2e-report.json (or .pi/epics/<id>/e2e-report.json) if e2e.run_cmd produced one; otherwise write a minimal JSON {schema_version: 1, exit_code: 0, run_cmd: '...', completed_at: '...'}. Used as input to feature-epic-reviewer."
+      - "docs/recovery.md gains a new section #r11-e2e-failure with: bisect recipe (most recent feature first), how to inspect e2e-output.log, how to resume after fixing."
+      - "epic-config.yaml template's e2e: block (from F01) gains a brief inline comment block: 'pi-epic-complete will shell out to start_cmd / ready_check / run_cmd / shutdown_cmd verbatim. Operator owns lifecycle.'"
+      - "bash -n on pi-epic-complete passes."
+    references:
+      - design.md#72-pi-epic-complete-e2e-gate
+      - design.md#44-halt-codes-h11
+    notes: |
+      No clever orchestration. shell out, trap on EXIT, capture
+      output. The hardest part is the bash trap for shutdown_cmd
+      being reliable across signals. Reference v0.8.0's parallel
+      orchestrator job-cleanup code if pattern-matching helps.
+
+  - id: F07
+    slug: real-app-verification
+    summary: >
+      L-047 mandate. Build a fresh Vite+React+TypeScript fixture with
+      a Stripe-checkout flow, decompose a 3-feature epic with strict
+      deliverables enabled, run it through end-to-end, plant a
+      deliberate bug that unit tests miss but E2E catches, write
+      docs/v0.10-real-app-verification.md.
+    kind: feature
+    depends_on: [F01, F02, F03, F04, F05, F06]
+    estimated_hours: 8
+    needs_planner: true
+    planner_triggers:
+      - "AC count >= 7"
+      - "description contains 'integrate' and 'verify'"
+      - "depends_on chain depth >= 6"
+      - "estimated_hours >= 8"
+    scope_files:
+      - docs/v0.10-real-app-verification.md
+    acceptance_criteria:
+      - "Fresh Vite+React+TypeScript fixture created outside the repo (e.g. /tmp/v010-realapp or ~/code/scratch/). Fixture includes Playwright installed + a Stripe-mock-driven checkout page."
+      - "A 3-feature epic is initialized in the fixture with epic-config.yaml setting strict_deliverables: true and e2e.enabled: true."
+      - "Decomposition includes at least: F01 product-listing page (user-facing AC, requires e2e_scenarios); F02 stripe-checkout (imports stripe SDK, requires mock_fixtures + e2e_scenarios); F03 order-confirmation (user-facing AC)."
+      - "pi-epic-validate-decomposition with strict=true accepts the decomposition with no manual edits to bypass triggers."
+      - "feature-worker dispatches each feature in turn; each produces code + e2e scenarios + mock fixtures + docs as declared."
+      - "Plant a deliberate bug in F02 or F03 — a logic error that unit tests don't catch but a user-flow E2E does. Document the bug shape in the verification report."
+      - "pi-epic-complete with e2e.enabled: true catches the bug at the E2E gate; halt-h11-*.md is produced; output log shows the failing scenario."
+      - "After fixing the planted bug, pi-epic-complete completes successfully; epic-review.md references tests/e2e-report.json."
+      - "docs/v0.10-real-app-verification.md is committed to pi-epicflow with: fixture description, decomposition shown, planted bug shape, halt produced, fix applied, lessons distilled (L-056/L-057 candidates promoted from candidates to confirmed)."
+      - "Verification time tracked: HALT if total wall-clock exceeds 12 hours (per design §13 budget guidance)."
+    references:
+      - design.md#9-real-app-verification-l-047-mandate
+    notes: |
+      This is the heuristic-density feature where lessons get
+      hammered out. Worker should report HALT early if scope drifts
+      or the fixture is fighting back. Reference v0.8.0's
+      docs/v0.8.0-real-app-verification.md as the template for the
+      report's shape.
