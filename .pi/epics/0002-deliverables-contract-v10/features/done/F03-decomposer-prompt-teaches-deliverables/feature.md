@@ -39,20 +39,28 @@ validates the diff against this plan. If reality diverges, log to
 `deviations.md` with rationale.
 
 **Files I will touch:**
-- `<path>` — <why>
+- `prompts/epic-decompose.md` — add Deliverables section, trigger rules, worked examples, checklist item
 
 **Files I will read for context (not edit):**
-- `<path>` — <why>
+- `skills/epic-feature-workflow/templates/decomposition.yaml` — field names and comments to match
+- `.pi/epics/done/0001-observability-v09/decomposition.yaml` — real decomposer output for example modeling
+- `.pi/epics/0002-deliverables-contract-v10/design.md` — design §4.3 trigger rules
+- `.pi/epics/0002-deliverables-contract-v10/decomposition.yaml` — normative ACs for F03
 
 **AC interpretation (literal expected behavior per criterion):**
-- AC 1: <literal expected output / behavior — exact string, exact exit code, exact schema>
-- AC 2: ...
+- AC 1: New markdown section titled exactly `### Deliverables (v0.10+)` with 4 subsections (one paragraph each) for `e2e_scenarios`, `mock_fixtures`, `docs_updates`, `changelog_entry`.
+- AC 2: A trigger-rules table matching F02's validator: user-facing verbs → e2e_scenarios; SDK imports → mock_fixtures; user-observable behavior → changelog_entry; public API → docs_updates.
+- AC 3: Two fenced YAML examples — (a) user-facing feature with all 4 fields populated; (b) pure refactor with `e2e_skip_reason` and empty deliverables.
+- AC 4: In Step 5 (final validate), add checklist item about `pi-epic-validate-decomposition` + `strict_deliverables` + `e2e_skip_reason`.
+- AC 5: Final word count ≤ 4177 (3213 × 1.3).
 
-**Ambiguities (HALT with H1 if any are blocking):**
-- _(none)_  OR  - <question for orchestrator>
+**Ambiguities:**
+- _(none)_
 
-**Anti-scope (explicitly NOT in this feature):**
-- _(none)_  OR  - <out-of-scope item, deferred to F0N>
+**Anti-scope:**
+- No changes to `prompts/epic-design.md` (dropped before epic started)
+- No script changes
+- No template changes (F01 already did those)
 
 ## 5. TODO checklist (optional)
 
