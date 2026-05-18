@@ -1,0 +1,12 @@
+# Per-feature structured fields. Updated by pi as work proceeds.
+id: F04-worker-contract-deliverables
+title: >
+state: in-progress
+branch: feat/deliverables-contract-v10/F04-worker-contract-deliverables
+worktree: "/home/shbs/code/experiments/pi-epicflow-F04"
+depends_on: [F01]
+started: 2026-05-18
+updated: 2026-05-18
+merged_at: ""
+merge_commit_sha: ""
+last_halt: ""                     # filename of most recent halt-report
