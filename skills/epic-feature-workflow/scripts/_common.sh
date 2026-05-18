@@ -166,6 +166,109 @@ yaml_set() {
     fi
 }
 
+# Parse declared deliverables for a feature from decomposition.yaml.
+# Usage: feature_declared_deliverables <decomposition_yaml_path> <feature_id>
+# Output: one line per deliverable, prefixed with category tag:
+#   e2e:tests/e2e/checkout.spec.ts
+#   mock:tests/e2e/_fixtures/stripe.ts
+#   docs:docs/billing.md
+#   changelog:CHANGELOG.md
+# Emits nothing for features without deliverable fields (v0.9 backward compat).
+feature_declared_deliverables() {
+    local decomp_path=$1 fid=$2
+    [[ -f "$decomp_path" ]] || return 0
+    python3 - "$decomp_path" "$fid" <<'PY'
+import sys, re
+
+def parse_features(path):
+    """Minimal YAML list-of-dict parser for decomposition.yaml features block."""
+    import re as _re
+    features = []
+    current = None
+    current_key = None
+    current_list = None
+    with open(path, encoding='utf-8') as f:
+        for raw in f:
+            line = raw.rstrip('\n')
+            stripped = line.lstrip()
+            indent = len(line) - len(stripped)
+            if not stripped or stripped.startswith('#'):
+                continue
+            # New feature item
+            if indent <= 4 and stripped.startswith('- id:'):
+                if current is not None:
+                    if current_key and current_list is not None:
+                        current[current_key] = current_list
+                    features.append(current)
+                m = _re.match(r'^-\s*id:\s*(.+)$', stripped)
+                current = {'id': m.group(1).strip().strip('"').strip("'") if m else ''}
+                current_key = None
+                current_list = None
+                continue
+            if current is None:
+                continue
+            # List continuation
+            if current_list is not None and indent >= 6 and stripped.startswith('- '):
+                val = stripped[2:].strip().strip('"').strip("'")
+                current_list.append(val)
+                continue
+            # End of previous list
+            if current_key and current_list is not None:
+                current[current_key] = current_list
+                current_list = None
+                current_key = None
+            # Key: value or Key: [inline]
+            m = _re.match(r'^([a-z0-9_]+)\s*:\s*(.*)$', stripped)
+            if m:
+                k, v = m.group(1), m.group(2).strip()
+                if v.startswith('['):
+                    # Inline list
+                    inner = v.strip('[]')
+                    items = [x.strip().strip('"').strip("'") for x in inner.split(',') if x.strip()]
+                    current[k] = items
+                elif v == '' or v == '[]':
+                    current_key = k
+                    current_list = []
+                else:
+                    current[k] = v.strip('"').strip("'")
+    if current is not None:
+        if current_key and current_list is not None:
+            current[current_key] = current_list
+        features.append(current)
+    return features
+
+path, fid = sys.argv[1], sys.argv[2]
+try:
+    features = parse_features(path)
+except Exception:
+    sys.exit(0)
+
+target = None
+for ft in features:
+    if ft.get('id') == fid:
+        target = ft
+        break
+if not target:
+    sys.exit(0)
+
+# Emit category-tagged lines for each deliverable field
+for item in (target.get('e2e_scenarios') or []):
+    if item:
+        print(f'e2e:{item}')
+for item in (target.get('mock_fixtures') or []):
+    if item:
+        print(f'mock:{item}')
+for item in (target.get('docs_updates') or []):
+    if item:
+        print(f'docs:{item}')
+changelog = target.get('changelog_entry', '')
+if isinstance(changelog, str) and changelog.lower() == 'true':
+    print('changelog:CHANGELOG.md')
+elif changelog is True:
+    print('changelog:CHANGELOG.md')
+PY
+}
+
 # Append a JSONL entry to run-log
 runlog_append() {
     local epic_dir=$1; shift

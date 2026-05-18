@@ -135,6 +135,58 @@ if [[ $skip_evidence -eq 0 && "$kind" != "spike" ]]; then
     log "completion-evidence section present in worker-report.md"
 fi
 
+# v0.10 / L-056 — pre-merge deliverables check.
+#
+# For features that declare deliverable files (e2e_scenarios, mock_fixtures,
+# docs_updates, changelog_entry) in decomposition.yaml, verify each declared
+# file exists in the worktree AND was modified in the feature branch's commits.
+# Features without any deliverable fields (v0.9 era) bypass this check.
+if [[ "$kind" != "spike" ]]; then
+    decomp="$epic_dir/decomposition.yaml"
+    declared=$(feature_declared_deliverables "$decomp" "$fid")
+    if [[ -z "$declared" ]]; then
+        log "deliverables check: no declared deliverables; skipping"
+    else
+        log "deliverables check: verifying declared deliverable files"
+        epic_branch="epic/$epic_slug"
+        diff_files=$( cd "$worktree" && git diff "$epic_branch"..HEAD --name-only 2>/dev/null || true )
+        deliverable_fail=0
+        while IFS= read -r line; do
+            [[ -z "$line" ]] && continue
+            category="${line%%:*}"
+            path="${line#*:}"
+            if [[ "$category" == "changelog" ]]; then
+                # AC 6: changelog_entry handling
+                if [[ ! -f "$worktree/CHANGELOG.md" ]]; then
+                    log "[warn] changelog_entry is true but CHANGELOG.md does not exist in repo. Consider adding one."
+                elif ! echo "$diff_files" | grep -qxF "CHANGELOG.md"; then
+                    echo "Declared deliverable not produced: CHANGELOG.md (feature $fid). changelog_entry is true but CHANGELOG.md was not modified." >&2
+                    deliverable_fail=1
+                else
+                    # Check for [Unreleased] section (warn only)
+                    if ! grep -q '\[Unreleased\]' "$worktree/CHANGELOG.md"; then
+                        log "[warn] CHANGELOG.md was modified but has no [Unreleased] section."
+                    fi
+                fi
+            else
+                # AC 4-5: file must exist + appear in diff
+                if [[ ! -f "$worktree/$path" ]]; then
+                    echo "Declared deliverable not produced: $path (feature $fid). Worker may have skipped this output; re-dispatch or update decomposition.yaml." >&2
+                    deliverable_fail=1
+                elif ! echo "$diff_files" | grep -qxF "$path"; then
+                    echo "Declared deliverable not produced: $path (feature $fid). Worker may have skipped this output; re-dispatch or update decomposition.yaml." >&2
+                    deliverable_fail=1
+                fi
+            fi
+        done <<< "$declared"
+        if (( deliverable_fail )); then
+            yaml_set "$feat_dir/meta.yaml" state "halted"
+            exit 1
+        fi
+        log "deliverables check: all declared deliverables verified"
+    fi
+fi
+
 # Commit any final pending changes in the worktree
 ( cd "$worktree" && git add -A && git diff --cached --quiet || git commit --quiet --no-verify -m "wip: $fid pre-complete" )
 

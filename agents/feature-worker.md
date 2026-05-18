@@ -159,6 +159,30 @@ Do not ask the orchestrator to summarise these files; read them yourself.
 - Do NOT return `state: READY` if tests are not green or you bailed early.
   Honest `BLOCKED` is always better than dishonest `READY`.
 
+## Declared deliverables (v0.10+)
+
+When `decomposition.yaml` declares deliverable files for your feature via
+`e2e_scenarios`, `mock_fixtures`, or `docs_updates`, those files are
+**first-class scope** — identical in weight to `scope_files`. You MUST
+produce every declared deliverable file for your feature to reach
+`state: READY`.
+
+- **e2e_scenarios:** End-to-end test files (Playwright, Cypress, etc.).
+  Create the file at the declared path and implement at least one scenario
+  covering the feature's user-facing AC.
+- **mock_fixtures:** SDK/API mock files used by E2E tests. Must match the
+  real API's response shape (reviewer will audit in v0.10+).
+- **docs_updates:** Documentation files to create or update.
+- **changelog_entry:** When `true`, you must add an entry under the
+  `[Unreleased]` section of `CHANGELOG.md`.
+
+`pi-feature-complete` verifies each declared file exists in your worktree
+AND appears in `git diff <epic_branch>..HEAD --name-only`. Missing or
+unmodified declared deliverables block the merge.
+
+If a declared deliverable is genuinely out of scope (decomposition error),
+escalate via `contact_supervisor` — do NOT silently skip it.
+
 ## When to escalate (§6)
 
 Use `contact_supervisor` with `reason: "need_decision"` and **wait for the
@@ -226,6 +250,16 @@ No runnable command applies. Evidence is structural: see `<file>:<line>`
 $ git diff <epic_branch>...HEAD --stat
 <verbatim stat output>
 ```
+
+## Declared deliverables
+
+- [x] tests/e2e/billing/checkout.spec.ts (e2e_scenarios)
+- [x] tests/e2e/_fixtures/stripe.ts (mock_fixtures)
+- [ ] docs/billing.md (docs_updates) — NOT YET PRODUCED
+
+> Include this section only when the feature has deliverable fields in
+> decomposition.yaml. One line per declared file: checkbox + path + category.
+> Omit entirely for features with no deliverable fields.
 
 Deviations logged: <none | <one-line summary, full entry already appended>>
 
