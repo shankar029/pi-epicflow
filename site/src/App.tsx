@@ -29,7 +29,7 @@ const Navbar = () => (
         <Terminal className="text-vibrant-green w-6 h-6" />
         <span className="text-white">pi-epicflow</span>
         <span className="ml-2 px-2 py-0.5 text-[10px] font-mono uppercase tracking-widest text-vibrant-green border border-vibrant-green/30 rounded">
-          v0.8.1
+          v0.9.0
         </span>
       </div>
       <nav className="hidden md:flex gap-8 items-center text-sm font-medium">
@@ -57,7 +57,7 @@ const Hero = () => (
       className="inline-flex items-center gap-2 bg-vibrant-green/10 text-vibrant-green text-xs font-bold font-mono px-4 py-1.5 rounded-full border border-vibrant-green/20 mb-6 uppercase tracking-widest"
     >
       <Brain className="w-3 h-3" />
-      v0.8.1 — postinstall hotfix (L-050)
+      v0.9.0 — observability + dogfood (L-053/L-054/L-055)
     </motion.div>
 
     <motion.h1
@@ -394,7 +394,7 @@ const WhatsNew = () => (
       <div className="relative">
         <div className="inline-flex items-center gap-2 bg-vibrant-green/10 text-vibrant-green text-xs font-bold font-mono px-4 py-1.5 rounded-full border border-vibrant-green/20 mb-6 uppercase tracking-widest">
           <Brain className="w-3 h-3" />
-          New in v0.8 (· v0.8.1 hotfix)
+          New in v0.9 (· dogfood proof)
         </div>
         <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-4">Parallel feature execution. One linear epic.</h2>
         <p className="text-text-muted text-base md:text-lg max-w-3xl leading-relaxed mb-8">

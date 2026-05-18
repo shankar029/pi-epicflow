@@ -6,6 +6,40 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-05-18
+
+**Observability release. First epic shipped by pi-epicflow on its own codebase (pure dogfood).** Five features merged on a linear epic branch, 0 hard findings at the L-043 gate, 3 soft findings — all decomposition-process lessons (L-053/L-054/L-055) that synthetic verification could not have surfaced.
+
+Link: `.pi/epics/done/0001-observability-v09/epic-review.md` (committed in the release).
+
+### Added
+
+- **`pi-epic-status --json`** (schema v1, additive-forever). Seven top-level keys: `schema_version`, `epic`, `features` (with `started_at` / `duration_sec`), `batches` (with `wall_clock_sec` / `serial_sum_sec` / `speedup_ratio` / `theoretical_max` / `feature_ids[]`), `halts` (with `feature_id` / `halt_code` / `halt_file` / `recovery_anchor`), `ready_now`, `blocked_on_deps`. Consumable by external tooling, dashboards, CI.
+- **Per-feature `started` + `duration` columns** in human `pi-epic-status` output. Reads timestamps from `run-log.jsonl`. Formatting: `<60s` → `Xs`, `60..3599s` → `MM:SS`, `>=3600s` → `H:MM:SS`. In-progress features show elapsed-since-start.
+- **`── Recent batches ──` section** in human `pi-epic-status` output (rendered only when `parallel.max_workers > 1` and >=1 batch detected). Per-batch summary: feature ids, wall-clock, serial sum, speedup ratio, theoretical max. Batch detection: groups consecutive `feature-start` events within a 5-second window with no `feature-complete` between them.
+- **`⚠ HALTS` section at the top of `pi-epic-status` output** when unresolved halts exist. Discovery: scans every feature dir under `.pi/epics/<id>/features/` for `halt-*.md` files with no sibling `resolved-halt-*.md`. Each entry includes the halt code (H1..H10), short description, file path, and a `docs/recovery.md#rN-*` recovery anchor.
+- **`pi-epicflow-doctor` integration:** new `── Recent epic activity ──` section that calls `pi-epic-status --json` and surfaces (a) unresolved halt count + summary, (b) most recent batch, (c) any feature stuck in-progress >30 minutes. Rendered only when invoked inside an epic worktree; otherwise the existing doctor output is preserved byte-for-byte.
+- **Smoke phases 25–29** for the new observability surface (`install/smoke-test.sh` is now 29/29). One phase per AC family: --json schema, per-feature timing, batch detection, halt visibility, doctor integration.
+- **Modularized `pi-epic-status`** (299-line monolith → 90-line dispatcher + 6 `skills/epic-feature-workflow/lib/*.sh` sub-files, one per concern). Behavior preserved byte-for-byte against the v0.8.1 baseline (F01 AC 3). Enables future per-concern parallel work — see L-053 for the caveat about shared-aggregator files.
+
+### Fixed
+
+- **`_common.sh:pi_epicflow_age_days()` failed silently from any git worktree** (latent since v0.6.0). Used `[[ -d "$clone/.git" ]]` which is false in worktrees where `.git` is a *file* (a `gitdir:` pointer), not a directory. Fixed to `[[ -e "$clone/.git" ]]`. Symptom was the `clone age: ?` line in `pi-epicflow-doctor` whenever run from a worktree. See L-055 for the full bug shape + audit recommendation.
+
+### Lessons added (L-053, L-054, L-055)
+
+See `skills/epic-feature-workflow/lessons.md` for the canonical entries. Distilled from the v0.9.0 epic deviations log + the epic-review-report:
+
+- **L-053:** file-level scope-conflict pre-checks (L-049) serialize features that share a contract file even when their textual edits don't overlap. Decomposition heuristic: when N parallel-eligible features need to fill in shards of a shared aggregator file, the root feature should split the aggregator at decomposition time — siblings' `scope_files` should not contain the aggregator, only the per-concern shards. Confirmed by the v0.9.0 dogfood, where F02/F03/F04 ran serially despite a deliberately parallel-shaped DAG.
+- **L-054:** `feature-worker` can silently truncate `worker-report.md` to 0 bytes when its subagent session ends mid-flight. `pi-feature-complete`'s contract check caught the empty file incidentally but with a misleading error message. Mitigations: workers should write the report incrementally (`state: IN_PROGRESS` first, then update); `pi-feature-complete` should differentiate "0-byte" (worker crashed) from "non-empty missing section" (worker skipped section). Orchestrator pattern: reconstruct the report from worktree inspection when this happens, log a deviation, proceed.
+- **L-055:** git worktrees expose latent `.git`-file-vs-directory bugs. Audit rule: any check involving `.git` must use `-e` (exists), not `-d` (directory). Pair with a smoke phase that runs `pi-epic-*` scripts from a worktree.
+
+### Dogfood notes (real findings, all expected)
+
+- L-049's file-level pre-check correctly refused parallel dispatch on every batch attempt (F02/F03/F04 all needed to edit `pi-epic-status-json.sh`). The epic ran fully serially — the safety property is more conservative than the actual conflict surface. See L-053.
+- F03 and F04 each made a 1–2-line out-of-scope edit to the dispatcher (sourcing + calling the lib files F01 had created as stubs but not wired). F01's AC should have specified the dispatcher wiring as a checkable criterion — captured as a soft finding in the epic-review and a forward note for future root-modularize features.
+- The dogfood is now self-observing: `pi-epic-status` against the v0.9.0 epic renders its own feature timings via the very columns F02 added.
+
 ## [0.8.1] — 2026-05-17
 
 **Hotfix release from v0.8.0 real-app verification.** Drove the v0.8.0
