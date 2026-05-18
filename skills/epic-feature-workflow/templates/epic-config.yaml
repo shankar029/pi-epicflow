@@ -90,6 +90,8 @@ parallel:
 # Operator owns the lifecycle; pi-epicflow never infers or auto-installs.
 # Default: disabled (no behavior change from v0.9.x).
 e2e:
+  # pi-epic-complete will shell out to start_cmd / ready_check / run_cmd /
+  # shutdown_cmd verbatim. Operator owns lifecycle.
   enabled: false
   # install_hint: "npm install -D @playwright/test && npx playwright install chromium"
   # start_cmd: "npm run dev"

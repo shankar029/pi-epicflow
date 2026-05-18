@@ -450,6 +450,51 @@ are a hard finding) and didn't. Two things to fix:
 
 ---
 
+## R11 — E2E gate failure
+
+**Symptom.** `pi-epic-complete` exited non-zero and produced a
+`halt-h11-e2e-<timestamp>.md` file in the active epic directory. The
+terminal output includes `[e2e-gate] FAILED (exit N)` with the halt
+file path.
+
+**Root cause.** The end-to-end test suite (`e2e.run_cmd` in
+`epic-config.yaml`) returned a non-zero exit code after all features
+were merged to the epic branch. This usually means a cross-feature
+integration bug — something that per-feature tests couldn't catch
+because it only manifests when multiple features coexist.
+
+**Recovery.**
+
+1. Read the halt file — it contains the failing command, exit code,
+   and the last 50 lines of stdout/stderr.
+2. Inspect the full output: `.pi/epics/<id>/e2e-output.log`.
+3. Bisect by most-recently-merged feature first (features merge in
+   DAG order; the last-merged is the most likely culprit):
+   ```bash
+   # List merge order from run-log or git log on epic branch:
+   git log --oneline epic/<slug> | head -10
+   # Revert the most recent squash-merge and re-run:
+   git revert --no-commit HEAD
+   eval "$(yaml_get .pi/epics/<id>/epic-config.yaml e2e.run_cmd)"
+   ```
+4. Once you identify the offending feature, fix the bug in a patch
+   commit on the epic branch (or re-dispatch the feature worker).
+5. Re-run `pi-epic-complete` — it will re-execute the E2E gate.
+
+**Verification.**
+- `pi-epic-complete` succeeds end-to-end.
+- `.pi/epics/<id>/e2e-report.json` shows a successful run.
+- No new `halt-h11-*.md` files are produced.
+
+**Prevention.**
+- Ensure per-feature E2E scenarios pass individually before merging
+  (future v0.11 per-feature E2E gate will automate this).
+- Keep `e2e.run_cmd` fast — long suites increase the feedback loop.
+- If the failure is environmental (port conflict, missing dependency),
+  check `e2e.start_cmd` and `e2e.ready_check` configuration.
+
+---
+
 ## Cross-links
 
 - Halt codes reference: `docs/design.md` §"Halt codes"

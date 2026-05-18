@@ -88,6 +88,117 @@ fi
 git checkout "epic/$epic_slug" --quiet
 [[ -z $(git status --porcelain) ]] || { echo "ERROR: working tree dirty on epic branch" >&2; exit 1; }
 
+# v0.10.0 — E2E gate (between feature-merge and epic-review).
+# Opt-in: only fires when epic-config.yaml has e2e.enabled: true.
+e2e_enabled=$(yaml_get "$epic_dir/epic-config.yaml" e2e.enabled 2>/dev/null || echo "")
+if [[ "$e2e_enabled" != "true" ]]; then
+    log "[e2e-gate] skipped (e2e.enabled: false)"
+else
+    log "[e2e-gate] starting..."
+    e2e_start_cmd=$(yaml_get "$epic_dir/epic-config.yaml" e2e.start_cmd)
+    e2e_ready_check=$(yaml_get "$epic_dir/epic-config.yaml" e2e.ready_check)
+    e2e_ready_timeout=$(yaml_get "$epic_dir/epic-config.yaml" e2e.ready_timeout_sec 2>/dev/null || echo "")
+    e2e_shutdown_cmd=$(yaml_get "$epic_dir/epic-config.yaml" e2e.shutdown_cmd)
+    e2e_run_cmd=$(yaml_get "$epic_dir/epic-config.yaml" e2e.run_cmd)
+    [[ -z "$e2e_ready_timeout" ]] && e2e_ready_timeout=60
+
+    # Cleanup function — always tears down the app.
+    E2E_START_PID=""
+    e2e_cleanup() {
+        if [[ -n "$e2e_shutdown_cmd" ]]; then
+            eval "$e2e_shutdown_cmd" 2>/dev/null || true
+        fi
+        if [[ -n "$E2E_START_PID" ]]; then
+            kill "$E2E_START_PID" 2>/dev/null || true
+            wait "$E2E_START_PID" 2>/dev/null || true
+        fi
+    }
+    trap e2e_cleanup EXIT INT TERM
+
+    # Start app in background.
+    eval "$e2e_start_cmd" &
+    E2E_START_PID=$!
+
+    # Poll ready_check.
+    elapsed=0
+    while ! eval "$e2e_ready_check" >/dev/null 2>&1; do
+        sleep 2
+        elapsed=$((elapsed + 2))
+        if (( elapsed >= e2e_ready_timeout )); then
+            log "[e2e-gate] ready_check timed out after ${e2e_ready_timeout}s"
+            e2e_cleanup
+            trap - EXIT INT TERM
+            # Write halt file for timeout.
+            halt_file="$epic_dir/halt-h11-e2e-$(date -u +%Y%m%dT%H%M%SZ).md"
+            cat > "$halt_file" <<HALT
+# Halt H11 — E2E gate failure
+
+**Command:** $e2e_ready_check (ready_check timeout)
+**Exit code:** 1 (timeout after ${e2e_ready_timeout}s)
+**Timestamp:** $(date -u +%Y-%m-%dT%H:%M:%SZ)
+**Output log:** .pi/epics/$epic_id/e2e-output.log
+
+## Last 50 lines of output
+
+\`\`\`
+(ready_check never succeeded within ${e2e_ready_timeout}s)
+\`\`\`
+
+## Recovery
+
+See [docs/recovery.md#r11-e2e-failure](../../docs/recovery.md#r11-e2e-failure)
+HALT
+            exit 1
+        fi
+    done
+    log "[e2e-gate] app ready after ${elapsed}s"
+
+    # Run test command — capture exit code without pipefail abort.
+    set +e
+    eval "$e2e_run_cmd" > "$epic_dir/e2e-output.log" 2>&1
+    run_exit=$?
+    set -e
+
+    # Explicit cleanup + clear trap.
+    e2e_cleanup
+    trap - EXIT INT TERM
+
+    if (( run_exit != 0 )); then
+        # AC 4: write halt file.
+        halt_file="$epic_dir/halt-h11-e2e-$(date -u +%Y%m%dT%H%M%SZ).md"
+        cat > "$halt_file" <<HALT
+# Halt H11 — E2E gate failure
+
+**Command:** $e2e_run_cmd
+**Exit code:** $run_exit
+**Timestamp:** $(date -u +%Y-%m-%dT%H:%M:%SZ)
+**Output log:** .pi/epics/$epic_id/e2e-output.log
+
+## Last 50 lines of output
+
+\`\`\`
+$(tail -50 "$epic_dir/e2e-output.log" 2>/dev/null || echo "(no output)")
+\`\`\`
+
+## Recovery
+
+See [docs/recovery.md#r11-e2e-failure](../../docs/recovery.md#r11-e2e-failure)
+HALT
+        log "[e2e-gate] FAILED (exit $run_exit). Halt file: $halt_file"
+        exit 1
+    else
+        # AC 5: write e2e-report.json.
+        if [[ -f "$repo/tests/e2e-report.json" ]]; then
+            cp "$repo/tests/e2e-report.json" "$epic_dir/e2e-report.json"
+        else
+            cat > "$epic_dir/e2e-report.json" <<REPORT
+{"schema_version":1,"exit_code":0,"run_cmd":"$e2e_run_cmd","completed_at":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}
+REPORT
+        fi
+        log "[e2e-gate] passed. Report: $epic_dir/e2e-report.json"
+    fi
+fi
+
 # v0.7.0 / L-043 — epic-review gate.
 # Refuse to archive an epic that hasn't been through feature-epic-reviewer.
 # The reviewer writes EPIC_DIR/epic-review.md whose final non-empty line is
