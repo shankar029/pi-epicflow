@@ -136,5 +136,68 @@ for t in git python3; do
     fi
 done
 
+# 6. Recent epic activity (v0.9 — reads pi-epic-status --json)
+if epic_dir=$(active_epic_dir 2>/dev/null); then
+    json_out=$(pi-epic-status --json 2>/dev/null) || json_out=""
+    if [[ -n "$json_out" ]]; then
+        parsed=$(echo "$json_out" | python3 -c '
+import sys, json
+from datetime import datetime, timezone
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+
+lines = []
+
+halts = d.get("halts", [])
+if halts:
+    lines.append("Active halts: %d" % len(halts))
+    for h in halts:
+        lines.append("  %s %s: %s" % (h.get("feature_id","?"), h.get("halt_code","?"), h.get("recovery_anchor","")))
+
+batches = d.get("batches", [])
+if batches:
+    b = batches[-1]
+    fids = ",".join(b.get("feature_ids", []))
+    sr = b.get("speedup_ratio")
+    sr_str = "%.2fx" % sr if sr is not None else "in-progress"
+    lines.append("Last batch: Batch %s (%s) speedup %s" % (b.get("id","?"), fids, sr_str))
+
+now = datetime.now(timezone.utc)
+for feat in d.get("features", []):
+    if feat.get("status") != "in-progress":
+        continue
+    started = feat.get("started_at")
+    if not started:
+        continue
+    try:
+        ts = started.rstrip("Z") + "+00:00" if started.endswith("Z") else started
+        st = datetime.fromisoformat(ts)
+        elapsed_min = int((now - st).total_seconds() / 60)
+        if elapsed_min > 30:
+            lines.append("\u26a0 %s in-progress for %dm (>30m)" % (feat.get("id","?"), elapsed_min))
+    except Exception:
+        pass
+
+if lines:
+    print("\n".join(lines))
+else:
+    print("__EMPTY__")
+' 2>/dev/null) || parsed=""
+        if [[ -n "$parsed" && "$parsed" != "__EMPTY__" ]]; then
+            echo "── Recent epic activity ──"
+            echo "$parsed" | while IFS= read -r line; do
+                info "$line"
+            done
+            echo
+        else
+            echo "── Recent epic activity ──"
+            info "No active halts, batches, or stuck features."
+            echo
+        fi
+    fi
+fi
+
 echo
 echo "Done."
