@@ -13,3 +13,14 @@ links:
   design_doc: design.md
 tags: []
 extensions: []                    # v0.6.3 — pi-epic-extend appends entries here
+
+# v0.10 — Deliverables summary (optional).
+# Populated by pi-epic-init when decomposition.yaml declares deliverable fields
+# (e2e_scenarios, mock_fixtures, docs_updates, changelog_entry). Provides a
+# quick at-a-glance count of declared deliverables across the epic.
+# If decomposition.yaml has no deliverable fields, this section is omitted.
+# deliverables_summary:
+#   total_e2e_scenarios: 0
+#   total_mock_fixtures: 0
+#   total_docs_updates: 0
+#   features_with_changelog: 0

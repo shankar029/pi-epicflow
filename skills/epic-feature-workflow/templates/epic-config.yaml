@@ -1,6 +1,12 @@
 # Per-epic configuration. Defaults can be overridden here.
 # All durations in seconds, budgets in tokens.
 
+# v0.10 — deliverables enforcement mode.
+# When true, pi-epic-validate-decomposition hard-rejects features whose AC
+# triggers fire but the required deliverable field is empty.
+# v0.10: opt-in capability; v0.11 will flip default to true.
+strict_deliverables: false
+
 # Test command. If empty, autodetected from repo (dotnet test, npm test, pytest, etc.).
 test_cmd: ""
 
@@ -77,6 +83,21 @@ push_epic_branch_during_work: false
 parallel:
   max_workers: 1
   conflict_precheck: true
+
+# v0.10 — End-to-end testing gate.
+# When enabled, pi-epic-complete shells out to start_cmd / ready_check / run_cmd /
+# shutdown_cmd verbatim between the feature-merge phase and the epic-review gate.
+# Operator owns the lifecycle; pi-epicflow never infers or auto-installs.
+# Default: disabled (no behavior change from v0.9.x).
+e2e:
+  enabled: false
+  # install_hint: "npm install -D @playwright/test && npx playwright install chromium"
+  # start_cmd: "npm run dev"
+  # start_url: "http://localhost:5173"
+  # ready_check: "curl -fs http://localhost:5173 >/dev/null"
+  # ready_timeout_sec: 60
+  # shutdown_cmd: "pkill -f 'vite'"
+  # run_cmd: "npx playwright test"
 
 # PR options.
 pr:

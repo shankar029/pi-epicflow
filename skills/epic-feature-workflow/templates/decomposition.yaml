@@ -59,6 +59,21 @@ features:
     acceptance_criteria:                   # each one should imply a test or observable check
       - <criterion 1>
       - <criterion 2>
+    # --- Deliverable fields (v0.10+) ---
+    # Optional. All default to empty/absent for backward compatibility.
+    # These become first-class scope: workers must produce them, reviewers audit them,
+    # and pi-feature-complete refuses merge if declared deliverables are missing.
+    e2e_scenarios: []                      # Paths to E2E test files this feature must produce.
+                                           # Populate when AC contains user-facing verbs (click, see,
+                                           # navigate, submit, GET/POST endpoints).
+    mock_fixtures: []                      # Paths to mock/fixture files for external SDK dependencies.
+                                           # Populate when scope_files imports a known external SDK
+                                           # (stripe, openai, twilio, aws-sdk, etc.).
+    docs_updates: []                       # Paths to documentation files this feature must update.
+                                           # Populate when the feature ships public API changes or
+                                           # user-observable contract changes.
+    changelog_entry: false                 # Whether this feature requires a CHANGELOG.md entry.
+                                           # Set true when the feature ships user-observable behavior.
     references:                            # links to design.md sections, external docs, etc.
       - design.md#section
     notes: |
