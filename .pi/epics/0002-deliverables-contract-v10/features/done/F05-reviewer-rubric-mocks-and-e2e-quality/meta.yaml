@@ -1,12 +1,12 @@
 # Per-feature structured fields. Updated by pi as work proceeds.
 id: F05-reviewer-rubric-mocks-and-e2e-quality
 title: >
-state: in-progress
+state: merged
 branch: feat/deliverables-contract-v10/F05-reviewer-rubric-mocks-and-e2e-quality
 worktree: "/home/shbs/code/experiments/pi-epicflow-F05"
 depends_on: [F01]
 started: 2026-05-18
 updated: 2026-05-18
-merged_at: ""
-merge_commit_sha: ""
+merged_at: 2026-05-18
+merge_commit_sha: c907b1d06ab78dccb76994cb65c71818ef60af93
 last_halt: ""                     # filename of most recent halt-report
