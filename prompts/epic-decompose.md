@@ -284,6 +284,138 @@ Files >100KB are skipped (the planner notes them in §References but
 doesn't pull them into context). Use this for: reference implementations,
 POC code, findings docs, prior-art ADRs.
 
+#### Deliverables (v0.10+)
+
+Every epic ships more than production code. It also ships **E2E
+scenarios**, **mock fixtures** for external SDK dependencies, **docs
+updates**, and **CHANGELOG entries**. Pre-v0.10, these surfaces were
+"bolt-on at the gate" — which is exactly why they drifted, lagged, or
+got skipped. From v0.10 onward, decomposition is the contract for
+*every* deliverable the epic ships, not just code increments. The
+worker who imports the SDK is the right entity to mock it; the worker
+who ships user-observable behavior is the right entity to update the
+changelog. Enumerate these surfaces at decomposition and assign them to
+features.
+
+Four optional per-feature fields (alongside `scope_files`) carry the
+declaration:
+
+- **`e2e_scenarios:`** *(list of paths)* — E2E test files this feature
+  must produce. Populate when the feature has user-facing acceptance
+  criteria (verbs like *user*, *click*, *see*, *display*, *navigate*,
+  *submit*, or HTTP method paths like `GET /pricing`, `POST /api/foo`).
+  The worker writes the scenario alongside the production code; the
+  per-feature reviewer audits selector quality;
+  `pi-feature-complete` refuses the merge if the declared file isn't
+  produced.
+- **`mock_fixtures:`** *(list of paths)* — Mock or fixture files for
+  external SDK dependencies. Populate when the feature's `scope_files`
+  import a known external SDK: `stripe`, `openai`, `anthropic`,
+  `twilio`, `sendgrid`, `@aws-sdk`. The worker writes the fixture
+  matching the real SDK's call shapes; the per-feature reviewer audits
+  mock honesty (no hallucinated fields).
+- **`docs_updates:`** *(list of paths)* — Documentation files this
+  feature must touch. Populate when the feature ships a public API
+  surface change, a new contract, or any user-observable behavior
+  that's documented elsewhere in the repo.
+- **`changelog_entry:`** *(bool, default false)* — Set `true` when the
+  feature ships user-observable behavior. `pi-feature-complete` will
+  confirm `CHANGELOG.md` was touched under `[Unreleased]`.
+
+One suppression escape hatch:
+
+- **`e2e_skip_reason:`** *(string)* — Short justification for *why* a
+  feature with user-facing AC verbs has no E2E surface (e.g. *"pure
+  backend health endpoint, no UI"*). Suppresses the `e2e_scenarios`
+  trigger only — `mock_fixtures` still applies if the feature imports
+  an external SDK.
+
+The validator's trigger rules (matching exactly what
+`pi-epic-validate-decomposition` enforces, see below):
+
+| Trigger | Required deliverable |
+|---|---|
+| AC text matches `\b(user\|click\|see\|display\|navigate\|submit\|GET /\|POST /\|PUT /\|DELETE /)\b` (case-insensitive) | `e2e_scenarios` non-empty *or* `e2e_skip_reason` set |
+| Feature's `scope_files` paths or imported file contents reference `stripe`, `openai`, `anthropic`, `twilio`, `sendgrid`, `@aws-sdk` | `mock_fixtures` non-empty |
+| Feature ships user-observable behavior change | `changelog_entry: true` |
+| AC mentions public API or contract surface | `docs_updates` non-empty |
+
+In v0.10 the validator runs **warn-only** by default
+(`strict_deliverables: false` in `epic-config.yaml`). When the operator
+flips `strict_deliverables: true`, violations become hard errors and
+`pi-epic-validate-decomposition` exits non-zero. v0.11 anticipates
+flipping the default to `true`. Author decompositions as if strict mode
+is already on — the warnings are educational.
+
+##### Worked example 1 — user-facing feature with all four fields
+
+A Stripe checkout feature. AC contains *user*, *complete*, page paths;
+`scope_files` includes a `stripe.ts` integration. All four deliverable
+fields populated:
+
+```yaml
+- id: F03
+  slug: stripe-checkout
+  summary: >
+    Add the /checkout page that takes a user from cart to a completed
+    Stripe payment intent.
+  depends_on: [F01]
+  estimated_hours: 6
+  scope_files:
+    - src/billing/stripe.ts
+    - src/pages/checkout.tsx
+    - src/pages/checkout.test.tsx
+  acceptance_criteria:
+    - "User can navigate from /cart to /checkout, see the Stripe
+       payment element, submit a card, and land on /success."
+    - "POST /api/billing/intent returns a clientSecret on success and
+       a structured error envelope on declined cards."
+  e2e_scenarios:
+    - tests/e2e/billing/checkout.spec.ts
+  mock_fixtures:
+    - tests/e2e/_fixtures/stripe.ts
+  docs_updates:
+    - docs/billing.md
+  changelog_entry: true
+```
+
+The e2e scenario will be authored by the worker (Playwright spec that
+drives the user flow). The Stripe mock fixture will be authored by the
+worker (MSW route handlers matching the real Stripe SDK call shapes).
+The docs update reflects the new public `/api/billing/intent` contract.
+The changelog entry surfaces the new user-observable behavior.
+
+##### Worked example 2 — pure refactor with `e2e_skip_reason`
+
+A refactor that splits a monolith into helper modules. AC contains the
+word *user* (in the prose context, not the user-flow sense), but the
+feature has no UI surface. Use `e2e_skip_reason` to suppress the
+trigger and document the reasoning:
+
+```yaml
+- id: F02
+  slug: split-auth-into-helpers
+  summary: >
+    Extract user-session validation into auth/helpers/*.ts. Behavior
+    unchanged.
+  depends_on: [F01]
+  estimated_hours: 3
+  scope_files:
+    - src/auth/**
+  acceptance_criteria:
+    - "src/auth/session.ts now imports validate() from
+       auth/helpers/session-validator.ts; user-session behavior is
+       byte-for-byte unchanged."
+    - "All existing unit tests pass without modification."
+  e2e_scenarios: []
+  e2e_skip_reason: "Pure refactor, no user-observable surface. Behavior
+    is fully covered by existing unit tests."
+  changelog_entry: false
+```
+
+No `mock_fixtures` (no external SDK), no `docs_updates` (no public
+contract change), no `changelog_entry` (no user-observable shift).
+
 - **DAG shape:** prefer a wide-then-narrow shape over a long chain. If F02,
   F03, F04 can all depend on F01 in parallel, model them that way — even
   if the orchestrator currently serializes execution, that signals
@@ -425,6 +557,15 @@ Step 2 already ran this once for the summary's warnings list, but the
 user may have asked for last-second tweaks between the summary post
 and the approval. Re-run; warnings from the second pass are fine
 (they're warnings) but errors block.
+
+**Deliverables-trigger check (v0.10+):** if `strict_deliverables: true`
+is set in `epic-config.yaml`, ensure every feature whose AC text or
+`scope_files` fires a trigger has a matching deliverable field
+populated — or, for the `e2e_scenarios` trigger only, an
+`e2e_skip_reason` justifying its absence. In warn-mode (the v0.10
+default), the validator emits `[warn]` lines that don't block
+commit; treat them as educational signals that the decomposition is
+under-declaring deliverable surfaces.
 
 If it exits non-zero, the proposal is broken. **Don't commit.** Read
 the error, fix the YAML on disk, re-validate. Surface each fix to the
