@@ -57,6 +57,10 @@ EOF
 done
 export SKIP_SHELL_CHECK SKIP_TOOLCHAIN_CHECK
 
+# Compute epic_cfg path unconditionally — used by both the toolchain check
+# and the deliverables validation phase (v0.10 / L-056).
+epic_cfg="$epic_dir/epic-config.yaml"
+
 # v0.7.2 / L-046 — required toolchain pre-flight.
 # Run BEFORE the python validator. Reads epic-config.yaml's required_toolchain
 # entries; for each, runs the validate_cmd and compares its trimmed first-line
@@ -64,7 +68,6 @@ export SKIP_SHELL_CHECK SKIP_TOOLCHAIN_CHECK
 # multi-line message with the install_hint verbatim; pi-epicflow does NOT run
 # the install_hint itself (see L-046 design rationale).
 if [[ "${SKIP_TOOLCHAIN_CHECK:-0}" != "1" ]]; then
-    epic_cfg="$epic_dir/epic-config.yaml"
     if [[ -f "$epic_cfg" ]]; then
         # Defer to a toolchain manager if the repo has one declared.
         toolchain_mgr_hint=""
@@ -190,7 +193,7 @@ else
     printf '\033[33m⚠  --skip-toolchain-check used: bypassing the L-046 required-toolchain gate.\033[0m\n' >&2
 fi
 
-python3 - "$decomp" "$repo" <<'PY'
+python3 - "$decomp" "$repo" "$epic_cfg" <<'PY'
 import sys, re, os, glob
 
 path = sys.argv[1]
@@ -722,6 +725,143 @@ for p in rp_vals:
     abs_path = p if os.path.isabs(p) else os.path.join(repo_root, p)
     if not os.path.exists(abs_path):
         warnings.append(f"reference_paths: '{p}' does not exist on disk")
+
+# v0.10 / L-056 — deliverables trigger engine.
+#
+# Detects trigger patterns in feature ACs and scope_files and requires the
+# corresponding deliverable fields to be populated. Emits warnings or errors
+# depending on the strict_deliverables flag in epic-config.yaml.
+#
+# Rule set (hardcoded for v0.10; v0.11 moves to configurable deliverable_rules:):
+#   (a) AC text matching user-facing verbs → e2e_scenarios non-empty
+#   (b) scope_files referencing known SDKs → mock_fixtures non-empty
+
+_E2E_TRIGGER_RE = re.compile(
+    r'\b(user|click|see|display|navigate|submit'
+    r'|GET /|POST /|PUT /|DELETE /)\b',
+    re.IGNORECASE)
+
+_SDK_NAMES = ['stripe', 'openai', 'anthropic', 'twilio', 'sendgrid', '@aws-sdk']
+
+_DELIVERABLE_FIELDS = ['e2e_scenarios', 'mock_fixtures', 'docs_updates', 'changelog_entry']
+
+# Read strict_deliverables from epic-config.yaml (sys.argv[3]).
+_strict_deliverables = False
+_epic_cfg_path = sys.argv[3] if len(sys.argv) > 3 else ''
+if _epic_cfg_path and os.path.isfile(_epic_cfg_path):
+    try:
+        with open(_epic_cfg_path, encoding='utf-8') as _ecf:
+            for _ecline in _ecf:
+                _ecline = _ecline.strip()
+                if _ecline.startswith('strict_deliverables'):
+                    _m = re.match(r'^strict_deliverables\s*:\s*(\S+)', _ecline)
+                    if _m:
+                        _strict_deliverables = _m.group(1).lower() == 'true'
+                    break
+    except (OSError, IOError):
+        pass  # missing/unreadable → default false
+
+def _check_sdk_in_content(filepath, sdk_names):
+    """Read first 100 lines of a file; return first SDK name found in imports, or None."""
+    try:
+        sz = os.path.getsize(filepath)
+        if sz > 50 * 1024:  # skip files > 50KB
+            return None
+        with open(filepath, encoding='utf-8', errors='replace') as f:
+            for i, line in enumerate(f):
+                if i >= 100:
+                    break
+                for sdk in sdk_names:
+                    if sdk in line.lower():
+                        return sdk
+    except (OSError, IOError):
+        pass
+    return None
+
+for ft in data.get('features', []):
+    fid = ft.get('id', '?')
+    kind = (ft.get('kind') or 'feature').strip()
+    if kind == 'spike':
+        continue
+
+    # AC 7 backward compat guard: skip features that have NONE of the v0.10
+    # deliverable fields. Old v0.9-era decompositions are untouched.
+    has_any_deliverable_field = any(k in ft for k in _DELIVERABLE_FIELDS)
+    if not has_any_deliverable_field:
+        continue
+
+    slug = ft.get('slug', fid)
+    ac = ft.get('acceptance_criteria') or []
+    ac_vals = _vals(ac)
+    sf = ft.get('scope_files') or []
+    sf_vals = _vals(sf)
+
+    e2e_scenarios = ft.get('e2e_scenarios') or []
+    e2e_vals = _vals(e2e_scenarios) if isinstance(e2e_scenarios, list) else []
+    mock_fixtures = ft.get('mock_fixtures') or []
+    mock_vals = _vals(mock_fixtures) if isinstance(mock_fixtures, list) else []
+
+    # Check e2e_skip_reason (AC 6): suppresses e2e_scenarios trigger only.
+    skip_reason = ft.get('e2e_skip_reason', '')
+    if isinstance(skip_reason, list):
+        skip_reason = _vals(skip_reason)[0] if skip_reason else ''
+    elif isinstance(skip_reason, dict):
+        skip_reason = skip_reason.get('value', '')
+    e2e_suppressed = bool(skip_reason)
+
+    deliverable_violations = []
+
+    # Rule (a): AC text → e2e_scenarios trigger
+    if not e2e_vals and not e2e_suppressed:
+        for ac_idx, ac_text in enumerate(ac_vals, 1):
+            m = _E2E_TRIGGER_RE.search(ac_text)
+            if m:
+                verb = m.group(1)
+                deliverable_violations.append(
+                    f"{fid}: AC #{ac_idx} contains user-facing verb '{verb}', "
+                    f"but e2e_scenarios is empty. Add e2e scenario files, e.g.: "
+                    f"e2e_scenarios: [tests/e2e/{slug}.spec.ts]. "
+                    f"Or add e2e_skip_reason explaining why this feature has no E2E surface."
+                )
+                break  # one violation per trigger type per feature
+
+    # Rule (b): scope_files SDK reference → mock_fixtures trigger
+    if not mock_vals:
+        sdk_found = None
+        sdk_path = None
+        for sp in sf_vals:
+            if not sp:
+                continue
+            # Layer 1: path-based detection (always runs)
+            sp_lower = sp.lower()
+            for sdk in _SDK_NAMES:
+                if sdk.lower() in sp_lower:
+                    sdk_found = sdk
+                    sdk_path = sp
+                    break
+            if sdk_found:
+                break
+            # Layer 2: content-based detection (if file exists)
+            abs_sp = sp if os.path.isabs(sp) else os.path.join(repo_root, sp)
+            if os.path.isfile(abs_sp):
+                found = _check_sdk_in_content(abs_sp, _SDK_NAMES)
+                if found:
+                    sdk_found = found
+                    sdk_path = sp
+                    break
+        if sdk_found:
+            deliverable_violations.append(
+                f"{fid}: scope_file '{sdk_path}' references SDK '{sdk_found}', "
+                f"but mock_fixtures is empty. Add mock fixture files, e.g.: "
+                f"mock_fixtures: [tests/e2e/_fixtures/{sdk_found}.ts]."
+            )
+
+    # Route violations to warnings or errors based on strict_deliverables (AC 3-4)
+    for msg in deliverable_violations:
+        if _strict_deliverables:
+            errors.append(f"[error] {msg}")
+        else:
+            warnings.append(f"[warn] {msg}")
 
 if warnings:
     print("WARNINGS:")
