@@ -1,0 +1,85 @@
+# Per-epic configuration. Defaults can be overridden here.
+# All durations in seconds, budgets in tokens.
+
+# Test command. If empty, autodetected from repo (dotnet test, npm test, pytest, etc.).
+test_cmd: ""
+
+# Build command (run before tests if defined).
+build_cmd: ""
+
+# v0.7.2 / L-046 — required toolchain pre-flight.
+#
+# pi-epic-init runs every validate_cmd before the epic starts. If any fail,
+# the operator gets the install_hint as actionable output and pi-epic-init
+# refuses to proceed. The goal is to fail at decomposition time, not in the
+# middle of F03 with a 'command not found' surprise.
+#
+# Auto-deferral: if the repo has .tool-versions (asdf) or .mise.toml (mise),
+# pi-epic-init prints "run: <toolchain-manager> install" instead of per-SDK
+# hints — defer to the toolchain manager the repo already chose.
+#
+# Auto-install is NOT in v0.7.2 by design (see L-046). The install_hint is
+# a string the operator copy/pastes; pi-epicflow does not execute it.
+# Rationale: security surface (curl-pipe-bash inside an agent loop is a
+# real expansion), portability (apt/brew/winget/pacman per OS), state
+# pollution (an epic in /tmp should not permanently mutate global toolchain).
+#
+# Optional. If unset/empty, the check is skipped.
+required_toolchain: []
+# Example:
+# required_toolchain:
+#   - name: dotnet
+#     min_version: "9.0"
+#     validate_cmd: "dotnet --version"
+#     install_hint: "curl -sSL https://dot.net/v1/dotnet-install.sh | bash -s -- --version 9.0"
+#   - name: node
+#     min_version: "20"
+#     validate_cmd: "node --version"
+#     install_hint: "nvm install 20 && nvm use 20"
+
+# Halt budgets.
+budgets:
+  tokens_per_epic: 500000
+  wall_clock_per_feature_seconds: 28800   # 8h
+
+# Test retry attempts before halting on H1.
+test_retry_attempts: 3
+
+# Reviewer sub-agent retry attempts before halting.
+reviewer_retry_attempts: 3
+
+# Worktree location pattern. {repo} = repo basename, {feature} = feature id.
+worktree_pattern: "../{repo}-{feature}"
+
+# Whether to push the epic branch to a shared remote during work.
+# false = local only until pi-epic-complete opens the PR.
+push_epic_branch_during_work: false
+
+# v0.8.0 / L-048+L-049 — parallel feature dispatcher.
+#
+# Default: max_workers = 1 (identical behavior to v0.5/v0.6/v0.7 —
+# features run serially through the DAG, one at a time). Operators
+# opt in to parallel execution by bumping max_workers; the orchestrator
+# (in /epic-run-auto.md) dispatches up to max_workers features
+# concurrently when the DAG permits AND their declared scope_files do
+# not overlap (L-049 hard conflict pre-check).
+#
+# The serial merge queue stays serial regardless of max_workers — only
+# ONE pi-feature-complete (squash + advance epic branch) runs at a time.
+# That property is what keeps the epic branch a linear sequence of
+# squash commits, which is what makes recovery tractable.
+#
+# conflict_precheck: true (default) makes pi-epic-next-feature --batch
+# refuse to dispatch two features whose declared scope_files overlap.
+# This is the mechanical enforcement of "workers in parallel must not
+# race on the same files" (L-049). False positive cost: those two run
+# serially instead of in parallel — not "the build breaks."
+parallel:
+  max_workers: 1
+  conflict_precheck: true
+
+# PR options.
+pr:
+  draft: false
+  base: ""                                 # empty → use meta.default_branch
+  body_template: ""                        # empty → auto-generated from design.md + features

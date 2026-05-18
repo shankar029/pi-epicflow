@@ -1,0 +1,15 @@
+# Epic-level structured fields. Updated by pi as work proceeds.
+id: 0002-deliverables-contract-v10
+title: Decomposition as the deliverables contract (E2E as first proof)
+status: design
+branch: epic/deliverables-contract-v10
+default_branch: main
+owner: shankar029
+started: 2026-05-18
+updated: 2026-05-18
+links:
+  pr:
+  issue:
+  design_doc: design.md
+tags: []
+extensions: []                    # v0.6.3 — pi-epic-extend appends entries here
