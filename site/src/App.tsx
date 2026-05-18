@@ -29,7 +29,7 @@ const Navbar = () => (
         <Terminal className="text-vibrant-green w-6 h-6" />
         <span className="text-white">pi-epicflow</span>
         <span className="ml-2 px-2 py-0.5 text-[10px] font-mono uppercase tracking-widest text-vibrant-green border border-vibrant-green/30 rounded">
-          v0.9.0
+          v0.10.0
         </span>
       </div>
       <nav className="hidden md:flex gap-8 items-center text-sm font-medium">
@@ -57,7 +57,7 @@ const Hero = () => (
       className="inline-flex items-center gap-2 bg-vibrant-green/10 text-vibrant-green text-xs font-bold font-mono px-4 py-1.5 rounded-full border border-vibrant-green/20 mb-6 uppercase tracking-widest"
     >
       <Brain className="w-3 h-3" />
-      v0.9.0 — observability + dogfood (L-053/L-054/L-055)
+      v0.10.0 — deliverables contract (L-056/L-057/L-058)
     </motion.div>
 
     <motion.h1
@@ -349,7 +349,7 @@ const FitSection = () => (
 
 const WhatsNew = () => (
   <section className="px-4 py-16 max-w-7xl mx-auto space-y-8">
-    {/* v0.8.1 hotfix banner — critical install bug for v0.7.0–v0.8.0 upgraders */}
+    {/* v0.10.0 release banner — deliverables contract + second dogfood */}
     <div className="bg-amber-500/5 border border-amber-500/40 rounded-3xl p-6 md:p-8 relative overflow-hidden">
       <div className="flex items-start gap-4">
         <div className="flex-shrink-0">
@@ -360,29 +360,30 @@ const WhatsNew = () => (
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-3 mb-2">
             <span className="inline-flex items-center bg-amber-500/15 text-amber-300 text-xs font-bold font-mono px-3 py-1 rounded-full border border-amber-500/30 uppercase tracking-wider">
-              v0.8.1 · hotfix · upgrade required
+              v0.10.0 · deliverables contract · second dogfood
             </span>
           </div>
           <h3 className="text-xl md:text-2xl font-bold text-white tracking-tight mb-2">
-            If you installed v0.7.0–v0.8.0, re-run <code className="font-mono text-amber-300 text-base">pi install pi-epicflow</code>.
+            Decomposition is the contract for <em>everything</em> the epic ships.
           </h3>
           <p className="text-text-muted text-sm md:text-base leading-relaxed mb-3">
-            v0.7.0 introduced the <code className="text-amber-300 font-mono text-xs">feature-epic-reviewer</code> agent for the L-043 epic-review gate, but{" "}
-            <code className="text-amber-300 font-mono text-xs">install/postinstall.mjs</code>{" "}
-            still copied only the original three agents. Four releases shipped a broken gate — every <code className="text-amber-300 font-mono text-xs">/epic-run-auto</code> that reached <code className="text-amber-300 font-mono text-xs">pi-epic-complete</code> errored with{" "}
-            <code className="text-amber-300 font-mono text-xs">Unknown agent: feature-epic-reviewer</code>, forcing operators into <code className="text-amber-300 font-mono text-xs">--skip-epic-review</code> which negates the entire L-043 feature. v0.8.1 fixes postinstall to derive the agent list from the repo, plus adds a regression-guard smoke phase. Caught by real-app verification (L-047), the exact heuristic the v0.7.3 lesson predicted would catch issues automated smoke can't. Also fixes <code className="text-amber-300 font-mono text-xs">pi-epic-complete</code> erroring on remote-less sample/offline repos (L-052).
+            Second consecutive epic shipped by pi-epicflow on its <em>own codebase</em>. New per-feature fields in <code className="text-amber-300 font-mono text-xs">decomposition.yaml</code>: <code className="text-amber-300 font-mono text-xs">e2e_scenarios</code> · <code className="text-amber-300 font-mono text-xs">mock_fixtures</code> · <code className="text-amber-300 font-mono text-xs">docs_updates</code> · <code className="text-amber-300 font-mono text-xs">changelog_entry</code>. Validator's trigger→deliverable engine enforces them under <code className="text-amber-300 font-mono text-xs">strict_deliverables: true</code> (opt-in in v0.10, default in v0.11). <code className="text-amber-300 font-mono text-xs">pi-epic-complete</code> gains an opt-in E2E gate with H11 halt + bisect recipe. Lessons distilled: <strong>L-056</strong> (decomposition-as-contract, generalizing L-044), <strong>L-057</strong> (mocks owned by the importing feature, never gate-time), <strong>L-058 candidate</strong> (content-based SDK detection catches transitive imports). Verified end-to-end on a fresh Vite+React fixture with a planted bug unit tests miss but E2E catches. APPROVE_EPIC at the L-043 gate with 0 hard / 3 soft findings.
           </p>
           <div className="flex flex-wrap items-center gap-3 text-sm">
-            <a href={`${REPO}/blob/main/CHANGELOG.md#081--2026-05-17`} className="text-amber-300 hover:underline font-medium">
-              v0.8.1 changelog →
+            <a href={`${REPO}/blob/main/CHANGELOG.md#0100--2026-05-18`} className="text-amber-300 hover:underline font-medium">
+              v0.10.0 changelog →
             </a>
             <span className="text-text-muted">·</span>
-            <a href={`${REPO}/blob/main/docs/v0.8.0-real-app-verification.md`} className="text-amber-300 hover:underline font-medium">
-              Real-app verification report →
+            <a href={`${REPO}/blob/main/.pi/epics/done/0002-deliverables-contract-v10/epic-review.md`} className="text-amber-300 hover:underline font-medium">
+              Epic review →
             </a>
             <span className="text-text-muted">·</span>
-            <a href={`${REPO}/releases/tag/v0.8.1`} className="text-amber-300 hover:underline font-medium">
-              v0.8.1 release →
+            <a href={`${REPO}/blob/main/docs/v0.10-real-app-verification.md`} className="text-amber-300 hover:underline font-medium">
+              Real-app verification →
+            </a>
+            <span className="text-text-muted">·</span>
+            <a href={`${REPO}/releases/tag/v0.10.0`} className="text-amber-300 hover:underline font-medium">
+              v0.10.0 release →
             </a>
           </div>
         </div>
@@ -394,7 +395,7 @@ const WhatsNew = () => (
       <div className="relative">
         <div className="inline-flex items-center gap-2 bg-vibrant-green/10 text-vibrant-green text-xs font-bold font-mono px-4 py-1.5 rounded-full border border-vibrant-green/20 mb-6 uppercase tracking-widest">
           <Brain className="w-3 h-3" />
-          New in v0.9 (· dogfood proof)
+          New in v0.10 (· second dogfood)
         </div>
         <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-4">Parallel feature execution. One linear epic.</h2>
         <p className="text-text-muted text-base md:text-lg max-w-3xl leading-relaxed mb-8">

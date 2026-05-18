@@ -6,6 +6,49 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.10.0] — 2026-05-18
+
+**Deliverables-contract release. Second consecutive dogfood epic shipped by pi-epicflow on its own codebase.** Seven features merged, linear history, APPROVE_EPIC at the L-043 gate with 0 hard / 3 soft findings. Reframes decomposition from "code increments" to "the contract for everything the epic ships."
+
+Link: `.pi/epics/done/0002-deliverables-contract-v10/epic-review.md` (committed in the release).
+
+### Added
+
+- **`decomposition.yaml` deliverable fields.** Four new optional per-feature fields: `e2e_scenarios`, `mock_fixtures`, `docs_updates`, `changelog_entry`. Plus `e2e_skip_reason` as an explicit suppression escape hatch. All optional; existing v0.7–v0.9 decompositions continue to validate unchanged.
+- **`pi-epic-validate-decomposition` trigger→deliverable engine.** New `deliverables` validation phase. Triggers: AC text matching `\b(user|click|see|display|navigate|submit|GET /|POST /|PUT /|DELETE /)\b` requires `e2e_scenarios`; `scope_files` referencing known SDK names (`stripe`, `openai`, `anthropic`, `twilio`, `sendgrid`, `@aws-sdk`) requires `mock_fixtures`. Two layers of SDK detection: path substring + file-content read (first 100 lines). Off by default; flip on via `strict_deliverables: true` in `epic-config.yaml`. v0.11 will flip the default.
+- **`pi-feature-complete` deliverables pre-merge check.** New phase after the completion-evidence gate. For every file declared in `e2e_scenarios` / `mock_fixtures` / `docs_updates`: file must exist in the worktree AND appear in `git diff <epic_base>..HEAD --name-only`. `changelog_entry: true` requires `CHANGELOG.md` modification. Refuses merge with actionable error: `Declared deliverable not produced: <path> (feature F<id>). Worker may have skipped this output; re-dispatch or update decomposition.yaml.`
+- **`pi-epic-complete` E2E gate (opt-in).** New phase between feature-merge and the L-043 epic-review gate. Reads `epic-config.yaml` `e2e:` block; shells out to operator-declared `start_cmd` / `ready_check` / `run_cmd` / `shutdown_cmd` verbatim. Always tears down via bash trap (EXIT/INT/TERM). On failure: writes `halt-h11-e2e-<UTC-timestamp>.md` with command, exit code, last 50 lines of output, and recovery link. On success: writes `e2e-report.json` (copies `tests/e2e-report.json` if produced, else minimal stub). Off by default (`e2e.enabled: false`).
+- **Halt code H11** for E2E gate failures. `docs/recovery.md#r11-e2e-failure` documents bisect recipe (most recent feature first), how to inspect `e2e-output.log`, how to resume after fix.
+- **`_common.sh feature_declared_deliverables` helper.** Yaml-parses `decomposition.yaml` and emits the deliverable file list for a given feature ID, one per line with category prefix (`e2e:`, `mock:`, `docs:`, `changelog:`). Consumed by `pi-feature-complete` today; reusable by future tooling.
+- **`prompts/epic-decompose.md` deliverables section.** Teaches the decomposer the new fields, the trigger rules, and provides two worked examples (Stripe checkout with all fields populated; pure refactor with `e2e_skip_reason`).
+- **`agents/feature-worker.md` Declared deliverables section.** Workers treat declared deliverables as first-class scope; producing them is part of READY.
+- **`agents/feature-reviewer.md` rubric items.** Mock honesty (soft — audit `mock_fixtures` against the real SDK contract for hallucinated/missing fields) and E2E selector quality (soft — flag fragile selectors, prefer `data-testid`/role/label).
+- **`agents/feature-epic-reviewer.md` E2E coverage rate.** Reads `tests/e2e-report.json` when present; reports declared / passing / failing / skipped / missing per feature. Graceful no-op when absent.
+- **`docs/v0.10-real-app-verification.md`.** F07 L-047 verification report. Fresh Vite+React+TypeScript fixture with a planted bug (`* 0.9` multiplier in `computeTotal()`) that passes unit tests but fails E2E. Validator + gate + halt + fix loop verified end-to-end.
+
+### Lessons added (L-056, L-057, L-058)
+
+See `skills/epic-feature-workflow/lessons.md` for canonical entries:
+
+- **L-056:** decomposition is the contract for everything the epic ships, not just code increments. Generalizes L-044 one level up. Verified by F07: validator caught a real scope-assignment mistake before workers started.
+- **L-057:** mocks are owned by the feature that imports the real dep, never authored at gate time. The worker who just wrote the calling code is the right entity to write the mock; gate-time mock authorship hides decomposition mistakes. Verified by F07.
+- **L-058 (candidate):** content-based SDK detection catches transitive imports that path-based detection misses. Decomposers should keep the "primary SDK consumer" file in the feature that owns `mock_fixtures`.
+
+### Honest deviations (logged in epic-review)
+
+- **F03** worker subagent died mid-stream ("Anthropic stream ended before message_stop"); orchestrator completed the prompt-only edit inline. Logged as a pattern: for prompt-only features, orchestrator-direct completion is cheaper than re-dispatch when the worker crashes.
+- **F07** used `vitest` + `@testing-library/react` instead of Playwright (avoids 200MB browser binary download). Used 2 features instead of 3 (both trigger rules exercised by 2). Substitutions logged; epic-reviewer flagged that browser-specific failure modes (port conflicts, install races) remain unverified — v0.11 backlog.
+- **0 / 7** features had per-feature `review-report.md` persisted. Acceptable for self-dogfood on framework's own files; flagged as a process gap for users running their own epics.
+
+### v0.11 forward backlog (from epic-review soft findings)
+
+1. Add smoke phases 30-35 covering the deliverables surface.
+2. Run F05's new mock-honesty + selector-quality rubrics on a real user epic before promoting them from soft to hard.
+3. Playwright-specific real-app verification (browser binary install, port conflicts).
+4. Persist `review-report.md` files for every feature; `pi-feature-complete` warns when absent.
+5. Flip `strict_deliverables: true` as the template default (currently `false`).
+6. Consider configurable `deliverable_rules:` in `epic-config.yaml` per-project (move SDK list out of hardcoded validator).
+
 ## [0.9.0] — 2026-05-18
 
 **Observability release. First epic shipped by pi-epicflow on its own codebase (pure dogfood).** Five features merged on a linear epic branch, 0 hard findings at the L-043 gate, 3 soft findings — all decomposition-process lessons (L-053/L-054/L-055) that synthetic verification could not have surfaced.
