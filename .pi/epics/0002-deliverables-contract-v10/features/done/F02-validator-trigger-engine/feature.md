@@ -34,25 +34,26 @@ the epic's `design.md` §4.
 
 ## 4. Plan (mandatory; fill BEFORE first edit)
 
-Worker must populate this section before making ANY code edits. Reviewer
-validates the diff against this plan. If reality diverges, log to
-`deviations.md` with rationale.
+See plan.md for full details. Summary below.
 
 **Files I will touch:**
-- `<path>` — <why>
+- `skills/epic-feature-workflow/scripts/pi-epic-validate-decomposition` — add deliverables validation phase in the Python heredoc
 
 **Files I will read for context (not edit):**
-- `<path>` — <why>
+- `skills/epic-feature-workflow/scripts/_common.sh` — checked for helpers; not editing
+- `.pi/epics/done/0001-observability-v09/decomposition.yaml` — backward compat test target
+- `skills/epic-feature-workflow/templates/epic-config.yaml` — confirm strict_deliverables field exists
 
-**AC interpretation (literal expected behavior per criterion):**
-- AC 1: <literal expected output / behavior — exact string, exact exit code, exact schema>
-- AC 2: ...
+**AC interpretation:** See plan.md §4 for literal expected behavior per criterion.
 
-**Ambiguities (HALT with H1 if any are blocking):**
-- _(none)_  OR  - <question for orchestrator>
+**Ambiguities:** None (all resolved in plan.md §6).
 
-**Anti-scope (explicitly NOT in this feature):**
-- _(none)_  OR  - <out-of-scope item, deferred to F0N>
+**Anti-scope (per plan.md §5):**
+- Configurable `deliverable_rules:` in epic-config.yaml (v0.11)
+- `changelog_entry` and `docs_updates` triggers (not in F02 AC)
+- `_common.sh` helper `feature_declared_deliverables` (F04)
+- E2E gate in `pi-epic-complete` (F06)
+- Prompt changes (F03)
 
 ## 5. TODO checklist (optional)
 
@@ -61,13 +62,10 @@ validates the diff against this plan. If reality diverges, log to
 
 ## 6. Progress log (append-only, newest on top)
 
-<!-- Add new entries on top.
-
-### YYYY-MM-DD HH:MM
-- changes: <files touched>
-- why: <one-line rationale>
-- next: <what to pick up next session>
--->
+### 2026-05-18 13:45
+- changes: `skills/epic-feature-workflow/scripts/pi-epic-validate-decomposition` (+142/-2)
+- why: implemented deliverables trigger engine (all 8 ACs)
+- next: reviewer pass, then pi-feature-complete
 
 ## 7. Open questions
 

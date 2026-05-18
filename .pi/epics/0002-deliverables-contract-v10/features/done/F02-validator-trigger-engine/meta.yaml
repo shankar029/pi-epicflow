@@ -1,12 +1,12 @@
 # Per-feature structured fields. Updated by pi as work proceeds.
 id: F02-validator-trigger-engine
 title: >
-state: in-progress
+state: merged
 branch: feat/deliverables-contract-v10/F02-validator-trigger-engine
 worktree: "/home/shbs/code/experiments/pi-epicflow-F02"
 depends_on: [F01]
 started: 2026-05-18
 updated: 2026-05-18
-merged_at: ""
-merge_commit_sha: ""
+merged_at: 2026-05-18
+merge_commit_sha: 709f465bb67ec366057d0d57c3214b5e0e2d587b
 last_halt: ""                     # filename of most recent halt-report
