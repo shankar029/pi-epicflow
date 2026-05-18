@@ -19,8 +19,42 @@ done
 __SCRIPT_DIR="$(cd -P "$(dirname "$__src")" && pwd)"
 source "$__SCRIPT_DIR/_common.sh"
 
-[[ $# -eq 1 ]] || { echo "usage: pi-feature-start <feature-id>" >&2; exit 1; }
+# Bug fix v0.10.1: --help / -h before treating arg as feature ID.
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    cat <<'USAGE'
+usage: pi-feature-start <feature-id>
+
+Creates a feature worktree off the active epic branch:
+  - Verifies depends_on are merged
+  - Scaffolds .pi/epics/<epic>/features/<id>-<slug>/{feature.md,meta.yaml}
+  - Creates feat/<epic-slug>/<id>-<slug> branch + ../<repo>-<id>/ worktree
+
+Not parallel-safe: invoke serially (one feature at a time). For parallel
+work, parallelize the worker dispatch into the resulting worktrees, not
+the pi-feature-start invocations themselves. (v0.10.1)
+USAGE
+    exit 0
+fi
+[[ $# -eq 1 ]] || { echo "usage: pi-feature-start <feature-id> (use --help)" >&2; exit 1; }
 fid=$1
+
+# Bug fix v0.10.1: concurrency safety.
+# Multiple pi-feature-start invocations racing on the same repo will corrupt
+# the scaffold (each commits its own feature folder but races on
+# .git/index.lock; losers silently exit clean). Acquire an exclusive
+# repo-scoped lock so concurrent invocations serialize gracefully. Stored
+# under .git/ (never tracked) to avoid dirty-tree false positives.
+repo_for_lock=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+git_common=$(git rev-parse --git-common-dir 2>/dev/null || echo "$repo_for_lock/.git")
+if command -v flock >/dev/null 2>&1; then
+    mkdir -p "$git_common"
+    exec 9>"$git_common/.pi-feature-start.lock"
+    if ! flock -w 60 9; then
+        echo "ERROR: another pi-feature-start is holding the repo lock (waited 60s)." >&2
+        echo "  Concurrent pi-feature-start is not supported — invoke serially." >&2
+        exit 1
+    fi
+fi
 
 repo=$(repo_root)
 cd "$repo"

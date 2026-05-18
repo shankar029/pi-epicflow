@@ -82,7 +82,18 @@ kind=${kind:-feature}
 
 # Detect test command
 detect_test_cmd() {
-    if [[ -f "$repo/package.json" ]]; then echo "npm test"; return; fi
+    # v0.10.1: don't blindly emit 'npm test' — verify the test script exists.
+    # Real-world friction: many Vite/Next/CRA repos have package.json but no
+    # 'test' script (or have only 'test:unit' / 'test:e2e' etc.). Returning
+    # 'npm test' caused pi-feature-complete to bail with 'Missing script: test'.
+    if [[ -f "$repo/package.json" ]]; then
+        if command -v node >/dev/null 2>&1 && \
+           node -e 'process.exit(require("./package.json").scripts && require("./package.json").scripts.test ? 0 : 1)' 2>/dev/null; then
+            echo "npm test"; return
+        fi
+        # package.json present but no test script — skip silently (operator can set test_cmd).
+        return
+    fi
     if compgen -G "$repo/*.sln" > /dev/null || compgen -G "$repo/**/*.csproj" > /dev/null; then echo "dotnet test"; return; fi
     if [[ -f "$repo/pyproject.toml" || -f "$repo/setup.py" ]]; then echo "pytest"; return; fi
     if [[ -f "$repo/go.mod" ]]; then echo "go test ./..."; return; fi

@@ -6,6 +6,38 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.10.1] — 2026-05-18
+
+**Hotfix release. Three real-world friction bugs surfaced by stress-testing v0.10.0's parallel-execution + real-Playwright/Vite E2E claims on a fresh fixture.** The bugs existed before v0.10 (parallel-safety since v0.6, npm-test autodetect since v0.6) but had never been exercised because every prior dogfood epic ran serial + skipped autodetection. v0.11 backlog item "stress test parallel + E2E on real app" was pulled forward; results below.
+
+### Fixed
+
+- **`pi-feature-start` is now parallel-safe (HIGH).** Multiple concurrent `pi-feature-start <fid>` invocations on the same repo previously raced on `.git/index.lock` and silently left half-applied scaffolds (some worktrees not created, some feature folders uncommitted). Root cause: the script does `git add` + `git commit` on the epic branch with no cross-process synchronization. Fix: acquire an exclusive `flock` on `<git-common-dir>/.pi-feature-start.lock` for the duration of the script. Concurrent calls now serialize cleanly (`time` staircase ~0.4s → 0.8s → 1.2s per call). If `flock` is unavailable on the platform, the script falls through to the prior behavior — there is no hard dependency. Lock file lives under `.git/` so it never shows up as a dirty-tree false positive.
+- **`pi-feature-start` and `pi-feature-complete` now print real `--help` / `-h` text (LOW).** Previously these flags were treated as feature IDs and produced `ERROR: feature --help not found in decomposition.yaml`. Same UX shape as the v0.10.x backlog `pi-epic-init --help` bug; fixed at the same time.
+- **`pi-feature-complete` and `pi-epic-complete` no longer fail when `package.json` exists but has no `test` script (HIGH).** Real-world friction: many Vite / Next / CRA projects have `package.json` but ship `test:unit` / `test:e2e` instead of a top-level `test` script. v0.10.0 emitted `npm test` from `detect_test_cmd`, npm errored with `Missing script: "test"`, and the feature/epic halted. Fix: `detect_test_cmd` now uses `node -e 'process.exit(scripts.test ? 0 : 1)'` to verify the script exists before emitting `npm test`. If no script exists and no `test_cmd` is configured in `epic-config.yaml`, the test phase is silently skipped (operator opt-in via `test_cmd: "npm run test:unit"` or similar). v0.9-era behavior of detecting Cargo/Go/Python toolchains is unchanged.
+
+### Stress-test report (informs v0.11)
+
+Fixture: fresh Vite 5 + React 18 + TypeScript app at `/tmp/v010-stress` with 3 truly independent features (`products` / `search` / `footer` — no shared aggregator beyond pre-stubbed `App.tsx` to avoid L-053 serialization).
+
+**Verified working end-to-end:**
+- `parallel.max_workers: 3` decomposition validates clean.
+- After v0.10.1 fix #3, 3 parallel `pi-feature-start` calls serialize cleanly and all worktrees are created.
+- 3 concurrent `git commit`s across 3 separate worktrees — zero conflicts (the worktree pattern is the whole point and it holds).
+- 3 concurrent `pi-feature-complete` invocations: 2 squash-merge cleanly; the third correctly hits H6 halt (parallel-merge collision) with the documented recovery instructions. **This is correct behavior, not a bug.**
+- After rebase + retry, the third feature merges cleanly.
+- **Real Vite dev server lifecycle works:** E2E gate starts `npm run dev -- --port 5180` in background, polls `curl -fs http://localhost:5180`, runs the real `run_cmd` against the live server, and `pkill -f 'vite.*5180'` from `shutdown_cmd` properly kills the vite worker child processes (a system-level kill of just the npm parent would leak children).
+- **H11 halt path works with real vite:** intentional non-zero `run_cmd` produces `halt-h11-e2e-<UTC>.md` with command, exit code, output tail, and the `docs/recovery.md#r11-e2e-failure` link. Trap properly tears down vite even on the failure path (no leaked processes after halt).
+- `e2e-report.json` produced on success with stats / suites array (Playwright-shaped subset).
+
+**Did not exercise (deferred):**
+- Real Playwright browser binaries — fixture host (Ubuntu 26.04) is not in Playwright's supported-OS list, so the run_cmd substituted a Node-based HTTP-fetch E2E that hits the live Vite dev server. The pi-epicflow mechanism (start → ready_check → run_cmd → shutdown_cmd → exit-code-shaped halt) was exercised against a real bound network port and a real dev-server-spawned process tree, which is the framework-relevant surface. v0.11 will exercise Playwright proper on a supported OS.
+- `pi-feature-start` was always sequential in pre-v0.10.1 because nobody ever called it concurrently — the parallel feature was "parallel worker dispatch into already-created worktrees". This release makes concurrent invocation explicitly safe even though it wasn't the recommended workflow.
+
+### Deferred (operator workaround available)
+
+- **`yaml_get` mangles escaped quotes in complex `run_cmd` values.** Example: `run_cmd: "node -e \"process.exit(1)\""` round-trips with the inner `\"` becoming literal `\"` instead of `"`. Operator workaround: use single-quote outer + double-quote inner, or use a multi-line YAML block scalar (`run_cmd: |`). A proper YAML parser swap is on the v0.11 backlog (current parser is regex-based for zero-dependency reasons).
+
 ## [0.10.0] — 2026-05-18
 
 **Deliverables-contract release. Second consecutive dogfood epic shipped by pi-epicflow on its own codebase.** Seven features merged, linear history, APPROVE_EPIC at the L-043 gate with 0 hard / 3 soft findings. Reframes decomposition from "code increments" to "the contract for everything the epic ships."

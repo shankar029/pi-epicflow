@@ -360,7 +360,7 @@ const WhatsNew = () => (
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-3 mb-2">
             <span className="inline-flex items-center bg-amber-500/15 text-amber-300 text-xs font-bold font-mono px-3 py-1 rounded-full border border-amber-500/30 uppercase tracking-wider">
-              v0.10.0 · deliverables contract · second dogfood
+              v0.10.1 · stress-test hotfix · parallel + E2E verified
             </span>
           </div>
           <h3 className="text-xl md:text-2xl font-bold text-white tracking-tight mb-2">
