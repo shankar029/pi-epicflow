@@ -1,0 +1,12 @@
+# Per-feature structured fields. Updated by pi as work proceeds.
+id: F07-real-app-verification
+title: >
+state: in-progress
+branch: feat/deliverables-contract-v10/F07-real-app-verification
+worktree: "/home/shbs/code/experiments/pi-epicflow-F07"
+depends_on: [F01,F02,F03,F04,F05,F06]
+started: 2026-05-18
+updated: 2026-05-18
+merged_at: ""
+merge_commit_sha: ""
+last_halt: ""                     # filename of most recent halt-report
