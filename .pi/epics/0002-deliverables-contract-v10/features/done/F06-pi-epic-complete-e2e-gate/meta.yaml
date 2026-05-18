@@ -1,12 +1,12 @@
 # Per-feature structured fields. Updated by pi as work proceeds.
 id: F06-pi-epic-complete-e2e-gate
 title: >
-state: in-progress
+state: merged
 branch: feat/deliverables-contract-v10/F06-pi-epic-complete-e2e-gate
 worktree: "/home/shbs/code/experiments/pi-epicflow-F06"
 depends_on: [F01,F02]
 started: 2026-05-18
 updated: 2026-05-18
-merged_at: ""
-merge_commit_sha: ""
+merged_at: 2026-05-18
+merge_commit_sha: 9f1427b939d0d718d3764bf5aa2ed1f32ab0b7b1
 last_halt: ""                     # filename of most recent halt-report

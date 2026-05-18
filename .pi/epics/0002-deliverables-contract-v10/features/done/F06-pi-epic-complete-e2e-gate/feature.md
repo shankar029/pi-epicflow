@@ -34,25 +34,21 @@ the epic's `design.md` §4.
 
 ## 4. Plan (mandatory; fill BEFORE first edit)
 
-Worker must populate this section before making ANY code edits. Reviewer
-validates the diff against this plan. If reality diverges, log to
-`deviations.md` with rationale.
+See `plan.md` for full binding plan. Summary:
 
 **Files I will touch:**
-- `<path>` — <why>
+- `skills/epic-feature-workflow/scripts/pi-epic-complete` — E2E gate phase (~100 lines)
+- `skills/epic-feature-workflow/templates/epic-config.yaml` — inline comment on e2e: block
+- `docs/recovery.md` — R11 section
 
 **Files I will read for context (not edit):**
-- `<path>` — <why>
+- `skills/epic-feature-workflow/scripts/_common.sh` — yaml_get dotted-path support
 
-**AC interpretation (literal expected behavior per criterion):**
-- AC 1: <literal expected output / behavior — exact string, exact exit code, exact schema>
-- AC 2: ...
+**AC interpretation:** See plan.md §4.
 
-**Ambiguities (HALT with H1 if any are blocking):**
-- _(none)_  OR  - <question for orchestrator>
+**Ambiguities:** None (resolved in plan.md §6).
 
-**Anti-scope (explicitly NOT in this feature):**
-- _(none)_  OR  - <out-of-scope item, deferred to F0N>
+**Anti-scope:** See plan.md §5.
 
 ## 5. TODO checklist (optional)
 
@@ -61,13 +57,11 @@ validates the diff against this plan. If reality diverges, log to
 
 ## 6. Progress log (append-only, newest on top)
 
-<!-- Add new entries on top.
-
-### YYYY-MM-DD HH:MM
-- changes: <files touched>
-- why: <one-line rationale>
-- next: <what to pick up next session>
--->
+### 2026-05-18 02:30
+- changes: `pi-epic-complete` (+111 lines), `epic-config.yaml` (+2 comment lines), `docs/recovery.md` (+45 lines R11 section)
+- why: Implemented full E2E gate per plan.md §9
+- validation: bash -n pass, smoke-test 29/29, synthetic e2e success+failure+skip all verified
+- next: review and merge
 
 ## 7. Open questions
 
