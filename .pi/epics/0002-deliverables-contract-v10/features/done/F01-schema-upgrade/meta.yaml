@@ -1,12 +1,12 @@
 # Per-feature structured fields. Updated by pi as work proceeds.
 id: F01-schema-upgrade
-title: >
-state: in-progress
+title: Decomposition schema upgrade — optional deliverable fields
+state: merged
 branch: feat/deliverables-contract-v10/F01-schema-upgrade
 worktree: "/home/shbs/code/experiments/pi-epicflow-F01"
 depends_on: []                    # mirrored from decomposition.yaml
 started: 2026-05-18
 updated: 2026-05-18
-merged_at: ""
-merge_commit_sha: ""
+merged_at: 2026-05-18
+merge_commit_sha: 4a5e22a24766557b449fc2af20b0aaf0d5bb43ae
 last_halt: ""                     # filename of most recent halt-report
