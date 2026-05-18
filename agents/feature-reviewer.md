@@ -66,6 +66,22 @@ knowledge of how the worker got here. That independence is the point.
    - No stray TODOs, debug prints, commented-out blocks, half-finished code.
    - No accidental edits to unrelated files (lockfiles, configs, other
      features' code).
+   - **Mock honesty (soft — v0.10):** For each file in the feature's
+     `mock_fixtures` list, read the fixture AND the production code that
+     imports the real SDK. Flag fixtures whose response shapes don't
+     plausibly match the real API (hallucinated fields, missing required
+     fields, wrong nesting). This is a SOFT finding in v0.10 — note it
+     but do NOT block APPROVE solely on mock-shape mismatch.
+   - **E2E selector quality (soft — v0.10):** For each file in the
+     feature's `e2e_scenarios` list, flag fragile selectors: random class
+     names, deep xpath, text-only matches without role context. Prefer
+     `data-testid`, role-based (`getByRole`), or label-based
+     (`getByLabel`) selectors. This is a SOFT finding — note it but do
+     NOT block APPROVE solely on selector quality.
+
+   > **v0.11 roadmap note:** v0.11 may promote mock-honesty from soft to
+   > hard (blocking APPROVE). v0.10 is a calibration release — collect
+   > signal on false-positive rate before enforcing.
 4. **Spike-mode (only if `kind: spike`):**
    - The deliverable is a **decision artifact** in `deviations.md` AND in
      the spike's `feature.md` template (§3 Options, §5 Decision).

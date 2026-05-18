@@ -111,6 +111,31 @@ file:line evidence:
   matching `Destroy*` / `Close*` / `Dispose*` / `Free*` / `release*`
   in the diff. Asymmetry → finding.
 
+### E2E coverage rate
+
+When the file `tests/e2e-report.json` (or `.pi/epics/<id>/e2e-report.json`)
+exists, read it and report:
+
+- Total declared `e2e_scenarios` across all features (from
+  `decomposition.yaml`).
+- Passing scenarios (from the report's results).
+- Failing scenarios (list names + owning feature).
+- Skipped scenarios (with `e2e_skip_reason` if declared).
+- Features whose declared scenarios are **missing** from the run entirely
+  (declared in decomposition but absent from the report).
+
+If the file is absent (e.g. `e2e.enabled: false` in `epic-config.yaml`),
+write "N/A — e2e-report.json not present (e2e gate not enabled)" and skip
+this check. Do NOT treat absence as a finding.
+
+This is an informational rubric item in v0.10 — report the numbers but do
+not escalate coverage gaps to a hard finding unless the gap is extreme
+(>50% of declared scenarios missing from the run with no skip reason).
+
+> **v0.11 roadmap note:** v0.11 may promote mock-honesty from soft to
+> hard and tighten E2E coverage thresholds. v0.10 is a calibration
+> release — collect signal before enforcing.
+
 ### 3. Design-trace table
 
 For each `##` section of `design.md` (including every `## Extension —`
