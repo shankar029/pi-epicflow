@@ -6,6 +6,42 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.12.0-dev] — in progress
+
+**Native Windows support via PowerShell.** Phased rollout; see [`PLAN-v0.12.0.md`](PLAN-v0.12.0.md) for full plan + parity rules.
+
+### Phase 2 — feature loop (this commit)
+
+- **`pi-feature-start.ps1`** (445 lines) — full PowerShell port of `pi-feature-start`. Same CLI surface, same exit codes, same commit messages, same L-019/L-023 scaffold-first-branch-second ordering. **Concurrency safety**: replaces bash `flock` with `[System.Threading.Mutex]` keyed off a SHA1 of `git-common-dir` (16-char hex → mutex name). Same 60s wait, same "another invocation holding the lock" message. Worktree path computed via `Resolve-Path` + `Join-Path` (no shell expansion).
+- **`pi-feature-complete.ps1`** (484 lines) — full PowerShell port of `pi-feature-complete`. All 4 gates ported: test command (with `Get-DetectedTestCmd` covering Node/.NET/Python/Go/Rust), completion-evidence (`worker-report.md` `## Completion evidence` section), v0.10/L-056 declared-deliverables, parallel-merge **H6 conflict classifier** (in-scope vs out-of-scope based on `scope_files` declarations, with deviations.md auto-append). Test command invocation goes through `cmd.exe /c $testCmd` so `npm test`, `pytest`, etc. work without quoting hell. Squash commit message built in a temp file, `--allow-empty` for spike features (L-023).
+- **`pi-epic-next-feature.ps1`** (170 lines) — full PowerShell port. State machine identical to bash: halted → HALT, all-merged → DONE, in-progress → resume that one first, otherwise pick lowest-id ready (deterministic). `--batch N` mode preserved with L-049 scope-overlap pre-check.
+- **`Add-RunLogEntry` / `ConvertTo-JsonString` (in `_common.ps1`)** — fixed a real bug found during dogfood: Windows paths embedded directly into JSON via string interpolation produce invalid JSON (`\U`, `\s`, etc. are not valid JSON escape sequences). Added `ConvertTo-JsonString` (RFC 8259 escaping: `\`, `"`, control chars → `\uXXXX`) and wired it into `pi-feature-start.ps1`'s worktree-path embedding. **Bash sibling has the same latent bug on Windows paths** — it just doesn't manifest in normal Linux/macOS use. Tracked as Phase 4 follow-up.
+- **`Get-FeatureDeclaredDeliverables`** — stub from Phase 1 replaced with full inline-Python implementation matching `_common.sh::feature_declared_deliverables` output format (`e2e:<path>`, `mock:<path>`, `doc:<path>`, `changelog:CHANGELOG.md`). Will move to shared `lib/yaml_helpers.py` in Phase 3a.
+
+### Phase 2 dogfood (validated on actual Windows host via WSL → powershell.exe)
+
+Clean Windows repo: `git init -b main` → `pi-epic-init p2full` → install `decomposition.yaml` (F01 + F02 with `F02 depends_on: [F01]`) → `pi-epic-next-feature` returns `F01` → `pi-feature-start F01` (worktree + branch + scaffold) → worker writes `hello.txt` in worktree + `worker-report.md` with `## Completion evidence` in main repo → `pi-feature-complete F01` (test command auto-detected, evidence check passes, squash-merge as `feat(F01)`, branch + worktree removed, folder archived to `features/done/`, run-log entry written) → `pi-epic-next-feature` returns `F02` (dependency now satisfied) → same loop for F02 → `pi-epic-next-feature` returns `DONE`. All 5 `run-log.jsonl` entries are valid JSON (verified via `ConvertFrom-Json`). Final epic log has the exact 10-commit sequence parity with bash: scaffold → pending-edits → scaffold-F01 → feat(F01) → archive-F01 → scaffold-F02 → feat(F02) → archive-F02 plus the initial 2 setup commits.
+
+### Phase 1 — install + foundation
+
+- **`install/postinstall.mjs`** now branches on `process.platform`. POSIX: symlinks bash scripts from `skills/epic-feature-workflow/scripts/` into `BIN_DST` (unchanged). Windows: writes `pi-<name>.cmd` shims into `BIN_DST` that exec the PowerShell sibling with `-NoProfile -ExecutionPolicy Bypass -File <abs-path> %*` — so corporate Restricted policies are not a blocker. Shims carry a `pi-epicflow-shim v1` marker line so subsequent installs only overwrite our own files.
+- **`skills/epic-feature-workflow/scripts-win/_common.ps1`** — full PowerShell port of `_common.sh`. Public surface: `Get-RepoRoot`, `Get-SkillRoot`, `Get-DefaultBranch`, `Get-ActiveEpicId`, `Get-ActiveEpicDir`, `Get-ActiveFeatureId`, `Get-NextEpicId`, `ConvertTo-Slug`, `Get-YamlValue`, `Update-YamlUpdated`, `Set-YamlValue`, `Get-FeatureDeclaredDeliverables` (stub until Phase 3a Python extraction), `Add-RunLogEntry`, `Assert-NotDefaultBranch`, `Write-Log`, `Get-UserLessonsPath`, `Initialize-UserLessons`, `Add-UserLessonsFromCandidate`, `Get-PiEpicflowClone`, `Get-PiEpicflowAgeDays`, `Get-PiEpicflowVersion`. PowerShell-only helpers: `Get-PythonExe` (auto-skips the Windows Store stub), `Get-FileContentLF`, `Set-FileContentLF`, `Add-FileLineLF`, `Ensure-FileLine` — the last four enforce LF line endings everywhere we write to disk (parity rule #6 — keeps `.pi/` diffs noise-free across platforms).
+- **`skills/epic-feature-workflow/scripts-win/pi-epic-init.ps1`** — full PowerShell port of `pi-epic-init`. Same CLI surface (`--from`, `--title`, `--base`, `--no-planner`), same flag parsing rules (bash-style `--flag value`), same exit codes, same commit messages (`chore: ignore pi runtime state …`, `chore(epic): scaffold <id>`), same `.gitignore` patterns including the L-012 / L-026 / L-040 belts, same STATE.md format, same `Next steps (in pi)` footer pointing at `/epic-design`. Detects dedicated-epic-worktree mode the same way.
+- **`skills/epic-feature-workflow/scripts-win/pi-epicflow-doctor.ps1`** — read-only health report. Mirrors the bash doctor's runtime / skills / user-lessons / active-epic / tools sections, plus a new **Windows-specific** block: PowerShell version (≥ 5.1 required), effective `ExecutionPolicy` (Bypass via .cmd shim makes Restricted policy non-blocking — informational only), `git config core.longpaths`, `git config core.symlinks`, Python detection (with the Windows Store stub auto-skipped). Bash availability is informational only — not required on Windows.
+- **`PLAN-v0.12.0.md`** added — four-phase plan with explicit dogfood checkpoints, decisions log, parity rules, risks. Phase 2 (feature loop), Phase 3 (epic lifecycle + Python helper extraction), Phase 4 (contract tests + Windows CI) tracked there.
+- **README compatibility section** rewritten. New "Windows-specific setup" subsection covers Git for Windows, Python install (avoid Store stub), `core.longpaths`, and the doctor verification step. Old "WSL only" line removed.
+
+### Not yet ported (deferred to later v0.12.0 phases)
+
+The PowerShell sibling does not yet exist for: `pi-epic-status`,
+`pi-epic-validate-decomposition`, `pi-epic-complete`, `pi-epic-extend`
+(Phase 3). `pi-epicflow-doctor` flags each missing port as a warning so
+users know what's available. Contract tests + Windows CI runner land in
+Phase 4. As of v0.12.0 Phase 2, the **complete feature loop** works
+natively on Windows; only the epic-finalization layer (status reports,
+decomposition validation, epic-complete PR creation) still requires
+Linux/macOS or WSL.
+
 ## [0.11.0] — 2026-05-20
 
 **Adds `/epic-design` and `/epic-review-design` slash prompts so pi can co-author `design.md` in the right place — closing the gap between `pi-epic-init` and `/epic-decompose`.** Previously a fresh pi chat had no idea where `design.md` lived or that pi-epicflow was even in the room; the user had to write the design out-of-band and copy it in. Lean v1: solve the path/context problem with light structure, keep the heavyweight unbiased-critic review as a separate opt-in pass.
