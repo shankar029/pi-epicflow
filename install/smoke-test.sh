@@ -208,11 +208,28 @@ printf '\n# Decision\nOption A, see deviations.md.\n' \
 
 pi-feature-complete S01 --skip-tests > /dev/null
 
-if git log --oneline -5 epic/spike-smoke | grep -q 'feat(S01)'; then
-  pass "spike squash-merge commit landed on epic"
+# Robust spike-completion check: read merge_commit_sha from the archived
+# meta.yaml (written synchronously by pi-feature-complete) and verify the
+# commit actually exists on the epic branch via `git cat-file`. Replaces a
+# `git log --oneline -5 | grep` pipe that flaked ~25% of the time on fresh
+# clones (git 2.53, ext4) — the commit landed correctly but the post-mortem
+# `git log` occasionally missed it. The file-based path asserts the same
+# contract ("the spike squash-merge landed and is reachable from epic")
+# without depending on git ref-cache propagation timing.
+meta_arch=".pi/epics/$SPIKE_EPIC/features/done/S01-pick-algo/meta.yaml"
+if [[ -f "$meta_arch" ]]; then
+  spike_sha=$(grep '^merge_commit_sha:' "$meta_arch" | sed 's/.*: *//')
+  if [[ -n "$spike_sha" ]] && git cat-file -t "$spike_sha" >/dev/null 2>&1 \
+     && git merge-base --is-ancestor "$spike_sha" epic/spike-smoke; then
+    pass "spike squash-merge commit landed on epic ($spike_sha)"
+  else
+    echo "  meta merge_commit_sha: '$spike_sha'" >&2
+    echo "  epic log:" >&2; git log --oneline -5 epic/spike-smoke >&2
+    fail "spike squash-merge missing"
+  fi
 else
-  echo "  epic log:" >&2; git log --oneline -5 epic/spike-smoke >&2
-  fail "spike squash-merge missing"
+  echo "  meta_arch not found: $meta_arch" >&2
+  fail "spike squash-merge missing (archived meta.yaml absent)"
 fi
 [ -d ".pi/epics/$SPIKE_EPIC/features/done/S01-pick-algo" ] && pass "spike archived to done/" \
   || fail "spike not archived"
