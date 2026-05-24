@@ -1,0 +1,69 @@
+name: smoke
+
+on:
+  push:
+    branches: [main, 'v0.*-dev', 'v0.*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  smoke-linux:
+    name: smoke (ubuntu, bash)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure git identity
+        run: |
+          git config --global user.email "ci@local"
+          git config --global user.name "CI Smoke"
+          git config --global init.defaultBranch main
+
+      - name: Install Node (for postinstall step in smoke phase 24)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install gh CLI tooling expectations
+        # gh is preinstalled on ubuntu-latest; just verify so missing-gh
+        # doesn't masquerade as a logic failure.
+        run: gh --version || echo "gh not on PATH (smoke tolerates this)"
+
+      - name: Run bash smoke test
+        run: bash install/smoke-test.sh
+
+  smoke-windows:
+    name: smoke (windows, pwsh)
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure git identity + long paths
+        shell: pwsh
+        run: |
+          git config --global user.email "ci@local"
+          git config --global user.name "CI Smoke"
+          git config --global init.defaultBranch main
+          git config --global core.longpaths true
+          git config --global core.autocrlf false
+
+      - name: Show PowerShell + Python versions
+        shell: pwsh
+        run: |
+          $PSVersionTable.PSVersion
+          python --version
+          git --version
+
+      - name: Run PowerShell smoke test
+        shell: pwsh
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File install\smoke-test.ps1
+
+      - name: Run PowerShell smoke test (Windows PowerShell 5.1)
+        # Belt-and-suspenders: also exercise the legacy PS 5.1 host that
+        # ships with every Windows box. If pi-epicflow's PS code drifts
+        # to PS 7-only syntax this will catch it before users do.
+        shell: powershell
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File install\smoke-test.ps1

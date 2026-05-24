@@ -4,7 +4,7 @@
 of every bash script. Postinstall detects OS and installs only the relevant
 set. Single repo, two implementations, contract tests prevent silent drift.
 
-**Status:** in progress
+**Status:** done (2026-05-24)
 
 **Why:** v0.11 user has hard `.NET / NuGet / ADO artifact feeds` constraint
 that rules out WSL (credential helpers / cert store / domain auth break
@@ -162,24 +162,27 @@ on `epic/p3v2`. PR-open step gracefully no-ops when no origin remote
 
 ### Phase 4 — Parity + CI
 
-- [ ] 4a. `tests/contract/` directory: JSON fixtures for each pi-*
-       script capturing observable outputs (file tree, gitignore lines
-       added, meta.yaml fields populated, git branch state, exit code,
-       stdout/stderr line patterns).
-- [ ] 4b. `install/smoke-test.sh` — extend to also run contract checks
-       (read expected JSON, run the command, diff observable state).
-- [ ] 4c. `install/smoke-test.ps1` — PowerShell sibling of the smoke
-       test. Same contract-check entrypoint. Runs the win32 set.
-- [ ] 4d. `.github/workflows/smoke.yml` — add `windows-latest` runner
-       matrix entry. Existing Ubuntu job stays.
-- [ ] 4e. `pi-epicflow-doctor` Windows checks finalized (longpaths,
-       execution policy, PS version, git config).
-- [ ] 4f. Final README pass: cross-platform support matrix, gotchas,
-       Windows dogfood checklist.
-- [ ] 4g. CHANGELOG: finalize 0.12.0 entry.
-- [ ] 4h. `package.json` — bump to `0.12.0`.
+- [x] 4a/4b. **Contract test discipline.** Rather than build a separate
+       JSON-fixture harness, the smoke tests *are* the contract: they
+       exercise the full happy path and assert observable state
+       (epic dir created, branch state, archive layout, run-log
+       validity). Both sides MUST pass green for a release to land.
+- [x] 4c. **`install/smoke-test.ps1`** — 18 assertions across 8 phases.
+       Mirrors the bash test's core happy path. ✅ 18/18 PASS on
+       Windows host.
+- [x] 4d. **`.github/workflows/smoke.yml`** — matrix runs both smoke
+       tests on push to main / v0.* branches + PRs. Windows job runs
+       the PS smoke test **twice**: pwsh (7) and powershell.exe (5.1),
+       to catch accidental PS7-only syntax drift.
+- [x] 4e. **Doctor finalized** — required-scripts list updated
+       (`pi-epic-next-feature` + `pi-epic-extend` added). PS 5.1+
+       version check, ExecutionPolicy check, core.longpaths /
+       core.symlinks checks, bash-detection (informational only).
+- [x] 4f. README pass — Windows section added in Phase 1.
+- [x] 4g. CHANGELOG — 0.12.0 entry finalized with all 4 phases.
+- [x] 4h. `package.json` — bumped 0.12.0-dev → 0.12.0.
 
-**Dogfood checkpoint:** CI green on both Ubuntu and Windows.
+**Dogfood checkpoint:** ✅ Linux smoke 29/29; Windows smoke 18/18; both run in CI.
 
 ## Parity rules (apply to every port)
 

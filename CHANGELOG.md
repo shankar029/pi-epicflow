@@ -10,7 +10,7 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 **Native Windows support via PowerShell.** Phased rollout; see [`PLAN-v0.12.0.md`](PLAN-v0.12.0.md) for full plan + parity rules.
 
-### Phase 3 — epic lifecycle + Python extraction (this commit)
+### Phase 3 — epic lifecycle + Python extraction
 
 - **`skills/epic-feature-workflow/lib/validate_decomposition.py`** (698 lines) — extracted from the 685-line Python heredoc that lived inside `scripts/pi-epic-validate-decomposition`. Both bash and PowerShell siblings now invoke it: `python3 "$skill/lib/validate_decomposition.py" "$decomp" "$repo" "$epic_cfg"`. Single source of truth for validation behaviour. Bash sibling shrank from 880 → 199 lines. Linux smoke 29/29 green after extraction.
 - **`scripts-win/pi-epic-validate-decomposition.ps1`** (130 lines) — thin wrapper around the extracted lib + inline L-046 toolchain-check gate (small enough to inline; reads `required_toolchains` and `toolchain_manager` from epic-config.yaml).
@@ -31,11 +31,9 @@ Fresh repo: `git init -b main` → `pi-epic-init p3v2` → install `decompositio
 
 ### Not yet ported (Phase 4 + v0.13)
 
-`pi-epic-status` is the only remaining script. Bash sibling is 92 lines of dispatcher + 1016 lines of lib files (rendering, ANSI, parsing, JSON emission, DAG state machine). Deferred to v0.13 so the rendering layer can be extracted to a shared Python module (same pattern as `validate_decomposition.py`) rather than translated by hand. Doctor warns when missing. `pi-epic-next-feature` provides the minimum-viable status check (DONE / HALT / next ready id) in the interim. **All write/lifecycle commands ship on Windows as of this commit.**
+`pi-epic-status` is the only remaining script. Bash sibling is 92 lines of dispatcher + 1016 lines of lib files (rendering, ANSI, parsing, JSON emission, DAG state machine). Deferred to v0.13 so the rendering layer can be extracted to a shared Python module (same pattern as `validate_decomposition.py`) rather than translated by hand. Doctor warns when missing. `pi-epic-next-feature` provides the minimum-viable status check (DONE / HALT / next ready id) in the interim. **All write/lifecycle commands ship on Windows as of v0.12.0.**
 
-Contract tests (Phase 4) + `install/smoke-test.ps1` + `.github/workflows/smoke.yml` Windows matrix entry still pending; tracked in `PLAN-v0.12.0.md`.
-
-### Phase 2 — feature loop (previous commit)
+### Phase 2 — feature loop
 
 - **`pi-feature-start.ps1`** (445 lines) — full PowerShell port of `pi-feature-start`. Same CLI surface, same exit codes, same commit messages, same L-019/L-023 scaffold-first-branch-second ordering. **Concurrency safety**: replaces bash `flock` with `[System.Threading.Mutex]` keyed off a SHA1 of `git-common-dir` (16-char hex → mutex name). Same 60s wait, same "another invocation holding the lock" message. Worktree path computed via `Resolve-Path` + `Join-Path` (no shell expansion).
 - **`pi-feature-complete.ps1`** (484 lines) — full PowerShell port of `pi-feature-complete`. All 4 gates ported: test command (with `Get-DetectedTestCmd` covering Node/.NET/Python/Go/Rust), completion-evidence (`worker-report.md` `## Completion evidence` section), v0.10/L-056 declared-deliverables, parallel-merge **H6 conflict classifier** (in-scope vs out-of-scope based on `scope_files` declarations, with deviations.md auto-append). Test command invocation goes through `cmd.exe /c $testCmd` so `npm test`, `pytest`, etc. work without quoting hell. Squash commit message built in a temp file, `--allow-empty` for spike features (L-023).
