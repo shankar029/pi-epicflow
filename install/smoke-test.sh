@@ -1327,12 +1327,23 @@ if [ ! -f "$REPO_ROOT/install/postinstall.mjs" ]; then
     fail "L-050: postinstall.mjs not found at $REPO_ROOT/install/postinstall.mjs"
 fi
 
+# Locate node before the test deliberately strips PATH. In CI (GitHub Actions
+# setup-node@v4), node lives at /opt/hostedtoolcache/node/.../bin/node, not in
+# /usr/bin, so we must capture the resolved path here and invoke it directly
+# below. Otherwise CI hits `node: command not found` and the agent-copy check
+# false-positives. Outside CI, `which node` returns /usr/bin/node which works
+# either way.
+NODE_BIN=$(command -v node 2>/dev/null || true)
+if [ -z "$NODE_BIN" ]; then
+    fail "L-050: node not on PATH; cannot exercise postinstall.mjs"
+fi
+
 # Run postinstall against the temp dirs
 PI_EPICFLOW_AGENTS_DIR="$L50_DIR/agents" \
     PI_EPICFLOW_BIN_DIR="$L50_DIR/bin" \
     PKG_ROOT="$REPO_ROOT" \
     PATH="/usr/bin:/bin" \
-    node "$REPO_ROOT/install/postinstall.mjs" > /tmp/pe-l50.log 2>&1 || true
+    "$NODE_BIN" "$REPO_ROOT/install/postinstall.mjs" > /tmp/pe-l50.log 2>&1 || true
 
 # Every .md in agents/ in the repo must land at the destination
 missing=""
