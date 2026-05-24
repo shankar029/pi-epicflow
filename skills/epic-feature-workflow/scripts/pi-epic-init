@@ -243,9 +243,10 @@ cat <<EOF
   Folder: $epic_dir
   Branch: epic/$slug (off $def)
 
-Next steps:
-  1. Co-design with pi: edit $epic_dir/design.md
-  2. Pi proposes decomposition: $epic_dir/decomposition.yaml
-  3. You approve, then: pi-epic-run
+Next steps (in pi):
+  1. /epic-design          → co-author $epic_dir/design.md with pi (or edit directly)
+  2. /epic-review-design   → (optional) unbiased critic pass before decomposition
+  3. /epic-decompose       → pi proposes $epic_dir/decomposition.yaml
+  4. /epic-run-auto        → ship every feature, open the PR
 
 EOF

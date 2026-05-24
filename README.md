@@ -58,6 +58,18 @@ decomposing the next one.
                                     │
                                     ▼
                           ┌───────────────┐
+                          │ /epic-design    │    pi co-authors design.md
+                          │ (in-place)      │    in `.pi/epics/<id>/`
+                          └────────┬────────┘    ingests BRDs first,
+                                   │             gist→approve→write
+                                   ▼
+                          ┌───────────────┐
+                          │ /epic-review-   │   (optional) unbiased
+                          │   design        │    critic sub-agent pass
+                          └────────┬────────┘    before decomposition
+                                   │
+                                   ▼
+                          ┌───────────────┐
                           │ /epic-decompose │    pi proposes 3–7 features
                           │ (one turn)      │    with deps, scope, ACs
                           └────────┬────────┘    you approve once
@@ -332,11 +344,13 @@ pi
 Then in the pi chat:
 
 ```
+/epic-design             # pi co-authors design.md in-place (ingests BRDs first, gist→approve→write)
+/epic-review-design      # (optional) unbiased critic sub-agent pass
 /epic-decompose          # pi proposes features, you approve, pi writes + validates + commits
 /epic-run-auto           # pi ships every feature, runs the reviewer, opens the PR
 ```
 
-That's the whole workflow. Three commands, no file paths to memorize.
+That's the whole workflow. Four commands (three if you skip the critic), no file paths to memorize.
 
 `/epic-run-auto` is **self-bootstrapping**: if you skip `/epic-decompose`,
 it'll run that flow first automatically. Pass `--no-bootstrap` to force a
@@ -673,12 +687,42 @@ rm ~/.pi/agent/agents/feature-worker.md ~/.pi/agent/agents/feature-reviewer.md ~
   loader).
 - **node** ≥ 18 (postinstall script uses `node:fs`, ESM, top-level await).
 - **git** ≥ 2.20 (`git worktree`).
-- **bash** ≥ 4.x (parameter expansion, arrays).
-- **python3** ≥ 3.6 (YAML edits in `pi-feature-start` — no PyYAML, just
-  stdlib).
-- **OS:** tested on Linux. Should work on macOS. Windows: WSL only.
+- **python3** ≥ 3.8 (YAML helpers + validation; stdlib only).
+- **Shell:**
+  - Linux / macOS: **bash** ≥ 4.x. Scripts in `skills/epic-feature-workflow/scripts/`.
+  - Windows: **PowerShell** ≥ 5.1 (preinstalled). PowerShell-native
+    siblings in `skills/epic-feature-workflow/scripts-win/`. WSL is
+    *not* required and not recommended for .NET / NuGet / ADO feed
+    workflows. The postinstall detects `process.platform === "win32"`
+    and installs `pi-<name>.cmd` shims into `BIN_DST` that exec the
+    `.ps1` with `-ExecutionPolicy Bypass`, so corporate Restricted
+    policies are not a blocker. **Status:** v0.12.0 ships Phase 1
+    (init + doctor); see `PLAN-v0.12.0.md` for phase rollout.
+- **OS:** Linux ✅, macOS ✅ (best-effort — same bash scripts), Windows ✅
+  (native PowerShell, as of v0.12.0).
 - **Auto mode** additionally requires `pi-subagents` ≥ 0.24.
   `pi-intercom` is optional but improves the in-chat prompts.
+
+### Windows-specific setup
+
+1. Install Git for Windows (≥ 2.20) — ships with the `git` binary.
+2. Install Python ≥ 3.8 from <https://www.python.org/downloads/windows/>
+   (the Windows Store stub is auto-detected and skipped; install the
+   real interpreter).
+3. Recommended one-time git config for the per-feature worktrees:
+   ```powershell
+   git config --global core.longpaths true
+   ```
+   Also enable Windows long-path support system-wide via
+   `HKLM\SYSTEM\CurrentControlSet\Control\FileSystem\LongPathsEnabled = 1`
+   (or Group Policy: *Computer Configuration → Administrative Templates
+   → System → Filesystem → Enable Win32 long paths*).
+4. Run `pi install git:github.com/shankar029/pi-epicflow` from any
+   PowerShell or `cmd.exe`. The postinstall picks the Windows scripts
+   automatically.
+5. Verify with `pi-epicflow-doctor` — it runs Windows-specific checks
+   (PowerShell version, ExecutionPolicy, `core.longpaths`, etc.) and
+   prints actionable hints for anything missing.
 
 ---
 

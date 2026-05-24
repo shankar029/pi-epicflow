@@ -87,9 +87,10 @@ rather than at the underlying scripts.
 
 ```
    ┌────────────────────────┐
-   │ user + pi co-design    │   pi-epic-init
-   │ design.md              │   pi reads global lessons.md
-   └──────────┬─────────────┘
+   │ user + pi co-design    │   pi-epic-init  →  /epic-design
+   │ design.md              │   (pi reads global lessons.md,
+   │                        │    ingests BRDs, gist→approve→write)
+   └──────────┬─────────────┘   /epic-review-design (optional critic)
               │
               ▼
    ┌────────────────────────┐

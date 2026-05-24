@@ -6,6 +6,89 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.12.0-dev] — in progress
+
+**Native Windows support via PowerShell.** Phased rollout; see [`PLAN-v0.12.0.md`](PLAN-v0.12.0.md) for full plan + parity rules.
+
+### Phase 3 — epic lifecycle + Python extraction
+
+- **`skills/epic-feature-workflow/lib/validate_decomposition.py`** (698 lines) — extracted from the 685-line Python heredoc that lived inside `scripts/pi-epic-validate-decomposition`. Both bash and PowerShell siblings now invoke it: `python3 "$skill/lib/validate_decomposition.py" "$decomp" "$repo" "$epic_cfg"`. Single source of truth for validation behaviour. Bash sibling shrank from 880 → 199 lines. Linux smoke 29/29 green after extraction.
+- **`scripts-win/pi-epic-validate-decomposition.ps1`** (130 lines) — thin wrapper around the extracted lib + inline L-046 toolchain-check gate (small enough to inline; reads `required_toolchains` and `toolchain_manager` from epic-config.yaml).
+- **`scripts-win/pi-epic-complete.ps1`** (484 lines) — full PowerShell port. All gates preserved: E2E (with `Start-Process` replacing bash `&` + `trap`, polling `ready_check` via `cmd.exe /c`, halt-h11 file on timeout or non-zero exit), **L-043 epic-review gate** (refuses to archive without an APPROVE_EPIC verdict in `epic-review.md`), **L-042 extension guardrails** (warns at ≥1 extension, hard-halts at ≥30% growth without recorded decomposition lesson), `git rebase` onto default branch, full test suite (`Get-DetectedTestCmd2` covers Node/.NET/Python/Go/Rust), deviations → lessons-candidate.md distillation, push + PR via `gh pr create` (gracefully skips on missing `origin` per L-052), archive to `.pi/epics/done/` via `git mv`, STATE.md reset, `--contribute-lesson L-XYZ` extraction mode.
+- **`scripts-win/pi-epic-extend.ps1`** (270 lines) — full port. Locates epic in active or archived path, refuses merged epics, un-archives via `git mv`, records `original_feature_count` snapshot for L-042 growth check, flips meta.yaml status → in-progress, appends extension entry + design.md `## Extension - YYYY-MM-DD: <title>` section (with `--design FILE` body or editable stub), STATE.md update, run-log entry, single squash commit on epic branch.
+- **`scripts-win/pi-epicflow-doctor.ps1`** updated — required scripts list expanded to include `pi-epic-next-feature` + `pi-epic-extend`; documented `pi-epic-status` as a known v0.13 gap.
+
+### Phase 3 dogfood (validated on actual Windows host)
+
+Fresh repo: `git init -b main` → `pi-epic-init p3v2` → install `decomposition.yaml` with `estimated_hours: 2` (required field caught by the validator) → `pi-epic-validate-decomposition` exits 0 → `pi-feature-start F01` → worker writes file + worker-report.md → `pi-feature-complete F01` → `pi-epic-next-feature` returns DONE → write APPROVE_EPIC `epic-review.md` (L-043 gate satisfied) → `pi-epic-complete --no-pr` archives epic to `.pi/epics/done/0001-p3v2/`, distills `lessons-candidate.md`, appends to `~/.pi/epicflow/user-lessons.md`, resets STATE.md, exit 0 → `pi-epic-extend 0001-p3v2 --rationale "..." --title "..."` un-archives, records `original_feature_count=1`, appends `## Extension - 2026-05-24: Verification phase` to design.md, writes new run-log entry, single `chore(epic): extend 0001-p3v2 #1 - Verification phase` commit on epic branch, exit 0. All run-log.jsonl entries valid JSON.
+
+### Phase 3 bugs found + fixed during dogfood
+
+1. **`Get-FileContentLF $f -split "\n"` parser-precedence bug.** PowerShell parsed `-split` as a parameter to the function, not the operator. Fixed by wrapping the function call in parens. Caught in `pi-epic-complete.ps1` and `pi-epic-extend.ps1`.
+2. **`Add-UserLessonsFromCandidate -CandidatePath` parameter mismatch.** The function in `_common.ps1` declares `-Candidate` (no `Path` suffix). Renamed call site to match.
+3. **`git fetch --quiet origin $def 2>$null | Out-Null` didn't suppress stderr** because `2>$null` only catches PowerShell errors, not native stderr. Switched to `2>&1 | Out-Null`.
+4. **PowerShell drops trailing empty-string arguments to native commands.** `pi-epic-extend`'s inline Python expected 6 args but got 5 when `--design` was omitted. Fixed in Python: pad `sys.argv[1:]` with empty strings before unpacking. Same pattern needed for any future PS → Python heredoc with optional trailing args.
+
+### Not yet ported (Phase 4 + v0.13)
+
+`pi-epic-status` is the only remaining script. Bash sibling is 92 lines of dispatcher + 1016 lines of lib files (rendering, ANSI, parsing, JSON emission, DAG state machine). Deferred to v0.13 so the rendering layer can be extracted to a shared Python module (same pattern as `validate_decomposition.py`) rather than translated by hand. Doctor warns when missing. `pi-epic-next-feature` provides the minimum-viable status check (DONE / HALT / next ready id) in the interim. **All write/lifecycle commands ship on Windows as of v0.12.0.**
+
+### Phase 2 — feature loop
+
+- **`pi-feature-start.ps1`** (445 lines) — full PowerShell port of `pi-feature-start`. Same CLI surface, same exit codes, same commit messages, same L-019/L-023 scaffold-first-branch-second ordering. **Concurrency safety**: replaces bash `flock` with `[System.Threading.Mutex]` keyed off a SHA1 of `git-common-dir` (16-char hex → mutex name). Same 60s wait, same "another invocation holding the lock" message. Worktree path computed via `Resolve-Path` + `Join-Path` (no shell expansion).
+- **`pi-feature-complete.ps1`** (484 lines) — full PowerShell port of `pi-feature-complete`. All 4 gates ported: test command (with `Get-DetectedTestCmd` covering Node/.NET/Python/Go/Rust), completion-evidence (`worker-report.md` `## Completion evidence` section), v0.10/L-056 declared-deliverables, parallel-merge **H6 conflict classifier** (in-scope vs out-of-scope based on `scope_files` declarations, with deviations.md auto-append). Test command invocation goes through `cmd.exe /c $testCmd` so `npm test`, `pytest`, etc. work without quoting hell. Squash commit message built in a temp file, `--allow-empty` for spike features (L-023).
+- **`pi-epic-next-feature.ps1`** (170 lines) — full PowerShell port. State machine identical to bash: halted → HALT, all-merged → DONE, in-progress → resume that one first, otherwise pick lowest-id ready (deterministic). `--batch N` mode preserved with L-049 scope-overlap pre-check.
+- **`Add-RunLogEntry` / `ConvertTo-JsonString` (in `_common.ps1`)** — fixed a real bug found during dogfood: Windows paths embedded directly into JSON via string interpolation produce invalid JSON (`\U`, `\s`, etc. are not valid JSON escape sequences). Added `ConvertTo-JsonString` (RFC 8259 escaping: `\`, `"`, control chars → `\uXXXX`) and wired it into `pi-feature-start.ps1`'s worktree-path embedding. **Bash sibling has the same latent bug on Windows paths** — it just doesn't manifest in normal Linux/macOS use. Tracked as Phase 4 follow-up.
+- **`Get-FeatureDeclaredDeliverables`** — stub from Phase 1 replaced with full inline-Python implementation matching `_common.sh::feature_declared_deliverables` output format (`e2e:<path>`, `mock:<path>`, `doc:<path>`, `changelog:CHANGELOG.md`). Will move to shared `lib/yaml_helpers.py` in Phase 3a.
+
+### Phase 2 dogfood (validated on actual Windows host via WSL → powershell.exe)
+
+Clean Windows repo: `git init -b main` → `pi-epic-init p2full` → install `decomposition.yaml` (F01 + F02 with `F02 depends_on: [F01]`) → `pi-epic-next-feature` returns `F01` → `pi-feature-start F01` (worktree + branch + scaffold) → worker writes `hello.txt` in worktree + `worker-report.md` with `## Completion evidence` in main repo → `pi-feature-complete F01` (test command auto-detected, evidence check passes, squash-merge as `feat(F01)`, branch + worktree removed, folder archived to `features/done/`, run-log entry written) → `pi-epic-next-feature` returns `F02` (dependency now satisfied) → same loop for F02 → `pi-epic-next-feature` returns `DONE`. All 5 `run-log.jsonl` entries are valid JSON (verified via `ConvertFrom-Json`). Final epic log has the exact 10-commit sequence parity with bash: scaffold → pending-edits → scaffold-F01 → feat(F01) → archive-F01 → scaffold-F02 → feat(F02) → archive-F02 plus the initial 2 setup commits.
+
+### Phase 1 — install + foundation
+
+- **`install/postinstall.mjs`** now branches on `process.platform`. POSIX: symlinks bash scripts from `skills/epic-feature-workflow/scripts/` into `BIN_DST` (unchanged). Windows: writes `pi-<name>.cmd` shims into `BIN_DST` that exec the PowerShell sibling with `-NoProfile -ExecutionPolicy Bypass -File <abs-path> %*` — so corporate Restricted policies are not a blocker. Shims carry a `pi-epicflow-shim v1` marker line so subsequent installs only overwrite our own files.
+- **`skills/epic-feature-workflow/scripts-win/_common.ps1`** — full PowerShell port of `_common.sh`. Public surface: `Get-RepoRoot`, `Get-SkillRoot`, `Get-DefaultBranch`, `Get-ActiveEpicId`, `Get-ActiveEpicDir`, `Get-ActiveFeatureId`, `Get-NextEpicId`, `ConvertTo-Slug`, `Get-YamlValue`, `Update-YamlUpdated`, `Set-YamlValue`, `Get-FeatureDeclaredDeliverables` (stub until Phase 3a Python extraction), `Add-RunLogEntry`, `Assert-NotDefaultBranch`, `Write-Log`, `Get-UserLessonsPath`, `Initialize-UserLessons`, `Add-UserLessonsFromCandidate`, `Get-PiEpicflowClone`, `Get-PiEpicflowAgeDays`, `Get-PiEpicflowVersion`. PowerShell-only helpers: `Get-PythonExe` (auto-skips the Windows Store stub), `Get-FileContentLF`, `Set-FileContentLF`, `Add-FileLineLF`, `Ensure-FileLine` — the last four enforce LF line endings everywhere we write to disk (parity rule #6 — keeps `.pi/` diffs noise-free across platforms).
+- **`skills/epic-feature-workflow/scripts-win/pi-epic-init.ps1`** — full PowerShell port of `pi-epic-init`. Same CLI surface (`--from`, `--title`, `--base`, `--no-planner`), same flag parsing rules (bash-style `--flag value`), same exit codes, same commit messages (`chore: ignore pi runtime state …`, `chore(epic): scaffold <id>`), same `.gitignore` patterns including the L-012 / L-026 / L-040 belts, same STATE.md format, same `Next steps (in pi)` footer pointing at `/epic-design`. Detects dedicated-epic-worktree mode the same way.
+- **`skills/epic-feature-workflow/scripts-win/pi-epicflow-doctor.ps1`** — read-only health report. Mirrors the bash doctor's runtime / skills / user-lessons / active-epic / tools sections, plus a new **Windows-specific** block: PowerShell version (≥ 5.1 required), effective `ExecutionPolicy` (Bypass via .cmd shim makes Restricted policy non-blocking — informational only), `git config core.longpaths`, `git config core.symlinks`, Python detection (with the Windows Store stub auto-skipped). Bash availability is informational only — not required on Windows.
+- **`PLAN-v0.12.0.md`** added — four-phase plan with explicit dogfood checkpoints, decisions log, parity rules, risks. Phase 2 (feature loop), Phase 3 (epic lifecycle + Python helper extraction), Phase 4 (contract tests + Windows CI) tracked there.
+- **README compatibility section** rewritten. New "Windows-specific setup" subsection covers Git for Windows, Python install (avoid Store stub), `core.longpaths`, and the doctor verification step. Old "WSL only" line removed.
+
+### Not yet ported (deferred to v0.13)
+
+As of v0.12.0 Phase 3, the only remaining script is **`pi-epic-status`** (read-only status report; bash sibling is 92 lines of dispatcher + 1016 lines of lib files). Deferred so its rendering layer can be extracted to a shared Python module first (same pattern as `validate_decomposition.py`) rather than translated by hand. The doctor warns when it's missing. `pi-epic-next-feature` covers the minimum-viable status check (DONE / HALT / next ready id) in the interim.
+
+**All write/lifecycle commands ship natively on Windows.** Contract tests + Windows CI runner land in Phase 4.
+
+## [0.11.0] — 2026-05-20
+
+**Adds `/epic-design` and `/epic-review-design` slash prompts so pi can co-author `design.md` in the right place — closing the gap between `pi-epic-init` and `/epic-decompose`.** Previously a fresh pi chat had no idea where `design.md` lived or that pi-epicflow was even in the room; the user had to write the design out-of-band and copy it in. Lean v1: solve the path/context problem with light structure, keep the heavyweight unbiased-critic review as a separate opt-in pass.
+
+### Added
+
+- **`/epic-design` prompt** (`prompts/epic-design.md`). Phase 1a ingests existing artifacts (BRD/PRD/tickets/transcripts/`--from=<path>` args / `pi-epic-init --from` seeding) BEFORE asking questions; produces a sourced "Understanding so far" snapshot the user can audit for misreads; iterates gap questions with recommended defaults per AGENTS.md §2; gates writing on a Phase-4 "gist for approval" step so pi can't silently dump 500 lines into `design.md`; then writes the canonical template structure to `.pi/epics/<id>/design.md` and commits on the epic branch as `docs(epic): draft design for <id>`. Saves a reusable snapshot to `.pi/epics/<id>/.design-snapshot.md` (gitignored) for the critic pass.
+- **`/epic-review-design` prompt** (`prompts/epic-review-design.md`). Opt-in heavyweight pass. Spawns the `epic-design-critic` sub-agent in a fresh context, summarizes findings by severity (`must-fix` / `should-fix` / `nice-to-have`), walks each one with the user (`apply` / `discuss` / `skip` / `reject`), applies approved edits surgically with the `edit` tool, appends a decisions-log entry summarizing the pass, and commits as `docs(epic): incorporate design review for <id>`. Supports `--auto-apply-must-fix` for users who trust the critic on hard findings. Halts on `BLOCK` verdict (fundamental redo, not editable).
+- **`epic-design-critic` agent** (`agents/epic-design-critic.md`). Fresh-context, read-only critic with persona "senior staff engineer who assumes the author is wrong until proven right." Attacks on two axes: architectural challenge (10× load, threat model, failure modes, hidden coupling, observability, 2-year maintenance, onboarding cost, dismissed alternatives) and an explicit 11-point quality-attribute checklist (correctness, performance, security, reliability, observability, usability/DX, maintainability, extensibility, testability, migration, cost). Silent dimensions count as findings; only explicit N/A with a reason passes. Carries the same anti-sycophancy credibility clause as `feature-reviewer` (name a concrete weakness OR list three specifics verified clean). Bundled under `agents/` so pi-epicflow owns the persona quality end-to-end — not delegated to pi-subagents' generic built-ins.
+
+### Changed
+
+- **`pi-epic-init` footer** now points the user at `/epic-design` (→ optional `/epic-review-design`) → `/epic-decompose` → `/epic-run-auto` instead of the prior "edit `design.md` by hand" hint. Editing by hand still works — the prompt detects seeded / hand-edited content and treats it as a first-class artifact.
+- **README quickstart** and **`SKILL.md` lifecycle diagram** updated to show the new design + review steps in the canonical pi-driven flow.
+
+### Deferred (out of scope for v0.11; promote on real-usage signal)
+
+- Hard Phase-1 checklist exit gate (currently checklist is a reference, not a gate; pi uses judgment).
+- Parallel oracle + reviewer in the review pass (single combined critic for now; split later if real use shows distinct value).
+- `PI_EPICFLOW_REVIEW_MODEL` env for opt-in different-model review.
+- Loop-until-clean review iteration (single pass per `/epic-review-design` invocation; user can re-run).
+- Dedicated `epic-design-scout` agent for large-repo recon (pi scouts itself; ad-hoc delegate via the global AGENTS.md §6 trigger #1 when truly needed).
+
+### Migration notes
+
+- No file-format changes. Existing epics with hand-written `design.md` keep working; `/epic-design` will detect the already-drafted state and offer to refine instead of replace.
+- `.gitignore` gets two new patterns the first time `/epic-design` or `/epic-review-design` runs: `.pi/epics/*/.design-snapshot.md` and `.pi/epics/*/.design-review-*.md`. These are workspace state, not canonical epic record.
+- The new prompts and agent are auto-installed by `install/postinstall.mjs` on `pi install pi-epicflow` / on package update — no manual steps required.
+
 ## [0.10.1] — 2026-05-18
 
 **Hotfix release. Three real-world friction bugs surfaced by stress-testing v0.10.0's parallel-execution + real-Playwright/Vite E2E claims on a fresh fixture.** The bugs existed before v0.10 (parallel-safety since v0.6, npm-test autodetect since v0.6) but had never been exercised because every prior dogfood epic ran serial + skipped autodetection. v0.11 backlog item "stress test parallel + E2E on real app" was pulled forward; results below.
