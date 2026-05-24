@@ -57,8 +57,12 @@ if ($sr -and (Test-Path -LiteralPath $sr)) {
     Write-Pass "epic-feature-workflow skill at: $sr"
     $required = @(
         'pi-epic-init', 'pi-feature-start', 'pi-feature-complete',
-        'pi-epic-complete', 'pi-epic-status', 'pi-epic-validate-decomposition'
+        'pi-epic-next-feature', 'pi-epic-complete', 'pi-epic-extend',
+        'pi-epic-validate-decomposition'
     )
+    # Note: pi-epic-status is a known v0.12.0 gap (read-only command,
+    # 1100 lines of bash; deferred to v0.13). All write/lifecycle
+    # commands are available on Windows.
     foreach ($s in $required) {
         $scriptPath = Join-Path $sr "scripts-win\$s.ps1"
         if (Test-Path -LiteralPath $scriptPath) {

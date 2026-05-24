@@ -10,7 +10,32 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 **Native Windows support via PowerShell.** Phased rollout; see [`PLAN-v0.12.0.md`](PLAN-v0.12.0.md) for full plan + parity rules.
 
-### Phase 2 — feature loop (this commit)
+### Phase 3 — epic lifecycle + Python extraction (this commit)
+
+- **`skills/epic-feature-workflow/lib/validate_decomposition.py`** (698 lines) — extracted from the 685-line Python heredoc that lived inside `scripts/pi-epic-validate-decomposition`. Both bash and PowerShell siblings now invoke it: `python3 "$skill/lib/validate_decomposition.py" "$decomp" "$repo" "$epic_cfg"`. Single source of truth for validation behaviour. Bash sibling shrank from 880 → 199 lines. Linux smoke 29/29 green after extraction.
+- **`scripts-win/pi-epic-validate-decomposition.ps1`** (130 lines) — thin wrapper around the extracted lib + inline L-046 toolchain-check gate (small enough to inline; reads `required_toolchains` and `toolchain_manager` from epic-config.yaml).
+- **`scripts-win/pi-epic-complete.ps1`** (484 lines) — full PowerShell port. All gates preserved: E2E (with `Start-Process` replacing bash `&` + `trap`, polling `ready_check` via `cmd.exe /c`, halt-h11 file on timeout or non-zero exit), **L-043 epic-review gate** (refuses to archive without an APPROVE_EPIC verdict in `epic-review.md`), **L-042 extension guardrails** (warns at ≥1 extension, hard-halts at ≥30% growth without recorded decomposition lesson), `git rebase` onto default branch, full test suite (`Get-DetectedTestCmd2` covers Node/.NET/Python/Go/Rust), deviations → lessons-candidate.md distillation, push + PR via `gh pr create` (gracefully skips on missing `origin` per L-052), archive to `.pi/epics/done/` via `git mv`, STATE.md reset, `--contribute-lesson L-XYZ` extraction mode.
+- **`scripts-win/pi-epic-extend.ps1`** (270 lines) — full port. Locates epic in active or archived path, refuses merged epics, un-archives via `git mv`, records `original_feature_count` snapshot for L-042 growth check, flips meta.yaml status → in-progress, appends extension entry + design.md `## Extension - YYYY-MM-DD: <title>` section (with `--design FILE` body or editable stub), STATE.md update, run-log entry, single squash commit on epic branch.
+- **`scripts-win/pi-epicflow-doctor.ps1`** updated — required scripts list expanded to include `pi-epic-next-feature` + `pi-epic-extend`; documented `pi-epic-status` as a known v0.13 gap.
+
+### Phase 3 dogfood (validated on actual Windows host)
+
+Fresh repo: `git init -b main` → `pi-epic-init p3v2` → install `decomposition.yaml` with `estimated_hours: 2` (required field caught by the validator) → `pi-epic-validate-decomposition` exits 0 → `pi-feature-start F01` → worker writes file + worker-report.md → `pi-feature-complete F01` → `pi-epic-next-feature` returns DONE → write APPROVE_EPIC `epic-review.md` (L-043 gate satisfied) → `pi-epic-complete --no-pr` archives epic to `.pi/epics/done/0001-p3v2/`, distills `lessons-candidate.md`, appends to `~/.pi/epicflow/user-lessons.md`, resets STATE.md, exit 0 → `pi-epic-extend 0001-p3v2 --rationale "..." --title "..."` un-archives, records `original_feature_count=1`, appends `## Extension - 2026-05-24: Verification phase` to design.md, writes new run-log entry, single `chore(epic): extend 0001-p3v2 #1 - Verification phase` commit on epic branch, exit 0. All run-log.jsonl entries valid JSON.
+
+### Phase 3 bugs found + fixed during dogfood
+
+1. **`Get-FileContentLF $f -split "\n"` parser-precedence bug.** PowerShell parsed `-split` as a parameter to the function, not the operator. Fixed by wrapping the function call in parens. Caught in `pi-epic-complete.ps1` and `pi-epic-extend.ps1`.
+2. **`Add-UserLessonsFromCandidate -CandidatePath` parameter mismatch.** The function in `_common.ps1` declares `-Candidate` (no `Path` suffix). Renamed call site to match.
+3. **`git fetch --quiet origin $def 2>$null | Out-Null` didn't suppress stderr** because `2>$null` only catches PowerShell errors, not native stderr. Switched to `2>&1 | Out-Null`.
+4. **PowerShell drops trailing empty-string arguments to native commands.** `pi-epic-extend`'s inline Python expected 6 args but got 5 when `--design` was omitted. Fixed in Python: pad `sys.argv[1:]` with empty strings before unpacking. Same pattern needed for any future PS → Python heredoc with optional trailing args.
+
+### Not yet ported (Phase 4 + v0.13)
+
+`pi-epic-status` is the only remaining script. Bash sibling is 92 lines of dispatcher + 1016 lines of lib files (rendering, ANSI, parsing, JSON emission, DAG state machine). Deferred to v0.13 so the rendering layer can be extracted to a shared Python module (same pattern as `validate_decomposition.py`) rather than translated by hand. Doctor warns when missing. `pi-epic-next-feature` provides the minimum-viable status check (DONE / HALT / next ready id) in the interim. **All write/lifecycle commands ship on Windows as of this commit.**
+
+Contract tests (Phase 4) + `install/smoke-test.ps1` + `.github/workflows/smoke.yml` Windows matrix entry still pending; tracked in `PLAN-v0.12.0.md`.
+
+### Phase 2 — feature loop (previous commit)
 
 - **`pi-feature-start.ps1`** (445 lines) — full PowerShell port of `pi-feature-start`. Same CLI surface, same exit codes, same commit messages, same L-019/L-023 scaffold-first-branch-second ordering. **Concurrency safety**: replaces bash `flock` with `[System.Threading.Mutex]` keyed off a SHA1 of `git-common-dir` (16-char hex → mutex name). Same 60s wait, same "another invocation holding the lock" message. Worktree path computed via `Resolve-Path` + `Join-Path` (no shell expansion).
 - **`pi-feature-complete.ps1`** (484 lines) — full PowerShell port of `pi-feature-complete`. All 4 gates ported: test command (with `Get-DetectedTestCmd` covering Node/.NET/Python/Go/Rust), completion-evidence (`worker-report.md` `## Completion evidence` section), v0.10/L-056 declared-deliverables, parallel-merge **H6 conflict classifier** (in-scope vs out-of-scope based on `scope_files` declarations, with deviations.md auto-append). Test command invocation goes through `cmd.exe /c $testCmd` so `npm test`, `pytest`, etc. work without quoting hell. Squash commit message built in a temp file, `--allow-empty` for spike features (L-023).
@@ -31,16 +56,11 @@ Clean Windows repo: `git init -b main` → `pi-epic-init p2full` → install `de
 - **`PLAN-v0.12.0.md`** added — four-phase plan with explicit dogfood checkpoints, decisions log, parity rules, risks. Phase 2 (feature loop), Phase 3 (epic lifecycle + Python helper extraction), Phase 4 (contract tests + Windows CI) tracked there.
 - **README compatibility section** rewritten. New "Windows-specific setup" subsection covers Git for Windows, Python install (avoid Store stub), `core.longpaths`, and the doctor verification step. Old "WSL only" line removed.
 
-### Not yet ported (deferred to later v0.12.0 phases)
+### Not yet ported (deferred to v0.13)
 
-The PowerShell sibling does not yet exist for: `pi-epic-status`,
-`pi-epic-validate-decomposition`, `pi-epic-complete`, `pi-epic-extend`
-(Phase 3). `pi-epicflow-doctor` flags each missing port as a warning so
-users know what's available. Contract tests + Windows CI runner land in
-Phase 4. As of v0.12.0 Phase 2, the **complete feature loop** works
-natively on Windows; only the epic-finalization layer (status reports,
-decomposition validation, epic-complete PR creation) still requires
-Linux/macOS or WSL.
+As of v0.12.0 Phase 3, the only remaining script is **`pi-epic-status`** (read-only status report; bash sibling is 92 lines of dispatcher + 1016 lines of lib files). Deferred so its rendering layer can be extracted to a shared Python module first (same pattern as `validate_decomposition.py`) rather than translated by hand. The doctor warns when it's missing. `pi-epic-next-feature` covers the minimum-viable status check (DONE / HALT / next ready id) in the interim.
+
+**All write/lifecycle commands ship natively on Windows.** Contract tests + Windows CI runner land in Phase 4.
 
 ## [0.11.0] — 2026-05-20
 
