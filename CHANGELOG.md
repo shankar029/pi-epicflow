@@ -6,6 +6,35 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-05-20
+
+**Adds `/epic-design` and `/epic-review-design` slash prompts so pi can co-author `design.md` in the right place — closing the gap between `pi-epic-init` and `/epic-decompose`.** Previously a fresh pi chat had no idea where `design.md` lived or that pi-epicflow was even in the room; the user had to write the design out-of-band and copy it in. Lean v1: solve the path/context problem with light structure, keep the heavyweight unbiased-critic review as a separate opt-in pass.
+
+### Added
+
+- **`/epic-design` prompt** (`prompts/epic-design.md`). Phase 1a ingests existing artifacts (BRD/PRD/tickets/transcripts/`--from=<path>` args / `pi-epic-init --from` seeding) BEFORE asking questions; produces a sourced "Understanding so far" snapshot the user can audit for misreads; iterates gap questions with recommended defaults per AGENTS.md §2; gates writing on a Phase-4 "gist for approval" step so pi can't silently dump 500 lines into `design.md`; then writes the canonical template structure to `.pi/epics/<id>/design.md` and commits on the epic branch as `docs(epic): draft design for <id>`. Saves a reusable snapshot to `.pi/epics/<id>/.design-snapshot.md` (gitignored) for the critic pass.
+- **`/epic-review-design` prompt** (`prompts/epic-review-design.md`). Opt-in heavyweight pass. Spawns the `epic-design-critic` sub-agent in a fresh context, summarizes findings by severity (`must-fix` / `should-fix` / `nice-to-have`), walks each one with the user (`apply` / `discuss` / `skip` / `reject`), applies approved edits surgically with the `edit` tool, appends a decisions-log entry summarizing the pass, and commits as `docs(epic): incorporate design review for <id>`. Supports `--auto-apply-must-fix` for users who trust the critic on hard findings. Halts on `BLOCK` verdict (fundamental redo, not editable).
+- **`epic-design-critic` agent** (`agents/epic-design-critic.md`). Fresh-context, read-only critic with persona "senior staff engineer who assumes the author is wrong until proven right." Attacks on two axes: architectural challenge (10× load, threat model, failure modes, hidden coupling, observability, 2-year maintenance, onboarding cost, dismissed alternatives) and an explicit 11-point quality-attribute checklist (correctness, performance, security, reliability, observability, usability/DX, maintainability, extensibility, testability, migration, cost). Silent dimensions count as findings; only explicit N/A with a reason passes. Carries the same anti-sycophancy credibility clause as `feature-reviewer` (name a concrete weakness OR list three specifics verified clean). Bundled under `agents/` so pi-epicflow owns the persona quality end-to-end — not delegated to pi-subagents' generic built-ins.
+
+### Changed
+
+- **`pi-epic-init` footer** now points the user at `/epic-design` (→ optional `/epic-review-design`) → `/epic-decompose` → `/epic-run-auto` instead of the prior "edit `design.md` by hand" hint. Editing by hand still works — the prompt detects seeded / hand-edited content and treats it as a first-class artifact.
+- **README quickstart** and **`SKILL.md` lifecycle diagram** updated to show the new design + review steps in the canonical pi-driven flow.
+
+### Deferred (out of scope for v0.11; promote on real-usage signal)
+
+- Hard Phase-1 checklist exit gate (currently checklist is a reference, not a gate; pi uses judgment).
+- Parallel oracle + reviewer in the review pass (single combined critic for now; split later if real use shows distinct value).
+- `PI_EPICFLOW_REVIEW_MODEL` env for opt-in different-model review.
+- Loop-until-clean review iteration (single pass per `/epic-review-design` invocation; user can re-run).
+- Dedicated `epic-design-scout` agent for large-repo recon (pi scouts itself; ad-hoc delegate via the global AGENTS.md §6 trigger #1 when truly needed).
+
+### Migration notes
+
+- No file-format changes. Existing epics with hand-written `design.md` keep working; `/epic-design` will detect the already-drafted state and offer to refine instead of replace.
+- `.gitignore` gets two new patterns the first time `/epic-design` or `/epic-review-design` runs: `.pi/epics/*/.design-snapshot.md` and `.pi/epics/*/.design-review-*.md`. These are workspace state, not canonical epic record.
+- The new prompts and agent are auto-installed by `install/postinstall.mjs` on `pi install pi-epicflow` / on package update — no manual steps required.
+
 ## [0.10.1] — 2026-05-18
 
 **Hotfix release. Three real-world friction bugs surfaced by stress-testing v0.10.0's parallel-execution + real-Playwright/Vite E2E claims on a fresh fixture.** The bugs existed before v0.10 (parallel-safety since v0.6, npm-test autodetect since v0.6) but had never been exercised because every prior dogfood epic ran serial + skipped autodetection. v0.11 backlog item "stress test parallel + E2E on real app" was pulled forward; results below.

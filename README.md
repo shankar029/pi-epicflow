@@ -58,6 +58,18 @@ decomposing the next one.
                                     │
                                     ▼
                           ┌───────────────┐
+                          │ /epic-design    │    pi co-authors design.md
+                          │ (in-place)      │    in `.pi/epics/<id>/`
+                          └────────┬────────┘    ingests BRDs first,
+                                   │             gist→approve→write
+                                   ▼
+                          ┌───────────────┐
+                          │ /epic-review-   │   (optional) unbiased
+                          │   design        │    critic sub-agent pass
+                          └────────┬────────┘    before decomposition
+                                   │
+                                   ▼
+                          ┌───────────────┐
                           │ /epic-decompose │    pi proposes 3–7 features
                           │ (one turn)      │    with deps, scope, ACs
                           └────────┬────────┘    you approve once
@@ -332,11 +344,13 @@ pi
 Then in the pi chat:
 
 ```
+/epic-design             # pi co-authors design.md in-place (ingests BRDs first, gist→approve→write)
+/epic-review-design      # (optional) unbiased critic sub-agent pass
 /epic-decompose          # pi proposes features, you approve, pi writes + validates + commits
 /epic-run-auto           # pi ships every feature, runs the reviewer, opens the PR
 ```
 
-That's the whole workflow. Three commands, no file paths to memorize.
+That's the whole workflow. Four commands (three if you skip the critic), no file paths to memorize.
 
 `/epic-run-auto` is **self-bootstrapping**: if you skip `/epic-decompose`,
 it'll run that flow first automatically. Pass `--no-bootstrap` to force a
@@ -679,6 +693,7 @@ rm ~/.pi/agent/agents/feature-worker.md ~/.pi/agent/agents/feature-reviewer.md ~
 - **OS:** tested on Linux. Should work on macOS. Windows: WSL only.
 - **Auto mode** additionally requires `pi-subagents` ≥ 0.24.
   `pi-intercom` is optional but improves the in-chat prompts.
+
 
 ---
 
