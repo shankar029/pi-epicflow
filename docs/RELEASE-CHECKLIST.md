@@ -141,6 +141,31 @@ command" verified to actually resume:
 - [ ] All `TODO` / `FIXME` / `XXX` markers in `prompts/` and `skills/`
       either resolved or filed as tracked issues.
 
+### Project memory pillar (added v0.13)
+
+The 1.0 gate now has a second pillar to satisfy. Before tagging 1.0,
+the project-memory pillar needs:
+
+- [ ] **≥ 3 outside repos** have run `/project-init` and used the brain
+      for ≥ 2 weeks. Each repo's slug + outcome recorded in the
+      Outside-epic ledger.
+- [ ] **≥ 1 instance** of `/project-review` surfacing a real ripe BL
+      that the user promoted to a session or epic.
+- [ ] **≥ 1 instance** of the autonomous goal-ask correctly catching
+      off-goal drift and prompting “park or pivot?”.
+- [ ] **≥ 1 instance** of the anti-stub C-001 gate blocking a real
+      stub commit (not a synthetic test).
+- [ ] **BL-005 resolved** — `/project-init` preserves existing
+      `AGENTS.md` content instead of overwriting.
+- [ ] **PowerShell parity** for any project-memory scripts that ship
+      beyond the current prompt-only surface (currently none ship as
+      scripts).
+- [ ] **`skills/project-memory/SKILL.md`** stable for ≥ 4 weeks with
+      no breaking changes to the 6 artifact shapes.
+- [ ] **Phase 2 deferral decision** — either ship
+      `gotchas.md`/`questions.md`/module-cards (BL-001) or write a
+      versioned commitment to defer to 2.0.
+
 ---
 
 ## Outside-epic ledger
@@ -150,6 +175,7 @@ Append one row per outside-user epic that contributed to the 1.0 gate.
 | Date | User | Repo / epic | Features | Outcome | Issues filed | Lessons added |
 |---|---|---|---|---|---|---|
 | 2026-05-14 | sample (`taskq-sample`) | `taskq` | 5 | ✅ all merged, 29/29 tests | 3 (deps auto-install, L-016 python3, L-017 halt-leak, orchestrator skipped epic-complete) | L-016, L-017 |
+| 2026-05-26 | self-dogfood (v0.13 build) | `pi-epicflow` itself | n/a (project-memory pillar, not epic) | ✅ brain shipped, first audit found real BL-007 | 3 dry-run findings fixed in-flight; BL-007 (pi-epic-status.ps1 missing) opened | (no new L-NNN — project-memory has its own DEC-001..005 in `.pi/project/decisions.md`) |
 | | | | | | | |
 
 When this table reaches 3+ green rows from genuinely independent users

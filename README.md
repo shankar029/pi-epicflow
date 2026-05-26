@@ -144,7 +144,88 @@ Five keys to why this scales where naive "agent in one big context" doesn't:
 
 Deeper rationale lives in [`docs/design.md`](docs/design.md).
 
-## Two modes
+## Two pillars
+
+**pi-epicflow ships two complementary pillars.** Use either, or both.
+
+### Pillar 1 — Epic workflow (what this README has been about so far)
+
+Multi-feature deliverables. `design.md` → DAG of small features →
+worktree-per-feature → squash-merge → single PR. The three-command
+flow (`pi-epic-init`, `/epic-decompose`, `/epic-run-auto`) and the
+worked example below cover it.
+
+### Pillar 2 — Project memory (new in v0.13)
+
+Persistent, file-based **project brain** that pi reads on entry and
+writes to autonomously — no slash commands required for routine
+writes. Solves the everyday pi pain that the epic workflow doesn't
+touch:
+
+- Decisions made on Tuesday evaporating by Wednesday.
+- Out-of-scope items getting forgotten the moment the session ends.
+- Pi re-asking the same question across sessions.
+- Pi shipping `TODO: implement later` stubs.
+- Pi drifting from "fix the auth bug" into a user-model refactor
+  nobody asked for.
+
+**Six artifacts in `.pi/project/`:**
+
+| File | Purpose |
+|---|---|
+| `index.md` | Always-loaded router (≤150 lines) |
+| `charter.md` | Goal, non-goals, quality bar, owner persona |
+| `conventions.md` | Always/never rules — includes hard anti-stub rule |
+| `decisions.md` | ADR-lite log of choices and alternatives |
+| `backlog.md` | Deferred work, each entry tagged with revisit-trigger |
+| `sessions.md` | Per-session log: goal, status, summary, linked DEC/BL ids |
+
+**Five mechanics make it work:**
+
+1. **Stated session goal.** Pi asks for the goal on the first non-trivial
+   turn (proposing one if it can infer). The goal becomes a guardrail —
+   off-goal turns prompt "park or pivot?". Pi proactively proposes closing
+   the session on goal achievement.
+2. **Trigger-driven writes.** Pi watches for "defer", "decided", "always
+   do X", "out of scope" and writes the entry the moment the phrase
+   fires — not at session end. Survives crashed sessions.
+3. **End-of-task sweep.** Before any "done" report, pi re-scans for
+   missed triggers and diffs code-changed vs brain-recorded.
+4. **Append-only with supersedes.** Nothing is edited or deleted.
+   Reversals are new entries pointing to what they replace.
+5. **Steward + specialists.** The main session stays small and on-goal.
+   Substantive work is delegated to custom `epicflow-*` sub-agent
+   personas with bounded budgets and strict output contracts.
+
+**Five custom sub-agent personas** (replace the generic
+pi-subagents ones, which drift and time out):
+
+- `epicflow-scout` — read-only repo recon, ≤30 reads
+- `epicflow-researcher` — web research, ≤4 queries, citations required
+- `epicflow-worker` — bounded impl (≤5 files), anti-stub self-check
+- `epicflow-reviewer` — 7-check diff review, anti-stub grep
+- `epicflow-oracle` — top-3-risks architectural critique
+
+**Three slash commands (mostly optional):**
+
+```
+/project-init        # one-shot scaffold of .pi/project/ for this repo
+/project-onboard     # optional warm-up summary at session start
+/project-review      # periodic audit + ripe-backlog surfacing
+/session-end         # manual force-close (pi normally proposes this)
+```
+
+Day-to-day, you invoke none of these. The `project-memory` skill is
+autoloaded in any repo with `.pi/project/` and handles reads / writes /
+goal-tracking transparently.
+
+See the [v0.13.0 plan](PLAN-v0.13.0.md) and
+[`skills/project-memory/SKILL.md`](skills/project-memory/SKILL.md) for
+the full design.
+
+---
+
+## Two modes (for the epic workflow)
 
 - **Auto mode** (default, recommended) — the three slash commands above.
   `/epic-decompose` and `/epic-run-auto` drive the whole pipeline, delegating

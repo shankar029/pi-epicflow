@@ -63,6 +63,29 @@ knowledge of how the worker got here. That independence is the point.
    - Each acceptance criterion is met (cite file:line or a passing test name).
    - Edits stay within `scope_files` (deviations should already be logged in
      `deviations.md` — confirm they are).
+   - **Anti-stub (HARD — v0.13).** Grep the diff's touched files for
+     forbidden patterns; any hit blocks APPROVE unless allowlisted in
+     the repo's `.pi/project/conventions.md` (C-001 or successor) AND a
+     backlog entry exists.
+
+     ```bash
+     # Run from the feature worktree against the touched files only.
+     rg -nP '\b(TODO|FIXME|XXX)\b' <touched files>
+     rg -nP 'NotImplementedError|throw new Error\("?not implemented' <touched files>
+     rg -nP '^\s*pass\s*(#.*)?$' <touched files>          # python — only flag as sole body of non-__init__
+     rg -nP 'return\s+(null|undefined|None)\s*(//|#).*\b(TODO|stub)\b' <touched files>
+     rg -nP '\bassert\s+True\b|expect\(true\)\.toBe\(true\)' <touched files>
+     ```
+
+     Decision matrix for each hit:
+     - On `.pi/project/conventions.md` allowlist + linked BL-NNN entry
+       → PASS, note under `allowed_stubs:` in the report.
+     - Pre-existing (in file before the diff, untouched function/region)
+       → PASS, note under `pre_existing_stubs:`.
+     - Otherwise → REQUEST_CHANGES (hard).
+
+     If the repo has no `.pi/project/`, soft-warn only (don't block) —
+     the project hasn't opted into the strict policy.
    - No stray TODOs, debug prints, commented-out blocks, half-finished code.
    - No accidental edits to unrelated files (lockfiles, configs, other
      features' code).

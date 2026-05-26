@@ -6,6 +6,116 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.13.0] — 2026-05-26
+
+**Project Memory pillar.** A second pillar alongside the epic workflow:
+persistent, file-based project brain that pi reads on entry and writes
+to autonomously — no reliance on the user invoking slash commands. See
+[`PLAN-v0.13.0.md`](PLAN-v0.13.0.md) for full design + decisions log.
+
+### New: `project-memory` skill
+
+- **`skills/project-memory/SKILL.md`** — autoloaded in any repo with
+  `.pi/project/`. Teaches pi to: read `.pi/project/index.md` on entry;
+  ask for a one-sentence session goal on the first non-trivial turn;
+  watch for trigger phrases ("defer", "decided", "always do X", "out of
+  scope") and append to `decisions.md` / `backlog.md` / `conventions.md`
+  **at the moment the phrase fires** (not at end-of-session); run an
+  end-of-task sweep before any "done" report; detect goal achievement
+  and propose closing the session; refuse to ship stubs; delegate
+  substantive work to `epicflow-*` sub-agent personas.
+
+### New: 6 brain artifact templates
+
+- **`templates/project/{index,charter,conventions,decisions,backlog,sessions}.md`**
+  — the six artifacts scaffolded by `/project-init` into the consumer
+  repo's `.pi/project/`. `index.md` is the always-loaded router (≤150
+  lines). `charter.md` captures goal / non-goals / quality bar / owner
+  persona. `conventions.md` ships with C-001 (anti-stub) and C-002
+  (append-only) seeded. `decisions.md` is ADR-lite, append-only.
+  `backlog.md` is the parking lot with `revisit_when` triggers.
+  `sessions.md` logs every session: goal, status
+  (`in-progress`/`achieved`/`paused`/`abandoned`/`superseded`), summary,
+  linked DEC/BL ids, sub-agents invoked, files touched.
+
+### New: 5 custom `epicflow-*` sub-agent personas
+
+Generic pi-subagents personas (scout/researcher/worker/reviewer/oracle)
+drift and time out because they're built to fit any task. The custom
+versions have mandatory context primes, bounded tool budgets, strict
+output templates, and anti-stub self-checks.
+
+- **`agents/epicflow-scout.md`** — read-only repo recon. Primes on
+  `.pi/project/`, ≤30 file reads, refuses edits, returns a structured
+  brief (purpose / public API / invariants / gotchas / pointers).
+- **`agents/epicflow-researcher.md`** — web research via
+  `pi-web-access`. ≤4 queries, ≥6 fetches, ≥2 primary-source
+  citations required. Refuses repo-internal questions.
+- **`agents/epicflow-worker.md`** — bounded implementation. ≤5 files
+  per invocation, mandatory plan-before-edit, anti-stub grep self-check
+  before reporting back. Returns diff summary + decisions-discovered +
+  items-deferred. Refuses with `needs-split` on over-scope.
+- **`agents/epicflow-reviewer.md`** — independent diff review. 7
+  checks: CHK-1 anti-stub (hard fail), CHK-2 scope, CHK-3 conventions,
+  CHK-4 decision conflicts, CHK-5 acceptance criteria, CHK-6 tests,
+  CHK-7 smell-check (soft).
+- **`agents/epicflow-oracle.md`** — architectural critique. Returns
+  top-3 risks (not five, not ten — three), alternatives considered,
+  and a verdict: PROCEED / PROCEED_WITH_CHANGES / RECONSIDER. Can run
+  async; writes `progress.md` for crash recovery.
+
+### New: 4 slash commands
+
+- **`/project-init`** (`prompts/project-init.md`) — one-shot scaffold.
+  Reads README/package.json to infer charter facts, asks 4 batched
+  questions with recommended defaults, copies templates from
+  `templates/project/` into `.pi/project/`, opens session S-001, wires
+  the root `AGENTS.md` to reference the index, commits on a
+  `project/init` branch.
+- **`/project-onboard`** (`prompts/project-onboard.md`) — optional
+  warm-up at session start. Prints goal / recent decisions / open
+  backlog / last sessions / active conventions / ripe items, then
+  forces the session-goal ask.
+- **`/project-review`** (`prompts/project-review.md`) — periodic audit.
+  Six checks (A-1 staleness, A-2 backlog ripeness, A-3 conventions
+  drift, A-4 decision drift, A-5 stuck sessions, A-6 module-card
+  coverage), recommends 5 actions (promote-to-epic, close-stuck,
+  drop-stale, refresh-brain, fix-violations), confirms before
+  executing.
+- **`/session-end`** (`prompts/session-end.md`) — manual force-close
+  for the current `in-progress` session. Runs the end-of-task sweep
+  first; infers `achieved`/`paused`/`abandoned` if not specified.
+
+### Existing: `feature-reviewer` hardened with anti-stub grep
+
+- **`agents/feature-reviewer.md`** — the existing epic-pipeline
+  reviewer now runs the same anti-stub grep as `epicflow-reviewer`'s
+  CHK-1, respecting the `.pi/project/conventions.md` allowlist. Any
+  unallowlisted stub in a feature diff blocks APPROVE. Soft-warn only
+  in repos without `.pi/project/` (no opt-in, no enforcement).
+
+### Packaging
+
+- **`package.json`** — `templates/**/*` added to the `files` glob so
+  the npm tarball ships the brain templates. Version bumped to
+  `0.13.0-dev`. Postinstall needed no changes — it already auto-
+  discovers all `agents/*.md` (L-050) and `pi.skills` / `pi.prompts`
+  resource paths cover the new skill + 4 prompts automatically.
+
+### Why this matters
+
+Decisions made on Tuesday no longer evaporate on Wednesday. Out-of-
+scope items get logged the moment the user says "let's not do that
+now" — not forgotten when the session ends. Pi reads its own session
+history before answering, so it stops re-asking the same questions.
+Every session has a stated goal that pi defends against drift. Stubs
+are refused by default. Substantive work is delegated to specialized
+personas so the main session context stays focused on stewardship,
+not implementation details.
+
+See the **"Project memory"** section in the README for the user-facing
+flow and the [v0.13.0 plan](PLAN-v0.13.0.md) for the full design rationale.
+
 ## [0.12.0-dev] — in progress
 
 **Native Windows support via PowerShell.** Phased rollout; see [`PLAN-v0.12.0.md`](PLAN-v0.12.0.md) for full plan + parity rules.

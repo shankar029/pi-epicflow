@@ -29,7 +29,7 @@ const Navbar = () => (
         <Terminal className="text-vibrant-green w-6 h-6" />
         <span className="text-white">pi-epicflow</span>
         <span className="ml-2 px-2 py-0.5 text-[10px] font-mono uppercase tracking-widest text-vibrant-green border border-vibrant-green/30 rounded">
-          v0.10.0
+          v0.13.0
         </span>
       </div>
       <nav className="hidden md:flex gap-8 items-center text-sm font-medium">
@@ -57,7 +57,7 @@ const Hero = () => (
       className="inline-flex items-center gap-2 bg-vibrant-green/10 text-vibrant-green text-xs font-bold font-mono px-4 py-1.5 rounded-full border border-vibrant-green/20 mb-6 uppercase tracking-widest"
     >
       <Brain className="w-3 h-3" />
-      v0.10.0 — deliverables contract (L-056/L-057/L-058)
+      v0.13.0 — project memory pillar
     </motion.div>
 
     <motion.h1
@@ -76,9 +76,13 @@ const Hero = () => (
       className="text-lg md:text-xl text-text-muted mb-10 max-w-2xl mx-auto leading-relaxed"
     >
       A <a href="https://pi.dev" className="text-vibrant-green hover:underline">pi</a> extension
-      that decomposes a <code className="text-vibrant-green font-mono">design.md</code> into a
-      DAG of small features, runs each on its own git worktree, and squash-merges
-      back into one reviewable PR. Plans before it codes. Halts when it should.
+      with two pillars. <strong className="text-white">Epic workflow:</strong> decompose
+      a <code className="text-vibrant-green font-mono">design.md</code> into a DAG of small
+      features, run each on its own git worktree, squash-merge back into one reviewable PR.
+      <strong className="text-white"> Project memory (new in v0.13):</strong> a
+      persistent file-based brain at <code className="text-vibrant-green font-mono">.pi/project/</code> so pi
+      sessions stop forgetting decisions across runs.
+      Plans before it codes. Halts when it should.
     </motion.p>
 
     <motion.div
@@ -349,7 +353,59 @@ const FitSection = () => (
 
 const WhatsNew = () => (
   <section className="px-4 py-16 max-w-7xl mx-auto space-y-8">
-    {/* v0.10.0 release banner — deliverables contract + second dogfood */}
+    {/* v0.13.0 release banner — project memory pillar */}
+    <div className="bg-amber-500/5 border border-amber-500/40 rounded-3xl p-6 md:p-8 relative overflow-hidden">
+      <div className="flex items-start gap-4">
+        <div className="flex-shrink-0">
+          <div className="w-10 h-10 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
+            <Brain className="w-5 h-5 text-amber-400" />
+          </div>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-3 mb-2">
+            <span className="inline-flex items-center bg-amber-500/15 text-amber-300 text-xs font-bold font-mono px-3 py-1 rounded-full border border-amber-500/30 uppercase tracking-wider">
+              v0.13.0 · second pillar · project memory
+            </span>
+          </div>
+          <h3 className="text-xl md:text-2xl font-bold text-white tracking-tight mb-2">
+            Pi sessions stop <em>forgetting</em> across runs.
+          </h3>
+          <p className="text-text-muted text-sm md:text-base leading-relaxed mb-3">
+            A persistent, file-based <strong>project brain</strong> at <code className="text-amber-300 font-mono text-xs">.pi/project/</code> —
+            <code className="text-amber-300 font-mono text-xs">charter.md</code> ·
+            <code className="text-amber-300 font-mono text-xs">conventions.md</code> ·
+            <code className="text-amber-300 font-mono text-xs">decisions.md</code> ·
+            <code className="text-amber-300 font-mono text-xs">backlog.md</code> ·
+            <code className="text-amber-300 font-mono text-xs">sessions.md</code> ·
+            <code className="text-amber-300 font-mono text-xs">index.md</code>.
+            Pi reads on entry; writes <em>autonomously</em> on trigger phrases (“defer to v2” → backlog, “let's go with X over Y” → decision, “always/never” → convention) — not at session end, not via slash commands.
+            Append-only with supersedes; never edits history.
+            Five custom <code className="text-amber-300 font-mono text-xs">epicflow-*</code> sub-agent personas (scout, researcher, worker, reviewer, oracle) replace generic pi-subagents with mandatory <code className="text-amber-300 font-mono text-xs">.pi/project/</code> primes, bounded budgets, and strict output contracts.
+            Hard anti-stub rule (<code className="text-amber-300 font-mono text-xs">C-001</code>): no <code className="text-amber-300 font-mono text-xs">TODO</code> / <code className="text-amber-300 font-mono text-xs">FIXME</code> / <code className="text-amber-300 font-mono text-xs">NotImplementedError</code> / bare-<code className="text-amber-300 font-mono text-xs">pass</code> in shipped code, enforced by the reviewer's grep gate.
+            Dogfooded on this repo: the first audit caught a real pre-existing C-003 violation (<code className="text-amber-300 font-mono text-xs">pi-epic-status</code> missing its PowerShell mirror, logged as BL-007).
+          </p>
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <a href={`${REPO}/blob/main/CHANGELOG.md#0130--2026-05-26`} className="text-amber-300 hover:underline font-medium">
+              v0.13.0 changelog →
+            </a>
+            <span className="text-text-muted">·</span>
+            <a href={`${REPO}/blob/main/skills/project-memory/SKILL.md`} className="text-amber-300 hover:underline font-medium">
+              project-memory skill →
+            </a>
+            <span className="text-text-muted">·</span>
+            <a href={`${REPO}/blob/main/PLAN-v0.13.0.md`} className="text-amber-300 hover:underline font-medium">
+              v0.13 plan →
+            </a>
+            <span className="text-text-muted">·</span>
+            <a href={`${REPO}/releases/tag/v0.13.0`} className="text-amber-300 hover:underline font-medium">
+              v0.13.0 release →
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* v0.10.0 release banner — deliverables contract + second dogfood (kept for history) */}
     <div className="bg-amber-500/5 border border-amber-500/40 rounded-3xl p-6 md:p-8 relative overflow-hidden">
       <div className="flex items-start gap-4">
         <div className="flex-shrink-0">
