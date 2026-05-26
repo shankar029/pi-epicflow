@@ -86,24 +86,22 @@ a correctness fix.
 
 **Date:** 2026-05-26
 **Source session:** S-001 (v0.13 build)
-**Status:** open
+**Status:** done (S-002, v0.13.1)
 
-**Summary:**
-`epicflow-researcher` declares pi-web-access tools (`web_search`,
-`code_search`, `fetch_content`) but the dry-run didn't exercise the
-actual tool integration. Real research sessions may surface contract
-mismatches (citation format, query budget enforcement, etc.).
+**Resolution:** Live-tested by spawning `epicflow-researcher` with a
+real multi-source question (compare pi-epicflow project-memory design
+against Claude memory tool + claude-mem). The persona gracefully
+handled `pi-web-access` not being installed by falling back to `bash`
++ `curl` against steward-supplied URLs, surfaced that as a real
+finding, and produced a structured brief
+(`docs/announcements/v0.13.1-bl003-research-brief.md`) with 3
+alignment points + 5 steal-list items + 3 reject-list items + 1 open
+design question. The fallback behavior is now documented in the
+persona's system prompt (see BL-008) so future invocations on stewards
+without `pi-web-access` degrade gracefully instead of returning a
+confident hallucination.
 
-**Deferred because:**
-Live web-access testing belongs in a dogfood session with a real
-research question, not in the v0.13 build itself.
-
-**Revisit when:**
-- First real session uses `epicflow-researcher` with a substantive
-  question (e.g. "what's the current best practice for X?"), OR
-- pi-web-access ships breaking changes to its tool contract.
-
-**Related:** DEC-003
+**Related:** DEC-003, BL-008
 
 ## BL-004 — Global cross-repo brain (`~/.pi/global-memory.md`)
 
@@ -130,21 +128,16 @@ Per-repo first; cross-repo coupling adds storage location ambiguity
 
 **Date:** 2026-05-26
 **Source session:** S-001 (v0.13 build, dry-run finding)
-**Status:** open
+**Status:** done (S-002, v0.13.1)
 
-**Summary:**
-When `/project-init` runs on a repo that already has AGENTS.md, the
-prompt currently writes a fresh one. It should detect the existing file,
-preserve its content, and prepend (or append) only the project-memory
-reference block.
-
-**Deferred because:**
-The dry-run on the sample app had no pre-existing AGENTS.md; on
-pi-epicflow itself I'm hand-merging. Real cases will hit this.
-
-**Revisit when:**
-- A user reports `/project-init` overwrote their AGENTS.md, OR
-- v0.13.1 polish pass.
+**Resolution:** Rewrote `prompts/project-init.md` Step 3 with strict
+append-only semantics and safety backup. Three explicit paths
+(no-existing / existing-without-section / existing-with-section) with
+an idempotent-skip guarantee. Mandatory backup to `AGENTS.md.bak`
+(timestamped if `.bak` already exists). Anti-patterns explicitly
+forbid `Set-Content` / `write` on an existing `AGENTS.md`. Verified all
+3 paths in a dry run: pre-existing content byte-preserved; re-runs are
+no-ops with unchanged SHA.
 
 **Related:** /project-init
 
@@ -152,48 +145,59 @@ pi-epicflow itself I'm hand-merging. Real cases will hit this.
 
 **Date:** 2026-05-26
 **Source session:** S-001 (v0.13 build, dry-run finding #3)
-**Status:** open
+**Status:** done (S-002, v0.13.1)
 
-**Summary:**
-Every audit (project-review A-0..A-6, persona primes, future tooling)
-needs the same fence-aware "extract real headings, skip ones inside
-triple-backtick fences" awk. Currently inlined into project-review.md as
-a one-liner. Should be `install/lib/brain-audit.sh` (and a PowerShell
-mirror per C-003) with shared helpers: `brain_entries`,
-`brain_anchors`, `brain_stale`.
-
-**Deferred because:**
-Premature abstraction until a third caller appears.
-
-**Revisit when:**
-- Third audit-script writes the same awk inline, OR
-- v0.14.0 polish pass.
-
-**Related:** /project-review, C-003
+**Resolution:** Created `install/lib/brain-audit.sh` +
+`install/lib/brain-audit.ps1` with `brain_entries` / `brain_anchors` /
+`brain_stale_days` (bash) and `Get-BrainEntries` /
+`Get-BrainAnchorCount` / `Test-BrainStale` (pwsh). Updated
+`/project-review` Step 1 A-0 to call the shared helper, with inline
+fallback for both shells. Verified on this repo: both shells return
+identical counts (7 BL anchors, 5 DEC anchors).
 
 ## BL-007 — `pi-epic-status` missing PowerShell mirror (C-003 violation)
 
 **Date:** 2026-05-26
 **Source session:** S-001 (surfaced by first brain audit on this repo)
-**Status:** open
+**Status:** done (S-002, v0.13.1)
 
-**Summary:**
-`skills/epic-feature-workflow/scripts/pi-epic-status` (bash) has no
-corresponding `scripts-win/pi-epic-status.ps1`. Inventory: 9 bash
-scripts, 8 PowerShell mirrors. The missing one is `pi-epic-status`,
-likely because v0.8.0 modularized it into 6 `lib/pi-epic-status-*.sh`
-sub-files and the PowerShell port stalled.
-
-**Deferred because:**
-Pre-existing violation discovered during the first brain audit on
-this repo. Out of scope for S-001 (which was about building the
-project-memory pillar, not closing existing C-003 gaps).
-
-**Revisit when:**
-- A Windows user reports `pi-epic-status` missing, OR
-- Next v0.13.x or v0.14.0 polish pass, OR
-- We add a smoke-test rule that asserts `scripts/` and `scripts-win/`
-  have matching basenames — then this BL becomes the first feature in
-  a small parity-restoration epic.
+**Resolution:** Ported the bash dispatcher + 6 lib sub-files
+(~1000 LOC total) to a self-contained `scripts-win/pi-epic-status.ps1`
+matching the single-file convention of the other 8 PS mirrors. Python
+heredocs were preserved as PS here-strings invoked via
+`Invoke-PythonScript` with `PYTHONIOENCODING=utf-8` forced (Windows
+default cp1252 was crashing on emoji output). Visual separators
+switched from box-drawing `──` to ASCII `---` for Windows-console
+compatibility (matches existing `scripts-win/*.ps1` convention). All
+4 modes byte-parity verified on a Windows fixture against bash:
+`full`, `--json`, `--ready`, `--ready --quiet`. JSON spacing matches
+(Python json.dumps used for both). Smoke test gained a `[0/N]` C-003
+parity check in both `smoke-test.sh` and `smoke-test.ps1` that fails
+if any `scripts/X` lacks a `scripts-win/X.ps1`.
 
 **Related:** C-003, L-053 (modularization that triggered the gap)
+
+## BL-008 — Researcher persona must tolerate missing pi-web-access (anti-stub for research output)
+
+**Date:** 2026-05-26
+**Source session:** S-002 (BL-003 live dry-run finding)
+**Status:** done (S-002, v0.13.1)
+
+**Summary:**
+The `epicflow-researcher` persona declared `web_search`,
+`code_search`, `fetch_content`, and `get_search_content` as required
+tools without documenting a fallback when `pi-web-access` is absent.
+In the BL-003 live test the persona was forced into a graceful `curl`
+fallback. Without documented fallback rules it would have either
+refused or, worse, hallucinated a brief from training-data memory —
+a C-001 anti-stub violation applied to research output.
+
+**Resolution:**
+Added a "Tool availability fallback" section to
+`agents/epicflow-researcher.md` with three explicit branches:
+(1) halt-and-flag if no URLs supplied, (2) `curl` fallback if URLs
+supplied, (3) never silently skip. Frames the rule as anti-stub
+(C-001) applied to research — don't return a confident-sounding brief
+from training-data memory.
+
+**Related:** C-001, BL-003, epicflow-researcher

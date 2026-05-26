@@ -6,6 +6,86 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.13.1] — 2026-05-26
+
+**Bug-fix + hardening release.** Closes every gap surfaced by the
+v0.13.0 self-dogfood (BL-003, BL-005, BL-006, BL-007) plus one new
+finding (BL-008) so v0.13 is safe to run on a real Windows codebase
+for a real epic. Phase 2 / cross-repo brain / repo-steward persona
+remain deliberately deferred until real-user signal arrives — they're
+feature expansion, not gaps.
+
+### Fixed
+
+- **BL-005 — `/project-init` preserves existing `AGENTS.md`.** Step 3
+  rewritten with strict append-only semantics, safety backup
+  (`AGENTS.md.bak`, timestamped if `.bak` already exists), idempotent
+  re-run, and an explicit anti-pattern list (no `Set-Content` / `write`
+  on existing `AGENTS.md`). All three paths (no-existing / existing-
+  without-section / existing-with-section) verified in dry run with
+  byte-preservation check.
+- **BL-007 — `pi-epic-status` PowerShell mirror shipped.** Bash
+  dispatcher + 6 `lib/pi-epic-status-*.sh` sub-files (~1000 LOC) ported
+  to a single self-contained `scripts-win/pi-epic-status.ps1` matching
+  the convention of the other 8 PS mirrors. All four modes verified
+  byte-parity on a Windows fixture against bash: `full`, `--json`,
+  `--ready`, `--ready --quiet`. Closes the pre-existing C-003 violation
+  that escaped twelve prior releases.
+- **BL-008 — `epicflow-researcher` persona must not hallucinate when
+  `pi-web-access` is absent.** Persona system prompt now mandates a
+  three-branch fallback: halt-and-flag if no URLs supplied; `curl`
+  fallback if steward supplies primary-source URLs; never silently skip.
+  Framed as anti-stub (C-001) applied to research output. Surfaced by
+  the BL-003 live test.
+
+### Added
+
+- **`install/lib/brain-audit.{sh,ps1}`** — shared fence-aware helpers
+  for `.pi/project/` audits. Bash: `brain_entries` / `brain_anchors` /
+  `brain_stale_days`. PowerShell: `Get-BrainEntries` /
+  `Get-BrainAnchorCount` / `Test-BrainStale`. Both shells return
+  identical counts on this repo (verified: 7 BL anchors, 5 DEC
+  anchors). `/project-review` Step 1 A-0 now calls the helper with
+  inline fallback for both shells. Closes BL-006 and eliminates the
+  `awk`-on-Windows risk.
+- **C-003 parity check in both smoke tests.** New `[0/N]` phase in
+  `install/smoke-test.sh` and `install/smoke-test.ps1` that fails if
+  any `scripts/X` lacks a corresponding `scripts-win/X.ps1`. The next
+  missing PowerShell mirror cannot now slip through to release.
+- **`docs/announcements/v0.13.1-bl003-research-brief.md`** — structured
+  brief from the BL-003 live test, comparing pi-epicflow project-memory
+  against Claude's memory tool and `claude-mem`. Five-item steal-list,
+  three-item reject-list, one open design question for v0.14+ (the
+  retrieval story when `.pi/project/` outgrows grep).
+
+### Changed
+
+- **`agents/epicflow-researcher.md`** — hard-bound fallback section
+  added (see BL-008 above).
+- **`prompts/project-init.md`** — Step 3 rewritten end-to-end (see
+  BL-005 above).
+- **`prompts/project-review.md`** — Step 1 A-0 references the shared
+  brain-audit helper instead of an inline `awk` one-liner.
+- **`skills/epic-feature-workflow/scripts-win/pi-epic-status.ps1`** —
+  new self-contained PS port. Uses ASCII separators (`---`) rather
+  than bash's box-drawing `──` because Windows-console encoding can
+  drop non-ASCII chars when output is redirected through pipes;
+  matches the convention of other `scripts-win/*.ps1` files. Forces
+  `PYTHONIOENCODING=utf-8` for embedded Python heredocs so emoji
+  output (⏳, ✅, etc.) renders correctly on Windows.
+
+### Notes
+
+- v0.13 touched zero shell scripts. v0.13.1 adds exactly one PS file
+  (`pi-epic-status.ps1`) and one shared lib pair
+  (`brain-audit.{sh,ps1}`). Total LOC delta is small; release surface
+  area in the published tarball grows by ~40 KB.
+- Three open BL items remain deferred by deliberate choice: **BL-001**
+  (Phase 2 brain artifacts: gotchas.md / questions.md / module cards),
+  **BL-002** (read-only `repo-steward` persona), **BL-004** (global
+  cross-repo brain). All three are feature expansion, not gaps. They
+  ship when real-user signal from v0.13.x runs justifies the surface.
+
 ## [0.13.0] — 2026-05-26
 
 **Project Memory pillar.** A second pillar alongside the epic workflow:

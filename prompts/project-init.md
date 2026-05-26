@@ -88,26 +88,97 @@ Copy each template from the extension's `templates/project/` to
 For unknown fields (e.g. `{{DOCS_URL}}` if the user didn't give one),
 leave a `_TBD_` marker — don't invent values.
 
-## Step 3 — Wire into root `AGENTS.md`
+## Step 3 — Wire into root `AGENTS.md` (preserve existing content)
 
-If `AGENTS.md` exists at repo root: append (don't overwrite) this
-section, exactly once (check for `## Project memory` heading first):
+**BL-005 hardening (v0.13.1):** This step is now strictly
+append-only with safety backup. Never overwrite an existing
+`AGENTS.md`.
 
-```md
-## Project memory
+Mechanical flow:
 
-This repo uses [pi-epicflow](https://github.com/shankar029/pi-epicflow)'s
-project-memory pillar. Before answering non-trivial questions, read
-`.pi/project/index.md` and follow links to relevant artifacts. Write to
-`decisions.md` / `backlog.md` / `conventions.md` / `sessions.md`
-immediately when a triggering phrase appears (see the `project-memory`
-skill). Concrete implementations only — no stubs.
-```
+1. **Detect** — `Test-Path AGENTS.md` (or `[[ -f AGENTS.md ]]`).
 
-If `AGENTS.md` doesn't exist: create one with that section plus a 3-line
-header.
+2. **If `AGENTS.md` does NOT exist** — create a fresh one:
 
-If it exists and the section is already there: skip.
+   ```md
+   # Agent instructions — <repo-name>
+
+   Read this first if you're an AI coding agent working on this repo.
+
+   ## Project memory
+
+   This repo uses [pi-epicflow](https://github.com/shankar029/pi-epicflow)'s
+   project-memory pillar. Before answering non-trivial questions, read
+   `.pi/project/index.md` and follow links to relevant artifacts. Write to
+   `decisions.md` / `backlog.md` / `conventions.md` / `sessions.md`
+   immediately when a triggering phrase appears (see the `project-memory`
+   skill). Concrete implementations only — no stubs.
+   ```
+
+3. **If `AGENTS.md` exists** — do the **idempotent append** dance:
+
+   a. **Search for the section first.** Look for an exact line
+      `## Project memory` (heading level 2) anywhere in the file:
+
+      ```bash
+      grep -qE '^## Project memory\s*$' AGENTS.md && echo "already wired"
+      ```
+
+      ```powershell
+      Select-String -Path AGENTS.md -Pattern '^## Project memory\s*$' -Quiet
+      ```
+
+      If the section already exists — **stop, do nothing, report**
+      "AGENTS.md already wired (idempotent skip)." This is the case
+      on every re-run of `/project-init`.
+
+   b. **Take a safety backup** before any write — `cp AGENTS.md
+      AGENTS.md.bak` (or `Copy-Item AGENTS.md AGENTS.md.bak`). If
+      `AGENTS.md.bak` already exists, **do not overwrite it** — use a
+      timestamped name `AGENTS.md.bak.<YYYYMMDD-HHMMSS>` instead.
+      Print the backup path to the user so they can restore if
+      anything goes wrong.
+
+   c. **Append** the section to the END of the file, preserving every
+      existing byte. Ensure the file ends with a newline first; then
+      append a blank line + the section. Do NOT modify any existing
+      headings, code blocks, or content.
+
+      The exact block to append:
+
+      ```md
+
+      ## Project memory
+
+      This repo uses [pi-epicflow](https://github.com/shankar029/pi-epicflow)'s
+      project-memory pillar. Before answering non-trivial questions, read
+      `.pi/project/index.md` and follow links to relevant artifacts. Write to
+      `decisions.md` / `backlog.md` / `conventions.md` / `sessions.md`
+      immediately when a triggering phrase appears (see the `project-memory`
+      skill). Concrete implementations only — no stubs.
+      ```
+
+4. **Verify** — re-read `AGENTS.md` and confirm:
+   - The pre-existing content is byte-identical to the backup
+     (`diff AGENTS.md.bak AGENTS.md` should show only the appended
+     section as a diff hunk, with no deletions).
+   - Exactly one `## Project memory` heading exists
+     (`grep -c '^## Project memory$' AGENTS.md` returns `1`).
+
+5. **Report** to the user:
+   - "Created `AGENTS.md`" (case 2), or
+   - "Already wired — skipped" (case 3a), or
+   - "Appended `## Project memory` to existing `AGENTS.md` (backup
+     at `AGENTS.md.bak[.<stamp>]`)" (case 3b/c).
+
+**Anti-patterns explicitly forbidden:**
+
+- Do NOT use `write` (or `Set-Content` without `-Append`) on an
+  existing `AGENTS.md`. Use `edit` to append, or shell append (`>>`).
+- Do NOT rewrite the user's existing headings, even to "normalize"
+  formatting. The user owns their `AGENTS.md`.
+- Do NOT delete `AGENTS.md.bak` automatically. Leave it for the user
+  to remove once they've verified the append.
 
 ## Step 4 — Open the first session entry
 

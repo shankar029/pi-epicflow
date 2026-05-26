@@ -79,6 +79,22 @@ try {
     & git add README.md 2>&1 | Out-Null
     & git commit -qm 'init' 2>&1 | Out-Null
 
+    # ============== [0/8] C-003 parity check ==============
+    Heading '[0/8] C-003 parity check: scripts/ <-> scripts-win/'
+    $bashDir = Join-Path $repoRoot 'skills\epic-feature-workflow\scripts'
+    $winDir  = Join-Path $repoRoot 'skills\epic-feature-workflow\scripts-win'
+    $missing = 0
+    Get-ChildItem -LiteralPath $bashDir -File | Where-Object { $_.Name -notlike '_*' } | ForEach-Object {
+        $ps = Join-Path $winDir ($_.Name + '.ps1')
+        if (-not (Test-Path -LiteralPath $ps)) {
+            Fail "missing scripts-win/$($_.Name).ps1"
+            $missing++
+        }
+    }
+    if ($missing -eq 0) {
+        Pass 'every bash script in scripts/ has a corresponding scripts-win/*.ps1'
+    }
+
     # ============== [1/8] pi-epic-init ==============
     Heading '[1/8] pi-epic-init'
     @'

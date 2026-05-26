@@ -38,6 +38,29 @@ echo "sandbox: $SANDBOX"
 echo "scripts: $SCRIPTS_DIR"
 echo ""
 
+# ---------------------------------------------------------------
+# [0/29] C-003 parity: every scripts/X must have scripts-win/X.ps1
+# (BL-007: caught when pi-epic-status had no PowerShell mirror.)
+# ---------------------------------------------------------------
+echo "[0/29] C-003 parity check: scripts/ <-> scripts-win/"
+WIN_DIR="$PKG_ROOT/skills/epic-feature-workflow/scripts-win"
+missing=0
+while IFS= read -r f; do
+    base="$(basename "$f")"
+    # Skip the bash-only helper (_common.sh is mirrored as _common.ps1)
+    if [[ "$base" == "_common.sh" ]]; then continue; fi
+    if [[ "$base" == _* ]]; then continue; fi
+    if [[ ! -f "$WIN_DIR/$base.ps1" ]]; then
+        echo "  ❌ missing scripts-win/$base.ps1"
+        missing=$((missing+1))
+    fi
+done < <(find "$SCRIPTS_DIR" -maxdepth 1 -type f -not -name '_*' | sort)
+if [[ $missing -gt 0 ]]; then
+    fail "$missing PowerShell mirror(s) missing (C-003 violation)"
+fi
+pass "every bash script in scripts/ has a corresponding scripts-win/*.ps1"
+echo ""
+
 cd "$SANDBOX"
 git init -q -b main
 git config user.email smoke@local

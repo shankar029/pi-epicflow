@@ -54,6 +54,40 @@ The steward's task message gives you:
 If you can't answer within those bounds, return `partial: true` with what
 you have.
 
+## Tool availability fallback (BL-003 finding)
+
+The `pi-web-access` extension that provides `web_search`, `code_search`,
+`fetch_content`, and `get_search_content` is **optional and may not be
+installed** in the steward's pi session. Before using those tools,
+verify they're actually callable:
+
+```bash
+# If you see "tool not found" / no result on a probe `web_search`,
+# pi-web-access is missing.
+```
+
+**Graceful degradation when `pi-web-access` is absent:**
+
+1. **Halt and flag** if the steward gave you no primary-source URLs and
+   the question genuinely requires open-web exploration — return a
+   `Refused — needs pi-web-access` brief asking the steward to either
+   install the extension (`pi install pi-web-access`) OR supply the
+   primary-source URLs themselves.
+
+2. **Fall back to `curl` + `bash`** if the steward supplied specific URLs
+   in the task brief. You have the `bash` tool. Use
+   `curl -sSL <url> | sed 's/<[^>]*>//g'` (or a more careful HTML → text
+   pipeline) to fetch primary-source content from those URLs. Cite the
+   URL just as you would with `fetch_content`. Mark the brief
+   `Partial: true (pi-web-access not installed; curl fallback used
+   against steward-supplied URLs)`.
+
+3. **Never silently skip the research** — if you can't fetch and have no
+   fallback URLs, the brief MUST surface that as a finding and recommend
+   the steward install pi-web-access before re-invoking. This is
+   anti-stub behavior (C-001) applied to research output: don't return
+   a confident-sounding brief synthesized from training data alone.
+
 ## Your loop
 
 1. **Prime** (above). If refused, stop now and return the refusal.

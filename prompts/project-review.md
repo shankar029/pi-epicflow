@@ -26,11 +26,39 @@ Run these checks. Collect findings; print them in Step 2.
 
 All subsequent audits operate on **real entries**, not template example
 shapes. Template files keep their example shapes inside fenced ```` ```md ```` blocks
-so they don't pollute audits. Use this one-liner to enumerate real
-entries from any brain file:
+so they don't pollute audits. **Use the shared helper** (works in both
+bash and pwsh — no `awk` dependency on Windows):
 
 ```bash
+# Bash / WSL / macOS:
+source <pi-epicflow>/install/lib/brain-audit.sh
+brain_entries .pi/project/<file>.md      # list real `## ` headings
+brain_anchors "BL-" .pi/project/backlog.md   # count real BL- entries
+```
+
+```powershell
+# Windows pwsh:
+. <pi-epicflow>\install\lib\brain-audit.ps1
+Get-BrainEntries -Path .pi\project\<file>.md
+Get-BrainAnchorCount -Prefix "BL-" -Path .pi\project\backlog.md
+```
+
+If the helper isn't sourceable for any reason, the inline fallbacks
+are:
+
+```bash
+# Bash inline fallback:
 awk '/^```/ {fence = !fence; next} /^## / && !fence {print FILENAME ":" FNR ": " $0}' .pi/project/<file>.md
+```
+
+```powershell
+# pwsh inline fallback (awk is not available on Windows):
+$fence = $false; $n = 0
+Get-Content .pi\project\<file>.md | ForEach-Object {
+  $n++
+  if ($_ -match '^```') { $fence = -not $fence; return }
+  if (-not $fence -and $_ -match '^## ') { "${n}: $_" }
+}
 ```
 
 Use the same fence-aware pattern when counting BL-/DEC-/C-/S- anchors.
