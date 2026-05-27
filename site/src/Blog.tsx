@@ -135,13 +135,18 @@ export const PostShell = ({ slug }: { slug: string }) => {
 type Route =
   | { kind: "home" }
   | { kind: "blog-index" }
-  | { kind: "blog-post"; slug: string };
+  | { kind: "blog-post"; slug: string }
+  | { kind: "docs-index" }
+  | { kind: "docs-page"; slug: string };
 
 const parseHash = (): Route => {
   const h = window.location.hash.replace(/^#/, "");
   if (h === "/blog" || h === "/blog/") return { kind: "blog-index" };
   const m = h.match(/^\/blog\/([a-z0-9-]+)\/?$/);
   if (m) return { kind: "blog-post", slug: m[1] };
+  if (h === "/docs" || h === "/docs/") return { kind: "docs-index" };
+  const d = h.match(/^\/docs\/([a-z0-9-]+)\/?$/);
+  if (d) return { kind: "docs-page", slug: d[1] };
   return { kind: "home" };
 };
 

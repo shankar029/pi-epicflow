@@ -20,6 +20,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { BlogIndex, PostShell, useHashRoute } from "./Blog";
+import { DocsIndex, DocShell } from "./Docs";
 
 const REPO = "https://github.com/shankar029/pi-epicflow";
 
@@ -34,7 +35,7 @@ const Navbar = () => (
         </span>
       </div>
       <nav className="hidden md:flex gap-8 items-center text-sm font-medium">
-        <a href={`${REPO}#readme`} className="text-text-muted hover:text-vibrant-green transition-colors">Docs</a>
+        <a href="#/docs" className="text-text-muted hover:text-vibrant-green transition-colors">Docs</a>
         <a href="#/blog" className="text-text-muted hover:text-vibrant-green transition-colors">Blog</a>
         <a href={`${REPO}/blob/main/CHANGELOG.md`} className="text-text-muted hover:text-vibrant-green transition-colors">Changelog</a>
         <a href={REPO} className="text-text-muted hover:text-vibrant-green transition-colors">GitHub</a>
@@ -612,6 +613,8 @@ export default function App() {
         )}
         {route.kind === "blog-index" && <BlogIndex />}
         {route.kind === "blog-post" && <PostShell slug={route.slug} />}
+        {route.kind === "docs-index" && <DocsIndex />}
+        {route.kind === "docs-page" && <DocShell slug={route.slug} />}
       </main>
       <Footer />
     </div>

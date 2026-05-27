@@ -672,8 +672,12 @@ pi  ▸ ─── EPIC STATUS ───
 
         <H3 id="halt">When things go wrong: halt codes</H3>
         <P>
-          The whole pipeline halts explicitly rather than guessing. Eleven
-          halt codes cover the failure modes:
+          The whole pipeline halts explicitly rather than guessing. Seven
+          halt codes cover the failure modes &mdash; see the{" "}
+          <a className="text-vibrant-green hover:underline" href="#/docs/halts">
+            halt codes reference
+          </a>{" "}
+          for the full table and recovery recipes. A quick taste:
         </P>
         <div className="overflow-x-auto mb-6 rounded-2xl border border-slate-border">
           <table className="w-full text-sm">
@@ -686,31 +690,31 @@ pi  ▸ ─── EPIC STATUS ───
             <tbody className="text-text-muted">
               <tr className="border-t border-slate-border">
                 <td className="p-3 font-mono">H1</td>
-                <td className="p-3">Design has unresolved <Code>§5 open question</Code> &mdash; can&apos;t decompose.</td>
+                <td className="p-3">Tests still failing after &ge;3 attempts with different strategies.</td>
               </tr>
               <tr className="border-t border-slate-border">
                 <td className="p-3 font-mono">H2</td>
-                <td className="p-3">Worker would touch a file outside declared scope.</td>
+                <td className="p-3">Blocking question with no reasonable default. Worker writes the question to <Code>halt.md</Code> and stops.</td>
               </tr>
               <tr className="border-t border-slate-border">
                 <td className="p-3 font-mono">H3</td>
-                <td className="p-3">Reviewer NEEDS_CHANGES &mdash; worker has to re-loop (auto-retried once, then halt).</td>
+                <td className="p-3">Token budget exceeded for the epic. Failsafe against runaway loops.</td>
               </tr>
               <tr className="border-t border-slate-border">
                 <td className="p-3 font-mono">H4</td>
-                <td className="p-3">Tests fail; not a known-flaky pattern.</td>
+                <td className="p-3">Wall-clock budget exceeded for a feature (default 8h). Worker probably stuck.</td>
+              </tr>
+              <tr className="border-t border-slate-border">
+                <td className="p-3 font-mono">H5</td>
+                <td className="p-3">Destructive op contradicting design intent. Hard safety stop.</td>
               </tr>
               <tr className="border-t border-slate-border">
                 <td className="p-3 font-mono">H6</td>
-                <td className="p-3">Two parallel workers want the same file. Pre-checked from scope; rare.</td>
+                <td className="p-3">Merge conflict needing semantic judgment.</td>
               </tr>
               <tr className="border-t border-slate-border">
                 <td className="p-3 font-mono">H7</td>
-                <td className="p-3">Worker hit anti-stub self-check failure &mdash; shipped a TODO. Halts before merge.</td>
-              </tr>
-              <tr className="border-t border-slate-border">
-                <td className="p-3 font-mono">H11</td>
-                <td className="p-3">Optional E2E gate failed at <Code>pi-epic-complete</Code> time (v0.10+).</td>
+                <td className="p-3">DAG corruption (no resolvable next feature, cycle, missing dep).</td>
               </tr>
             </tbody>
           </table>

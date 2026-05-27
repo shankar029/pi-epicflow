@@ -8,18 +8,53 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **"Complete operator's guide" blog post** at
-  [`#/blog/complete-guide`](https://shankar029.github.io/pi-epicflow/#/blog/complete-guide).
-  ~28-minute read covering both pillars (epic workflow + project memory)
-  end-to-end with the rationale woven in. Follows a fictional through-line
-  project (`notesd`, a small notes daemon) from `git init` through three
-  epics through long-term brain maintenance. Eight design choices
-  enumerated explicitly with the rationale for each (ASSUME INTERRUPTION,
-  append-only with supersedes, stable ids never recycle, per-repo wins on
-  conflict, decomposition is YAML not chat, worktree-per-feature not
-  branch-per-feature, halt-don't-retry, anti-stub hard-coded). Ends with a
-  one-card cheat sheet. Tag: `Engineering`. Site auto-deploys via GH Pages
-  workflow on push to main.
+- **"Reference docs" section on the website** at
+  [`#/docs`](https://shankar029.github.io/pi-epicflow/#/docs).
+  9 reference pages covering every nuts-and-bolt surface of
+  pi-epicflow so users can learn the system without leaving the site
+  (previously the "Docs" link went to the GitHub README):
+  - **Overview & how to navigate** &mdash; entry-point routing table
+    pointing at the right reference page for each task.
+  - **Slash commands** &mdash; all 9 commands (project-init/-global,
+    project-onboard, project-review, session-end, epic-design,
+    epic-review-design, epic-decompose, epic-run-auto) with args,
+    pillar, what-it-produces, example transcript.
+  - **CLI scripts** &mdash; all 9 `pi-epic-*` / `pi-feature-*` scripts
+    with arg signatures, failure modes, exit codes, and a worked
+    terminal-only epic flow.
+  - **Personas (sub-agents)** &mdash; all 11 personas grouped by family
+    (6 project-memory: scout/researcher/worker/reviewer/oracle/steward;
+    5 epic-workflow: planner/worker/reviewer/epic-reviewer/design-critic)
+    with role, context mode, tools, write scope, when-to-use, when-not-to.
+  - **Skills** &mdash; project-memory (autoloaded) vs epic-feature-workflow
+    (on-demand), their integration points, autoload conditions.
+  - **Brain artifacts** &mdash; all 9 per-repo files in `.pi/project/`
+    with ID prefixes (DEC, BL, C, G, Q, S), append-only rules, the two
+    narrow non-append exceptions, capacity caps, rollover recipe; plus
+    the global overlay (GC, GD) at `~/.pi/global-memory/`.
+  - **Trigger phrases** &mdash; the complete vocabulary that grows the
+    brain without slash commands, with co-occurrence rules, anti-false-
+    positive guards, and worked examples for each trigger type.
+  - **Halt codes (H1–H7)** &mdash; every halt with trigger, meaning,
+    recovery recipe, example. Replaces the incorrect "H1–H11" speculation
+    in the prior complete-guide blog post (which is now fixed).
+  - **Install & configuration** &mdash; install paths, postinstall
+    behavior, layout after install, `epic-config.yaml` fields,
+    `decomposition.yaml` per-feature fields, env vars, uninstall, doctor.
+- **Header "Docs" link rewired** from GitHub README to in-site `#/docs`.
+  Source-on-GitHub link preserved on each doc page footer.
+- **Hash router extended** for `#/docs` (index) and `#/docs/<slug>` (page).
+  Same zero-dep tiny router as `#/blog`.
+
+### Fixed
+
+- **Complete-guide blog post halt table corrected.** The earlier version
+  listed an invented H1–H11 schema with wrong meanings (e.g. "H1 =
+  unresolved §5 open question", "H7 = anti-stub failure"). Replaced with
+  the real H1–H7 from `skills/epic-feature-workflow/SKILL.md` (H1 tests
+  failing, H2 blocking question, H3 token budget, H4 wall-clock budget,
+  H5 destructive op, H6 merge conflict, H7 DAG corruption). Halt section
+  in the blog now links to the new docs reference for the full table.
 
 ## [0.14.1] — 2026-05-26
 
