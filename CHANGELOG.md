@@ -6,6 +6,21 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **"Complete operator's guide" blog post** at
+  [`#/blog/complete-guide`](https://shankar029.github.io/pi-epicflow/#/blog/complete-guide).
+  ~28-minute read covering both pillars (epic workflow + project memory)
+  end-to-end with the rationale woven in. Follows a fictional through-line
+  project (`notesd`, a small notes daemon) from `git init` through three
+  epics through long-term brain maintenance. Eight design choices
+  enumerated explicitly with the rationale for each (ASSUME INTERRUPTION,
+  append-only with supersedes, stable ids never recycle, per-repo wins on
+  conflict, decomposition is YAML not chat, worktree-per-feature not
+  branch-per-feature, halt-don't-retry, anti-stub hard-coded). Ends with a
+  one-card cheat sheet. Tag: `Engineering`. Site auto-deploys via GH Pages
+  workflow on push to main.
+
 ## [0.14.1] — 2026-05-26
 
 **Docs + website + end-to-end guide for v0.14.** Functional code

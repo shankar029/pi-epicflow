@@ -13,6 +13,7 @@ import type { ComponentType } from "react";
 import FeatureDecompositionPost from "./blog-posts/feature-decomposition";
 import ProjectMemoryPost from "./blog-posts/project-memory";
 import V014EndToEndPost from "./blog-posts/v0-14-end-to-end-guide";
+import CompleteGuidePost from "./blog-posts/complete-guide";
 
 export type PostMeta = {
   slug: string;
@@ -25,6 +26,16 @@ export type PostMeta = {
 };
 
 export const posts: PostMeta[] = [
+  {
+    slug: "complete-guide",
+    title: "pi-epicflow, end-to-end: a complete operator's guide",
+    subtitle:
+      "Both pillars in one read. What each piece is, when to reach for it, and why the choice was made — so the workflow sticks in your head instead of being a checklist you re-look up every Monday. Follows a single fictional project from empty directory through epic delivery through long-term brain maintenance.",
+    date: "2026-05-27",
+    readMinutes: 28,
+    tag: "Engineering",
+    Component: CompleteGuidePost,
+  },
   {
     slug: "v0-14-end-to-end-guide",
     title: "v0.14, end-to-end: how to actually use it",
