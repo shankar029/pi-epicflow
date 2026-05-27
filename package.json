@@ -1,6 +1,6 @@
 {
   "name": "pi-epicflow",
-  "version": "0.13.1",
+  "version": "0.13.2",
   "description": "Pi skill + prompt + agents for shipping multi-feature work autonomously: decompose a design.md into a DAG of small features, each on its own git worktree+branch off a long-lived epic branch, squash-merged back, then opened as a single PR. Halt only when truly blocked.",
   "keywords": [
     "pi-package",

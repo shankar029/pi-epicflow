@@ -101,6 +101,28 @@ In `sessions.md`:
   `paused` or `abandoned`.
 - Are there entries where the goal was clearly not advanced (look at
   linked DEC/BL counts and files touched)? Flag for review.
+- **In-progress uniqueness invariant** — at most one line in
+  `sessions.md` should match `^\*\*Status:\*\* in-progress`. If the
+  count is `> 1`, two sessions were opened without closing the
+  previous one (likely a crash mid-session); flag for the user to
+  close the older one as `abandoned` before the next write turn.
+  Run:
+
+  ```bash
+  count=$(grep -c '^\*\*Status:\*\* in-progress' .pi/project/sessions.md || true)
+  if [[ "$count" -gt 1 ]]; then
+    echo "A-5 FAIL: $count in-progress sessions — only one should be open at a time"
+  fi
+  ```
+
+  ```powershell
+  $count = (Select-String -Path .pi/project/sessions.md `
+              -Pattern '^\*\*Status:\*\* in-progress' `
+              -AllMatches).Matches.Count
+  if ($count -gt 1) {
+    Write-Host "A-5 FAIL: $count in-progress sessions — only one should be open at a time"
+  }
+  ```
 
 ### A-6 — Module-card coverage (informational)
 

@@ -6,6 +6,78 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.13.2] — 2026-05-26
+
+**Polish + website blog.** Three small adoptions from the BL-003
+research brief comparing pi-epicflow project-memory against Claude's
+memory tool and `claude-mem`, plus a real blog section on the marketing
+site. No bug fixes; no breaking changes.
+
+### Added
+
+- **"ASSUME INTERRUPTION" operating principle in `project-memory`
+  SKILL.md.** Inspired by Anthropic's memory-tool system prompt. One
+  paragraph at the top of "Session lifecycle" telling the agent to
+  treat every turn as potentially the last one before context resets:
+  write `DEC` / `BL` / `C` / `L` entries on the turn the trigger
+  fires, not at end-of-task. The end-of-task sweep is now framed as a
+  safety net, not the primary write phase. Defends against the
+  canonical failure mode where the end-of-session summarizer smooths
+  over the exact "chose X over Y because Z" nuance.
+- **Restate-active-ids rule in `project-memory` SKILL.md "Start"
+  step.** Before any non-trivial action on session entry, the agent
+  must name the specific `DEC-NNN` / `BL-NNN` / `C-NNN` / `L-NNN` ids
+  it just loaded and intends to honor on this turn. Forces actual
+  recall (vs. "I read past it") and gives the user a checkpoint to
+  correct stale context before action.
+- **In-progress line uniqueness invariant for `sessions.md`.** The
+  open session's `**Status:**` line must be byte-unique within
+  `sessions.md` (use
+  `**Status:** in-progress (S-NNN open since YYYY-MM-DD HH:MM)`). Keeps
+  the one mutable line in the entire `.pi/project/` tree safe for
+  current and future `str_replace`-style tooling. Documented in
+  `templates/project/sessions.md` and enforced by a new check in
+  `/project-review` Step 1 A-5 ("Session hygiene") that fails when
+  more than one in-progress entry is open at a time — catches a crash
+  that left a stale open session behind.
+- **Blog on the marketing site** (`site/`). New `#/blog` route lists
+  posts; `#/blog/<slug>` renders a single post. Zero new dependencies
+  — a hash-router (~30 LOC, `useEffect` + `hashchange` event) keeps
+  this lightweight. Two launch posts:
+  - **"Project memory: pi sessions that stop forgetting"** — the
+    `.pi/project/` design, trigger-phrase writes, anti-stub HARD RULE,
+    and the five custom sub-agent personas, with the "~50 sessions
+    of trying variants" framing.
+  - **"Feature decomposition: turning design.md into a parallel
+    DAG"** — why `/epic-decompose` writes a YAML DAG, the seven-
+    signal `needs_planner` test, halt codes, and how `deviations.md`
+    feeds back into `lessons.md` so the next epic gets smarter.
+- Navbar + footer gain a **"Blog"** link pointing at `#/blog`.
+- Site version pill bumped 0.13.0 → 0.13.2 (cosmetic; tracks shipped
+  changes).
+
+### Changed
+
+- `skills/project-memory/SKILL.md` — added "Operating principle:
+  ASSUME INTERRUPTION" subsection above "Start"; promoted the
+  restate-active-ids rule from implicit to explicit step 2.
+- `templates/project/sessions.md` — expanded the inline
+  documentation around the `Status:` field with the uniqueness
+  invariant.
+- `prompts/project-review.md` — A-5 audit now includes the
+  uniqueness check, with both `bash` and `pwsh` recipes.
+
+### Notes
+
+- The three steal-list items from the BL-003 brief that landed here
+  (items 1, 2, 5) are the zero-design-risk subset. Items 3 (per-
+  section anchors + routing table in `index.md`) and 4 (size+age caps
+  with explicit rollover) deserve their own scoping conversation and
+  remain open for v0.14.
+- Blog posts are sourced under `site/src/blog-posts/` and registered
+  in `site/src/posts.ts`. Adding a third post is a 3-line change to
+  the registry plus one new TSX file.
+
 ## [0.13.1] — 2026-05-26
 
 **Bug-fix + hardening release.** Closes every gap surfaced by the

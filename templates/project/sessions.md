@@ -17,6 +17,24 @@
 **Date:** YYYY-MM-DD
 **Goal:** <one sentence — what this session is for>
 **Status:** in-progress | achieved | paused | abandoned | superseded
+
+<!--
+  IMPORTANT — In-progress line uniqueness invariant (project-memory skill).
+
+  While a session is OPEN, its Status line MUST be the single byte-unique
+  line in this file. Use the literal form:
+
+      **Status:** in-progress (S-NNN open since YYYY-MM-DD HH:MM)
+
+  The ISO timestamp + S-id guarantee uniqueness even when several closed
+  sessions also contain `**Status:**` lines. When closing the session,
+  replace that one line with:
+
+      **Status:** achieved | paused | abandoned (closed YYYY-MM-DD HH:MM)
+
+  This is the only non-append edit permitted anywhere in `.pi/project/`.
+  Keeping it byte-unique makes future `str_replace`-style tooling safe.
+-->
 **Started from:** <branch / commit if relevant>
 **Ended at:** <YYYY-MM-DD or — if still open>
 **Supersedes:** _(if this session is a pivot from S-NNN)_

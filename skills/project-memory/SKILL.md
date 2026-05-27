@@ -48,12 +48,40 @@ If unsure: if you would ever say "remember this for next time", use this skill.
 
 ## Session lifecycle
 
+### Operating principle: ASSUME INTERRUPTION
+
+Write memory **during work**, not only at end-of-task sweep. Treat
+every turn as potentially the last one before context is reset, the
+session crashes, or the user walks away. Concretely:
+
+- When a trigger phrase fires, append the `DEC` / `BL` / `C` / `L`
+  entry **on that turn**, not at session-end.
+- When you make a non-obvious implementation decision *in code* that
+  the next reader will need to know, append the decision before moving
+  on (don't batch and forget).
+- The end-of-task sweep is a **safety net** to catch what slipped past
+  during work, not the primary write phase.
+
+Reason: the canonical failure mode of agent memory is the
+end-of-session summarizer hallucinating or smoothing over the
+"chose X over Y because Z" nuance. Writing eagerly, verbatim, in
+the user's words preserves it.
+
 ### Start (first non-trivial turn)
 
 1. Read `.pi/project/index.md`. Follow links to any artifact the user's
    request obviously touches (e.g. user asks about auth → also read
    `decisions.md` and the auth module card if one exists).
-2. **Ask for the session goal.** Two paths:
+2. **Restate the active ids you're working under.** Before any
+   non-trivial action, name the specific `DEC-NNN` / `BL-NNN` / `C-NNN`
+   / `L-NNN` ids you just loaded and intend to honor on this turn.
+   One line is enough: *"Working under DEC-003 (custom personas),
+   C-001 (anti-stub HARD RULE), C-003 (bash+ps1 parity); BL-005 / 006
+   / 007 are the open items in scope."* Forces you to actually
+   recall the brain's content rather than just having read past it,
+   and gives the user a checkpoint to correct stale context before
+   you act on it.
+3. **Ask for the session goal.** Two paths:
    - If you can infer a goal confidently from the opening message, propose
      it: *"Goal for this session: **<inferred goal>** — confirm or
      correct?"*. One cheap turn.
@@ -62,6 +90,17 @@ If unsure: if you would ever say "remember this for next time", use this skill.
 3. Open a new entry in `sessions.md` with status `in-progress`. Capture:
    `id`, `date`, `goal`, `started_from` (branch/commit if relevant). Leave
    tally fields empty — you'll fill them as the session progresses.
+
+   **In-progress line uniqueness invariant.** The placeholder line for
+   the open session's `Status:` field is the **only** non-append edit
+   permitted in `.pi/project/`. To keep that edit safe (now and for any
+   future `str_replace`-style tooling), the in-progress marker MUST be
+   byte-unique within `sessions.md`. Use the literal line
+   `**Status:** in-progress (S-NNN open since YYYY-MM-DD HH:MM)` — the
+   ISO timestamp + S-id pair guarantees uniqueness even when several
+   closed sessions also contain `**Status:**` lines. When closing,
+   replace that single line with `**Status:** achieved | paused |
+   abandoned (closed YYYY-MM-DD HH:MM)`. Do not edit any other line.
 4. If the user's task touches a prior decision or open backlog item,
    surface a 3-line "context loaded" note. Otherwise stay silent.
 

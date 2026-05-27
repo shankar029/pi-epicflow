@@ -19,6 +19,7 @@ import {
   ClipboardCheck,
   ShieldCheck,
 } from "lucide-react";
+import { BlogIndex, PostShell, useHashRoute } from "./Blog";
 
 const REPO = "https://github.com/shankar029/pi-epicflow";
 
@@ -29,11 +30,12 @@ const Navbar = () => (
         <Terminal className="text-vibrant-green w-6 h-6" />
         <span className="text-white">pi-epicflow</span>
         <span className="ml-2 px-2 py-0.5 text-[10px] font-mono uppercase tracking-widest text-vibrant-green border border-vibrant-green/30 rounded">
-          v0.13.0
+          v0.13.2
         </span>
       </div>
       <nav className="hidden md:flex gap-8 items-center text-sm font-medium">
         <a href={`${REPO}#readme`} className="text-text-muted hover:text-vibrant-green transition-colors">Docs</a>
+        <a href="#/blog" className="text-text-muted hover:text-vibrant-green transition-colors">Blog</a>
         <a href={`${REPO}/blob/main/CHANGELOG.md`} className="text-text-muted hover:text-vibrant-green transition-colors">Changelog</a>
         <a href={REPO} className="text-text-muted hover:text-vibrant-green transition-colors">GitHub</a>
       </nav>
@@ -534,6 +536,7 @@ const Footer = () => (
       </p>
       <nav className="flex flex-wrap justify-center gap-x-8 gap-y-4 text-xs font-medium text-text-muted uppercase tracking-widest">
         <a href={`${REPO}/releases`} className="hover:text-vibrant-green transition-colors">Releases</a>
+        <a href="#/blog" className="hover:text-vibrant-green transition-colors">Blog</a>
         <a href={`${REPO}/blob/main/CHANGELOG.md`} className="hover:text-vibrant-green transition-colors">Changelog</a>
         <a href={`${REPO}/issues`} className="hover:text-vibrant-green transition-colors">Issues</a>
         <a href={`${REPO}/blob/main/LICENSE`} className="hover:text-vibrant-green transition-colors">License</a>
@@ -543,15 +546,22 @@ const Footer = () => (
 );
 
 export default function App() {
+  const route = useHashRoute();
   return (
     <div className="min-h-screen font-sans selection:bg-vibrant-green selection:text-white">
       <Navbar />
       <main>
-        <Hero />
-        <Benefits />
-        <WorkflowAndQuickstart />
-        <WhatsNew />
-        <FitSection />
+        {route.kind === "home" && (
+          <>
+            <Hero />
+            <Benefits />
+            <WorkflowAndQuickstart />
+            <WhatsNew />
+            <FitSection />
+          </>
+        )}
+        {route.kind === "blog-index" && <BlogIndex />}
+        {route.kind === "blog-post" && <PostShell slug={route.slug} />}
       </main>
       <Footer />
     </div>
