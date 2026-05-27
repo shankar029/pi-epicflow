@@ -155,7 +155,7 @@ worktree-per-feature → squash-merge → single PR. The three-command
 flow (`pi-epic-init`, `/epic-decompose`, `/epic-run-auto`) and the
 worked example below cover it.
 
-### Pillar 2 — Project memory (new in v0.13)
+### Pillar 2 — Project memory (new in v0.13, expanded in v0.14)
 
 Persistent, file-based **project brain** that pi reads on entry and
 writes to autonomously — no slash commands required for routine
@@ -168,17 +168,38 @@ touch:
 - Pi shipping `TODO: implement later` stubs.
 - Pi drifting from "fix the auth bug" into a user-model refactor
   nobody asked for.
+- (v0.14) Re-stating the same personal/team rules in every repo's
+  `conventions.md`.
 
-**Six artifacts in `.pi/project/`:**
+**Nine artifacts in `.pi/project/`** (six core + three Phase 2 from v0.14):
 
-| File | Purpose |
-|---|---|
-| `index.md` | Always-loaded router (≤150 lines) |
-| `charter.md` | Goal, non-goals, quality bar, owner persona |
-| `conventions.md` | Always/never rules — includes hard anti-stub rule |
-| `decisions.md` | ADR-lite log of choices and alternatives |
-| `backlog.md` | Deferred work, each entry tagged with revisit-trigger |
-| `sessions.md` | Per-session log: goal, status, summary, linked DEC/BL ids |
+| File | Purpose | Since |
+|---|---|---|
+| `index.md` | Always-loaded router with progressive-disclosure "Read for X" table (≤150 lines) | v0.13 (rewritten v0.14) |
+| `charter.md` | Goal, non-goals, quality bar, owner persona | v0.13 |
+| `conventions.md` | Always/never rules — includes hard anti-stub rule | v0.13 |
+| `decisions.md` | ADR-lite log of choices and alternatives | v0.13 |
+| `backlog.md` | Deferred work, each entry tagged with revisit-trigger | v0.13 |
+| `sessions.md` | Per-session log: goal, status, summary, linked DEC/BL ids | v0.13 |
+| `gotchas.md` | Standalone gotcha log (was a section in decisions.md). G-NNN ids. | v0.14 |
+| `questions.md` | Tracked open questions until resolution. Q-NNN ids; resolution writes DEC-NNN with `resolves: Q-NNN`. | v0.14 |
+| `modules/<name>.md` | Optional per-module card (purpose, public surface, dependencies, gotchas). User-authored from `_template.md`. | v0.14 |
+
+**Plus one optional cross-repo overlay** at `~/.pi/global-memory/` (v0.14):
+
+```
+~/.pi/global-memory/      # opt-in; one per user account, not per repo
+├── index.md             # routing for the overlay
+├── charter.md           # personal/team identity (optional)
+├── conventions.md       # cross-repo always/never rules (GC-NNN)
+└── decisions.md         # cross-repo defaults (GD-NNN), e.g. "ruff+uv for all Python"
+```
+
+Loaded **after** per-repo `.pi/project/` on session entry. **Per-repo
+always wins on conflict.** Trigger phrases for global writes are
+explicit ("globally always X" / "across all my repos" / "in every
+<lang> project of mine"); bare "always do X" still fires the
+per-repo trigger. See [DEC-006](.pi/project/decisions.md#dec-006--global-cross-repo-brain-as-additive-overlay-doesnt-supersede-dec-004).
 
 **Five mechanics make it work:**
 
@@ -187,41 +208,60 @@ touch:
    off-goal turns prompt "park or pivot?". Pi proactively proposes closing
    the session on goal achievement.
 2. **Trigger-driven writes.** Pi watches for "defer", "decided", "always
-   do X", "out of scope" and writes the entry the moment the phrase
-   fires — not at session end. Survives crashed sessions.
+   do X", "out of scope", "open question" and writes the entry the
+   moment the phrase fires — not at session end. Survives crashed
+   sessions (the **ASSUME INTERRUPTION** operating principle from
+   v0.13.2).
 3. **End-of-task sweep.** Before any "done" report, pi re-scans for
    missed triggers and diffs code-changed vs brain-recorded.
 4. **Append-only with supersedes.** Nothing is edited or deleted.
-   Reversals are new entries pointing to what they replace.
+   Reversals are new entries pointing to what they replace. Capacity
+   caps trigger user-confirmed archive rollovers, never silent deletes
+   — stable ids never recycle across archives (v0.14).
 5. **Steward + specialists.** The main session stays small and on-goal.
    Substantive work is delegated to custom `epicflow-*` sub-agent
    personas with bounded budgets and strict output contracts.
 
-**Five custom sub-agent personas** (replace the generic
+**Six custom sub-agent personas** (replace the generic
 pi-subagents ones, which drift and time out):
 
 - `epicflow-scout` — read-only repo recon, ≤30 reads
 - `epicflow-researcher` — web research, ≤4 queries, citations required
+  (with `curl` fallback when `pi-web-access` isn't installed)
 - `epicflow-worker` — bounded impl (≤5 files), anti-stub self-check
 - `epicflow-reviewer` — 7-check diff review, anti-stub grep
 - `epicflow-oracle` — top-3-risks architectural critique
+- `epicflow-steward` — **brain-only** maintenance with strict
+  write-allowlist (`.pi/project/` and `~/.pi/global-memory/` only).
+  Refuses any code / test / git / config edit. Delegation target for
+  unattended `/project-review` sweeps across multiple repos. (v0.14)
 
-**Three slash commands (mostly optional):**
+**Five slash commands (mostly optional):**
 
 ```
-/project-init        # one-shot scaffold of .pi/project/ for this repo
-/project-onboard     # optional warm-up summary at session start
-/project-review      # periodic audit + ripe-backlog surfacing
-/session-end         # manual force-close (pi normally proposes this)
+/project-init           # one-shot scaffold of .pi/project/ for this repo
+/project-init-global    # one-shot scaffold of ~/.pi/global-memory/ (v0.14, run once per user)
+/project-onboard        # optional warm-up summary at session start
+/project-review         # periodic audit + ripe-backlog surfacing; A-0..A-8 checks
+/session-end            # manual force-close (pi normally proposes this)
 ```
 
-Day-to-day, you invoke none of these. The `project-memory` skill is
-autoloaded in any repo with `.pi/project/` and handles reads / writes /
-goal-tracking transparently.
+Day-to-day, you invoke none of these except the two one-shot inits.
+The `project-memory` skill is autoloaded in any repo with
+`.pi/project/` and handles reads / writes / goal-tracking transparently.
 
-See the [v0.13.0 plan](PLAN-v0.13.0.md) and
-[`skills/project-memory/SKILL.md`](skills/project-memory/SKILL.md) for
-the full design.
+**Capacity & rollover (v0.14).** Each artifact has a soft cap; when
+exceeded, `/project-review` recommends a manual archive split (e.g.
+`git mv decisions.md decisions-archive-2026.md`, start a fresh live
+file, log a row in `index.md`). Caps: decisions 500/2 yr, backlog
+200/180 d open, sessions 150/1 yr, gotchas 200/2 yr, questions
+50 open + 200 resolved / 1 yr open. Conventions and charter are
+uncapped. Stable ids never recycle.
+
+See:
+- [v0.14 end-to-end guide](https://shankar029.github.io/pi-epicflow/#/blog/v0-14-end-to-end-guide) — the canonical "how to use this" walkthrough.
+- [v0.13.0 plan](PLAN-v0.13.0.md) and [v0.14.0 plan](PLAN-v0.14.0.md) — design records.
+- [`skills/project-memory/SKILL.md`](skills/project-memory/SKILL.md) — canonical spec.
 
 ---
 

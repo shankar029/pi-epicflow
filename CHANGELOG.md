@@ -6,6 +6,67 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.14.1] — 2026-05-26
+
+**Docs + website + end-to-end guide for v0.14.** Functional code
+unchanged from v0.14.0; this release ships the operator-facing
+material that makes v0.14 actually adoptable. First version published
+to npm (v0.13.x was git-only).
+
+### Added
+
+- **End-to-end blog post** at
+  [`#/blog/v0-14-end-to-end-guide`](https://shankar029.github.io/pi-epicflow/#/blog/v0-14-end-to-end-guide).
+  ~18-minute read covering: the mental model in 90 seconds; day-zero
+  install + both inits (`/project-init-global`, `/project-init`); the
+  9-file structure with full trigger-phrase reference table; a complete
+  25-minute session walkthrough showing every trigger type firing once;
+  the Q→DEC double-write (the brain's only non-append edit); when and
+  how to author module cards; global overlay vocabulary and conflict
+  resolution; the `epicflow-steward` persona's write-allowlist and the
+  three reasons to invoke it; capacity caps + manual rollover recipe
+  with stable-ids-never-recycle rule; a weekly rhythm cheat-sheet; and
+  five common pitfalls.
+- **v0.14.0 release banner** on the site landing page (vibrant-green,
+  above the v0.13.0 banner). Links to the end-to-end guide, the
+  CHANGELOG entry, the PLAN, and the GitHub release.
+
+### Changed
+
+- **README Pillar 2 section** — rewritten for v0.14:
+  - 6‐artifact table → 9-artifact table (added `gotchas.md`,
+    `questions.md`, `modules/<name>.md`; flagged Phase 2 entries).
+  - New "Plus one optional cross-repo overlay" subsection documenting
+    `~/.pi/global-memory/` shape, load order, conflict rule, and
+    trigger vocabulary; links to DEC-006.
+  - 5‐persona list → 6-persona list (added `epicflow-steward` with
+    write-allowlist callout).
+  - 3‐slash-command block → 5-command block (added
+    `/project-init-global` and `/project-review`; corrected the
+    "three" miscount that had been in the file since v0.13).
+  - Capacity & rollover subsection added (full caps table; manual,
+    user-confirmed rollover; stable-ids-never-recycle rule).
+  - "See:" footer now points at the end-to-end guide as the canonical
+    "how to use this" entry point.
+- **Site landing page hero copy** — "new in v0.13" → "new in v0.13,
+  expanded in v0.14" with the global overlay mention; the previous
+  hero pill (`v0.14 — phase 2 brain + global overlay`) is unchanged.
+
+### Notes
+
+- **Functional code is bit-identical to v0.14.0.** Skill, templates,
+  prompts, agents, install scripts, and tests all unchanged. Only
+  documentation files were touched: `README.md`, `site/src/App.tsx`,
+  `site/src/posts.ts`, `site/src/blog-posts/v0-14-end-to-end-guide.tsx`
+  (new), `package.json`, `CHANGELOG.md`.
+- **First npm publish.** Tag `v0.14.1` is the first version we publish
+  to the npm registry (v0.13.0…v0.14.0 are git-only). Installs via
+  `pi install npm:pi-epicflow@^0.14` now resolve cleanly.
+- **No new lessons.** Same six locked design calls as v0.14.0; same
+  brain hygiene rules.
+- **GitHub Release for v0.14.0** will reference back to this post for
+  the operator guide.
+
 ## [0.14.0] — 2026-05-26
 
 **Phase 2 brain + steward persona + global cross-repo overlay.** The

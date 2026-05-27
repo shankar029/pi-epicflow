@@ -81,8 +81,9 @@ const Hero = () => (
       with two pillars. <strong className="text-white">Epic workflow:</strong> decompose
       a <code className="text-vibrant-green font-mono">design.md</code> into a DAG of small
       features, run each on its own git worktree, squash-merge back into one reviewable PR.
-      <strong className="text-white"> Project memory (new in v0.13):</strong> a
-      persistent file-based brain at <code className="text-vibrant-green font-mono">.pi/project/</code> so pi
+      <strong className="text-white"> Project memory (new in v0.13, expanded in v0.14):</strong> a
+      persistent file-based brain at <code className="text-vibrant-green font-mono">.pi/project/</code> plus
+      an opt-in cross-repo overlay at <code className="text-vibrant-green font-mono">~/.pi/global-memory/</code> so pi
       sessions stop forgetting decisions across runs.
       Plans before it codes. Halts when it should.
     </motion.p>
@@ -355,6 +356,55 @@ const FitSection = () => (
 
 const WhatsNew = () => (
   <section className="px-4 py-16 max-w-7xl mx-auto space-y-8">
+    {/* v0.14.0 release banner — Phase 2 brain + steward + global overlay */}
+    <div className="bg-vibrant-green/5 border border-vibrant-green/40 rounded-3xl p-6 md:p-8 relative overflow-hidden">
+      <div className="flex items-start gap-4">
+        <div className="flex-shrink-0">
+          <div className="w-10 h-10 rounded-full bg-vibrant-green/15 border border-vibrant-green/30 flex items-center justify-center">
+            <Brain className="w-5 h-5 text-vibrant-green" />
+          </div>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-3 mb-2">
+            <span className="inline-flex items-center bg-vibrant-green/15 text-vibrant-green text-xs font-bold font-mono px-3 py-1 rounded-full border border-vibrant-green/30 uppercase tracking-wider">
+              v0.14.0 · phase 2 brain · global overlay · steward persona
+            </span>
+          </div>
+          <h3 className="text-xl md:text-2xl font-bold text-white tracking-tight mb-2">
+            The brain grows up: cross-repo memory + brain-only delegation.
+          </h3>
+          <p className="text-text-muted text-sm md:text-base leading-relaxed mb-3">
+            Three new artifacts in <code className="text-vibrant-green font-mono text-xs">.pi/project/</code> —
+            <code className="text-vibrant-green font-mono text-xs">gotchas.md</code> (G-NNN),
+            <code className="text-vibrant-green font-mono text-xs">questions.md</code> (Q-NNN; resolution flips status + writes <code className="text-vibrant-green font-mono text-xs">resolves: Q-NNN</code> on the DEC),
+            <code className="text-vibrant-green font-mono text-xs">modules/&lt;name&gt;.md</code> for per-module cards.
+            Plus an opt-in cross-repo overlay at <code className="text-vibrant-green font-mono text-xs">~/.pi/global-memory/</code> for personal/team conventions (GC-NNN) and defaults (GD-NNN) —
+            strictly additive, per-repo always wins on conflict (DEC-006).
+            New <code className="text-vibrant-green font-mono text-xs">epicflow-steward</code> persona with a hard write-allowlist (<code className="text-vibrant-green font-mono text-xs">.pi/project/</code> + <code className="text-vibrant-green font-mono text-xs">~/.pi/global-memory/</code> only) for unattended multi-repo sweeps.
+            Progressive-disclosure <code className="text-vibrant-green font-mono text-xs">index.md</code> &quot;Read for X&quot; routing table + soft size/age caps with manual rollover (stable ids never recycle).
+            Five locked design calls in <a href={`${REPO}/blob/main/PLAN-v0.14.0.md`} className="text-vibrant-green hover:underline font-medium">PLAN-v0.14.0.md</a>.
+          </p>
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <a href="#/blog/v0-14-end-to-end-guide" className="text-vibrant-green hover:underline font-medium">
+              → v0.14 end-to-end guide (read first!)
+            </a>
+            <span className="text-text-muted">·</span>
+            <a href={`${REPO}/blob/main/CHANGELOG.md#0140--2026-05-26`} className="text-vibrant-green hover:underline font-medium">
+              v0.14.0 changelog →
+            </a>
+            <span className="text-text-muted">·</span>
+            <a href={`${REPO}/blob/main/PLAN-v0.14.0.md`} className="text-vibrant-green hover:underline font-medium">
+              v0.14 plan →
+            </a>
+            <span className="text-text-muted">·</span>
+            <a href={`${REPO}/releases/tag/v0.14.0`} className="text-vibrant-green hover:underline font-medium">
+              v0.14.0 release →
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
     {/* v0.13.0 release banner — project memory pillar */}
     <div className="bg-amber-500/5 border border-amber-500/40 rounded-3xl p-6 md:p-8 relative overflow-hidden">
       <div className="flex items-start gap-4">

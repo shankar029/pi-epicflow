@@ -12,6 +12,7 @@
 import type { ComponentType } from "react";
 import FeatureDecompositionPost from "./blog-posts/feature-decomposition";
 import ProjectMemoryPost from "./blog-posts/project-memory";
+import V014EndToEndPost from "./blog-posts/v0-14-end-to-end-guide";
 
 export type PostMeta = {
   slug: string;
@@ -24,6 +25,16 @@ export type PostMeta = {
 };
 
 export const posts: PostMeta[] = [
+  {
+    slug: "v0-14-end-to-end-guide",
+    title: "v0.14, end-to-end: how to actually use it",
+    subtitle:
+      "A complete operator's manual for the v0.14 project-memory expansion — the global cross-repo overlay, the epicflow-steward persona, Phase 2 artifacts (gotchas, questions, module cards), capacity caps with manual rollover, and the trigger phrases that fire each write. Read this once before adopting.",
+    date: "2026-05-26",
+    readMinutes: 18,
+    tag: "Project memory",
+    Component: V014EndToEndPost,
+  },
   {
     slug: "project-memory",
     title: "Project memory: pi sessions that stop forgetting",
