@@ -6,6 +6,125 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.14.0] — 2026-05-26
+
+**Phase 2 brain + steward persona + global cross-repo overlay.** The
+v0.13 deferred items (BL-001 Phase 2 artifacts, BL-002 maintenance
+persona, BL-004 cross-repo brain) plus the two foundational steal-list
+items from the BL-003 brief (progressive-disclosure index, size+age
+caps with rollover) all ship in one minor bump. Per-repo brain remains
+canonical; cross-repo is opt-in. Six locked design calls in
+[`PLAN-v0.14.0.md`](PLAN-v0.14.0.md).
+
+### Added
+
+- **Progressive-disclosure `index.md` (steal-item 3 from BL-003 brief).**
+  Rewrote `templates/project/index.md` with a top-of-file "Read for X"
+  routing table so the agent loads only the artifacts a turn actually
+  needs. Per-section anchors (`#charter`, `#conventions`, etc.) plus
+  archive + global-overlay sections. SKILL.md "Start" step
+  retargeted to honor the routing table; the explicit instruction is
+  "do not slurp every artifact on every session start."
+- **Capacity & rollover policy (steal-item 4 from BL-003 brief).** New
+  SKILL.md section codifies per-artifact caps: `decisions.md` 500 /
+  2 yr, `backlog.md` 200 / 180 d open, `sessions.md` 150 / 1 yr,
+  `gotchas.md` 200 / 2 yr, `questions.md` 50 open + 200 resolved /
+  1 yr open. Conventions and charter are uncapped. Stable ids never
+  recycle across archives. Rollover is **never automatic** —
+  `/project-review` Step A-8 flags candidates and surfaces a
+  `git mv → fresh-live-file → index.md archive row` recipe.
+- **Phase 2 brain artifacts (BL-001).** Three new templates:
+  - `templates/project/gotchas.md` (`G-NNN` ids; trigger migrated
+    out of `decisions.md ## Gotchas`).
+  - `templates/project/questions.md` (`Q-NNN` ids; new trigger; the
+    single non-append edit allowed is flipping `**Status:** open` →
+    `resolved (see DEC-NNN)`).
+  - `templates/project/modules/` (`README.md` + `_template.md`).
+    Cards live at `.pi/project/modules/<name>.md` per the
+    "one folder = one brain" invariant (DEC-004 unchanged). No
+    automatic prompt to author cards — deliberately user-driven for
+    v0.14.0; an authoring prompt may land in v0.14.x if usage
+    justifies it.
+  - SKILL.md trigger table updated: gotcha trigger → `gotchas.md`;
+    new "unresolved-question" trigger → `questions.md`; "resolved an
+    open question" double-write (DEC + question status flip on the
+    same turn).
+  - `/project-init` template table extended with the three new
+    artifacts; older pi-epicflow installs (pre-v0.14) skip them
+    silently.
+  - `/project-review` audits extended (A-6 module-card coverage,
+    A-7 index-row staleness, A-8 capacity caps).
+- **`epicflow-steward` persona (BL-002).** New sub-agent
+  (`agents/epicflow-steward.md`) with write scope strictly limited to
+  `.pi/project/*.md`, `.pi/project/modules/*.md`,
+  `.pi/project/*-archive-*.md`, and `~/.pi/global-memory/*.md`.
+  Refuses any code / test / git / install / config edit. Modes:
+  `audit`, `promote BL-NNN`, `archive <file>`,
+  `update last_verified`, `sweep`. `/project-review` and
+  `/project-onboard` gain a "Delegation option" section for
+  unattended sweeps across multiple repos. Doesn't replace the
+  main-agent stewardship pattern — it's a delegation target for
+  brain-only maintenance. Auto-registered by the existing postinstall
+  `readdirSync(agents/)` (no installer changes).
+- **Global cross-repo brain overlay (BL-004) at `~/.pi/global-memory/`.**
+  Strictly additive read-on-entry layer. Per-repo `.pi/project/`
+  remains canonical and always wins on conflict (`DEC-006`). Storage
+  shape mirrors per-repo templates minus the inherently-per-repo
+  files:
+  - `templates/global/index.md` (routing).
+  - `templates/global/charter.md` (optional personal/team identity).
+  - `templates/global/conventions.md` (`GC-NNN` cross-repo always/never).
+  - `templates/global/decisions.md` (`GD-NNN` cross-repo defaults
+    like "ruff+uv for all Python").
+  - **No** global `sessions.md` / `backlog.md` (per DEC-006).
+  SKILL.md gets a new "Global overlay" section: read order (per-repo
+  first, then global), conflict-surfacing rule, explicit cross-repo
+  write triggers ("globally always X" / "across all my repos" /
+  "in every <lang> project of mine"), anti-false-positives. New
+  `prompts/project-init-global.md` lays the overlay down once per
+  user account, idempotent, refuses to overwrite (matches BL-005 /
+  v0.13.1 hardening).
+
+### Changed
+
+- `skills/project-memory/SKILL.md` — "Start" step gains a global-load
+  step (#2) and is retargeted to honor the progressive-disclosure
+  routing table. Trigger table now points gotchas at `gotchas.md`
+  and adds the question + question-resolution triggers. New
+  sections: "Global overlay" and "Capacity & rollover".
+- `templates/project/index.md` — full rewrite. The old version was
+  a 5-row table + module map; the new version is a routing table +
+  per-section anchors + archive table + global-overlay pointer.
+- `prompts/project-init.md` — template list extended for the three
+  Phase 2 artifacts (v0.14+ only; older installs degrade silently).
+- `prompts/project-review.md` — "Delegation option" section for
+  `epicflow-steward`; A-6 / A-7 / A-8 audit additions.
+- `prompts/project-onboard.md` — "Delegation option" section.
+- `.pi/project/decisions.md` — added DEC-006 (cross-repo layering
+  rule, additive overlay, per-repo wins on conflict).
+- `.pi/project/backlog.md` — BL-001, BL-002, BL-004 closed.
+- `.pi/project/sessions.md` — S-003 opened to track this work.
+
+### Notes
+
+- **DEC-004 is not superseded.** It specifies per-repo brain
+  *location*; DEC-006 adds an opt-in global layer that doesn't
+  contradict it.
+- **Backwards compatibility.** Existing v0.13.x repos work unchanged.
+  Re-running `/project-init` on a v0.13 repo will add the three new
+  Phase 2 templates only if they're not already present (BL-005
+  semantics). Re-running on a v0.14 repo is a no-op (idempotent
+  skip).
+- **No automatic rollover.** All archive splits are user-confirmed
+  via `/project-review`.
+- **No retrieval/search persona** — deferred from the BL-003 brief
+  §7. `index.md` + grep stays the primary access path. If usage
+  signal demands it, an `epicflow-retriever` is the natural next
+  persona; not in v0.14.
+- **No global `sessions.md` / `backlog.md`.** Cross-repo work surfaces
+  as global conventions or decisions, not as global work items.
+  Per-repo backlog entries can carry a `cross-repo: yes` tag.
+
 ## [0.13.2] — 2026-05-26
 
 **Polish + website blog.** Three small adoptions from the BL-003

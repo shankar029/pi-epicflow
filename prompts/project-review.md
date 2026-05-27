@@ -12,6 +12,24 @@ Optional args from the user: $@
 - `--quiet` — produce only the action recommendations, skip the audit
   detail.
 
+## Delegation option (v0.14+)
+
+For an unattended sweep — or when running `/project-review` across
+multiple repos in sequence — delegate the read-only audit to the
+`epicflow-steward` persona. The steward can only write to
+`.pi/project/` and `~/.pi/global-memory/`, so it can't accidentally
+fix flagged source-code issues mid-sweep:
+
+```
+subagent { agent: "epicflow-steward", task: "sweep" }
+```
+
+The main agent (you) remains responsible for **acting on**
+recommendations (promoting BL items to epics, executing rollovers
+you've confirmed, etc.). The steward only surfaces them. Use the
+main-agent flow below when the user is interactive and wants to
+choose actions live.
+
 ## Pre-flight
 
 1. `.pi/project/index.md` must exist. If not: *"Run `/project-init`
@@ -124,11 +142,81 @@ In `sessions.md`:
   }
   ```
 
-### A-6 — Module-card coverage (informational)
+### A-6 — Module-card coverage (Phase 2)
 
-If `.pi/modules/` exists (Phase 2), list modules without cards and
-modules with cards >90 days old. If `.pi/modules/` doesn't exist,
-skip silently.
+If `.pi/project/modules/` exists, list modules without cards and
+cards >90 days old (`last_verified` field). If the directory
+doesn't exist, skip silently.
+
+### A-7 — Index staleness
+
+For every artifact listed in `.pi/project/index.md` with a
+`**Last verified:** YYYY-MM-DD` line, flag entries where:
+
+- The date is more than 60 days old, AND
+- The underlying file has been modified more recently than the
+  recorded `last_verified` date.
+
+```bash
+# Suggestion: rely on the brain_stale_days helper in install/lib/brain-audit.sh
+source install/lib/brain-audit.sh 2>/dev/null || true
+for art in charter conventions decisions backlog sessions gotchas questions; do
+  f=".pi/project/${art}.md"
+  [[ -f "$f" ]] || continue
+  last_v=$(grep -m1 '^\*\*Last verified:\*\*' "$f" | sed -E 's/.*\*\*Last verified:\*\* *([0-9-]+).*/\1/')
+  if [[ -n "$last_v" ]]; then
+    file_mtime=$(date -u -r "$f" +%Y-%m-%d 2>/dev/null || stat -c %y "$f" | cut -d' ' -f1)
+    if [[ "$file_mtime" > "$last_v" ]]; then
+      echo "A-7 STALE: $f last_verified=$last_v but file mtime=$file_mtime"
+    fi
+  fi
+done
+```
+
+### A-8 — Capacity caps (rollover candidates)
+
+For each artifact with a cap (see `skills/project-memory/SKILL.md`
+"Capacity & rollover"), count entries and flag if cap is exceeded.
+
+```bash
+source install/lib/brain-audit.sh 2>/dev/null || true
+
+check_cap() {
+  local prefix="$1" file="$2" cap="$3"
+  [[ -f "$file" ]] || return 0
+  local n; n=$(brain_anchors "$prefix" "$file")
+  if (( n > cap )); then
+    echo "A-8 OVER CAP: $file has $n '$prefix' entries (cap=$cap) — recommend rollover to ${file%.md}-archive-$(date +%Y).md"
+  fi
+}
+
+check_cap 'DEC-' .pi/project/decisions.md 500
+check_cap 'BL-'  .pi/project/backlog.md   200
+check_cap 'S-'   .pi/project/sessions.md  150
+check_cap 'G-'   .pi/project/gotchas.md   200
+check_cap 'Q-'   .pi/project/questions.md 250
+```
+
+```powershell
+. .\install\lib\brain-audit.ps1
+
+function Test-CapacityCap($prefix, $file, $cap) {
+  if (-not (Test-Path $file)) { return }
+  $n = Get-BrainAnchorCount $prefix $file
+  if ($n -gt $cap) {
+    Write-Host "A-8 OVER CAP: $file has $n '$prefix' entries (cap=$cap) — recommend rollover"
+  }
+}
+
+Test-CapacityCap 'DEC-' .pi/project/decisions.md 500
+Test-CapacityCap 'BL-'  .pi/project/backlog.md   200
+Test-CapacityCap 'S-'   .pi/project/sessions.md  150
+Test-CapacityCap 'G-'   .pi/project/gotchas.md   200
+Test-CapacityCap 'Q-'   .pi/project/questions.md 250
+```
+
+Age caps are advisory and surfaced as part of A-1 (Staleness) already;
+A-8 focuses on entry-count caps.
 
 ## Step 2 — Print the report
 

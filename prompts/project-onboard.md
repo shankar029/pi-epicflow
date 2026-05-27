@@ -8,6 +8,18 @@ so the new session starts warm. This is optional — the `project-memory`
 skill primes pi on entry anyway — but it's useful when you're returning
 to a repo after time away.
 
+## Delegation option (v0.14+)
+
+For a hands-off warm-up across multiple repos (the "juggling 3-4
+parallel projects" case), delegate to `epicflow-steward`:
+
+```
+subagent { agent: "epicflow-steward", task: "sweep" }
+```
+
+The steward will print the same orientation summary plus an audit, all
+in a fresh context with no write risk to source code.
+
 ## Pre-flight
 
 1. Check `.pi/project/index.md` exists. If not, tell the user:

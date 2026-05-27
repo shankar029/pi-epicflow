@@ -207,3 +207,83 @@ Phase 2.
 - `epicflow-scout` can flag "no module card exists" and steward logs it as backlog (BL).
 - When Phase 2 lands, the existing `## Gotchas` section in `decisions.md`
   migrates to a standalone `gotchas.md`. Plan that as DEC-NNN at the time.
+
+---
+
+## DEC-006 — Global cross-repo brain as additive overlay (doesn't supersede DEC-004)
+
+**Date:** 2026-05-26
+**Session:** S-003 (v0.14.0)
+**Status:** active
+
+**Context:**
+BL-004 asked for a cross-repo brain so personal/team conventions and
+recurring lessons don't have to be re-stated in every repo's
+`conventions.md`. The naive read of DEC-004 ("brain location =
+`.pi/project/`") could be taken to forbid any global layer. The
+careful read is that DEC-004 specifies *per-repo* brain location and
+is silent on whether an additional global layer may exist.
+
+**Decision:**
+Ship the global brain as a strictly **additive read-on-entry overlay**
+at `~/.pi/global-memory/`. Per-repo `.pi/project/` remains canonical.
+Conflict resolution rule: **per-repo always wins on conflict**. The
+agent surfaces a one-line note when a per-repo entry overrides a
+global one.
+
+Global storage shape mirrors per-repo templates, minus the
+inherently-per-repo files:
+
+```
+~/.pi/global-memory/
+├── index.md         (routing, parallel to per-repo index)
+├── charter.md       (personal/team identity, optional)
+├── conventions.md   (cross-repo always/never rules)
+└── decisions.md     (cross-repo choices, e.g. "ruff+uv for all Python")
+```
+
+**No** `sessions.md` and **no** `backlog.md` at the global level —
+those are inherently per-repo.
+
+Read order on session entry: per-repo `.pi/project/index.md` first,
+then `~/.pi/global-memory/index.md` (if present), then the artifacts
+each index points at per the progressive-disclosure routing table.
+
+Write triggers for the global level are explicit and narrow:
+- "globally always X" / "across all my repos" / "in every Python
+  project of mine" → global `conventions.md`
+- "I always go with X in any new project" → global `decisions.md`
+
+Bare "always do X" without cross-repo framing still fires the
+per-repo trigger (existing C-NNN).
+
+**Alternatives considered:**
+
+- **Supersede DEC-004 with a global-only brain.** Rejected — breaks
+  every existing v0.13 install. Per-repo brain is also the right
+  default; not every user wants cross-repo coupling.
+- **Single file `~/.pi/global-memory.md`.** Rejected — forces a fourth
+  artifact shape distinct from per-repo templates; doesn't scale past
+  a few dozen entries; can't reuse `brain-audit.{sh,ps1}` helpers as
+  cleanly.
+- **Git-versioned global brain in a dedicated repo.** Rejected for
+  v0.14 — adds a setup step and a sync model. Users who want this
+  can manually `git init` inside `~/.pi/global-memory/`.
+
+**Consequences:**
+
+- New `prompts/project-init-global.md` for one-time setup (idempotent,
+  refuses to overwrite an existing directory — matches BL-005).
+- SKILL.md "Start" step now loads per-repo *then* global, restates ids
+  from both layers, and surfaces conflicts.
+- `epicflow-steward` write scope includes `~/.pi/global-memory/`
+  (already documented in the persona file).
+- Site / blog will get a v0.14 post explaining the layering rule and
+  the "per-repo wins" precedence (conditional on Steps 1–8 landing on
+  schedule per PLAN-v0.14.0).
+- DEC-004 is **not** superseded. It remains the canonical statement of
+  per-repo brain location.
+
+**Related:** DEC-004 (per-repo brain), BL-004 (the deferred ask),
+v0.13.1 BL-003 brief (recommended the layering question as a v0.14
+design call).

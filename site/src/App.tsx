@@ -30,7 +30,7 @@ const Navbar = () => (
         <Terminal className="text-vibrant-green w-6 h-6" />
         <span className="text-white">pi-epicflow</span>
         <span className="ml-2 px-2 py-0.5 text-[10px] font-mono uppercase tracking-widest text-vibrant-green border border-vibrant-green/30 rounded">
-          v0.13.2
+          v0.14.0
         </span>
       </div>
       <nav className="hidden md:flex gap-8 items-center text-sm font-medium">
@@ -59,7 +59,7 @@ const Hero = () => (
       className="inline-flex items-center gap-2 bg-vibrant-green/10 text-vibrant-green text-xs font-bold font-mono px-4 py-1.5 rounded-full border border-vibrant-green/20 mb-6 uppercase tracking-widest"
     >
       <Brain className="w-3 h-3" />
-      v0.13.0 — project memory pillar
+      v0.14 — phase 2 brain + global overlay
     </motion.div>
 
     <motion.h1

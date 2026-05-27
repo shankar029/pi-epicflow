@@ -84,9 +84,19 @@ Copy each template from the extension's `templates/project/` to
 | `decisions.md` | (no substitutions; leave as-is) |
 | `backlog.md` | (no substitutions) |
 | `sessions.md` | (no substitutions) |
+| `gotchas.md` (v0.14+) | `{{DATE}}` |
+| `questions.md` (v0.14+) | `{{DATE}}` |
+| `modules/README.md` (v0.14+) | (no substitutions; informational) |
+| `modules/_template.md` (v0.14+) | (no substitutions; user copies as `<name>.md` when authoring a card) |
 
 For unknown fields (e.g. `{{DOCS_URL}}` if the user didn't give one),
 leave a `_TBD_` marker — don't invent values.
+
+**v0.14+ note:** the three Phase 2 artifacts (`gotchas.md`,
+`questions.md`, `modules/`) are copied **only if they exist in the
+extension's templates directory**. On older pi-epicflow installs that
+predate v0.14, copy only the six Phase 1 templates and skip the rest
+silently. On v0.14+, copy all of them.
 
 ## Step 3 — Wire into root `AGENTS.md` (preserve existing content)
 

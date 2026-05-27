@@ -69,25 +69,34 @@ the user's words preserves it.
 
 ### Start (first non-trivial turn)
 
-1. Read `.pi/project/index.md`. Follow links to any artifact the user's
-   request obviously touches (e.g. user asks about auth → also read
-   `decisions.md` and the auth module card if one exists).
-2. **Restate the active ids you're working under.** Before any
+1. **Read `.pi/project/index.md`.** Use its "Read for X" routing table
+   at the top to decide which additional artifacts to load. Match the
+   user's opening message against the table; load only the rows that
+   match. If the task is ambiguous, default to `charter.md` +
+   `conventions.md`. **Do not slurp every artifact on every session
+   start** — progressive disclosure is the discipline that keeps the
+   brain affordable as it grows.
+2. **If `~/.pi/global-memory/index.md` exists, load it too** (after
+   per-repo index, before any non-trivial action). The global overlay
+   contributes cross-repo personal/team conventions and decisions.
+   Conflict rule: **per-repo `.pi/project/` always wins**. Surface a
+   one-line note when a per-repo entry overrides a global one.
+3. **Restate the active ids you're working under.** Before any
    non-trivial action, name the specific `DEC-NNN` / `BL-NNN` / `C-NNN`
-   / `L-NNN` ids you just loaded and intend to honor on this turn.
-   One line is enough: *"Working under DEC-003 (custom personas),
-   C-001 (anti-stub HARD RULE), C-003 (bash+ps1 parity); BL-005 / 006
-   / 007 are the open items in scope."* Forces you to actually
-   recall the brain's content rather than just having read past it,
-   and gives the user a checkpoint to correct stale context before
-   you act on it.
-3. **Ask for the session goal.** Two paths:
+   / `L-NNN` / `Q-NNN` / `G-NNN` ids you just loaded and intend to
+   honor on this turn. One line is enough: *"Working under DEC-003
+   (custom personas), C-001 (anti-stub HARD RULE), C-003 (bash+ps1
+   parity); BL-005 / 006 / 007 are the open items in scope."* Forces
+   you to actually recall the brain's content rather than just having
+   read past it, and gives the user a checkpoint to correct stale
+   context before you act on it.
+4. **Ask for the session goal.** Two paths:
    - If you can infer a goal confidently from the opening message, propose
      it: *"Goal for this session: **<inferred goal>** — confirm or
      correct?"*. One cheap turn.
    - If you can't infer: ask *"What's the goal for this session, in one
      sentence?"*. Suggest a recommendation if you have one.
-3. Open a new entry in `sessions.md` with status `in-progress`. Capture:
+5. Open a new entry in `sessions.md` with status `in-progress`. Capture:
    `id`, `date`, `goal`, `started_from` (branch/commit if relevant). Leave
    tally fields empty — you'll fill them as the session progresses.
 
@@ -101,7 +110,7 @@ the user's words preserves it.
    closed sessions also contain `**Status:**` lines. When closing,
    replace that single line with `**Status:** achieved | paused |
    abandoned (closed YYYY-MM-DD HH:MM)`. Do not edit any other line.
-4. If the user's task touches a prior decision or open backlog item,
+6. If the user's task touches a prior decision or open backlog item,
    surface a 3-line "context loaded" note. Otherwise stay silent.
 
 ### During (every turn)
@@ -125,7 +134,9 @@ signals. When one fires, append to the right file **before** continuing.
 | "let's not do X now", "out of scope", "for later", "future", "park it", "defer", "skip for now", "v2", "won't ship this round" | a work-item noun (this feature / that refactor / the X module / etc.) | `backlog.md` | append `BL-NNN` entry with source-session id |
 | "let's go with X over Y", "decided", "we'll use X", explicit choice between alternatives | a technical noun (lib / approach / schema / pattern) | `decisions.md` | append `DEC-NNN` entry (context / decision / alternatives / consequences) |
 | "always do X", "never do Y", "from now on", "the rule is", "convention is" | a coding pattern or repo norm | `conventions.md` | append/amend rule; if amending, add `supersedes:` pointer |
-| Resolved a tricky bug, footgun, surprising library behavior, version-specific quirk | — | `decisions.md` (under `## Gotchas` section as Phase-1 stopgap; v0.14 will move to `gotchas.md`) | append gotcha entry |
+| Resolved a tricky bug, footgun, surprising library behavior, version-specific quirk | — | `gotchas.md` | append `G-NNN` entry (symptom / root cause / fix / still-applies-if) |
+| "we don't know yet", "we're still deciding", "open question", "need to figure out", "depends on X first" | a technical noun and no immediate decision in the same message | `questions.md` | append `Q-NNN` entry (context / alternatives / resolves-when / owner) |
+| Resolved an open question previously logged as `Q-NNN` | — | `decisions.md` (`DEC-NNN` with `resolves: Q-NNN`) + flip the `Q-NNN` status line to `resolved (see DEC-NNN)` | both writes happen on the same turn |
 
 **Anti-false-positives.** Words like "later" / "future" appear constantly
 in innocuous contexts. Require the trigger to co-occur with a work-item
@@ -205,6 +216,94 @@ Below that, the steward does it directly. Above that, delegate.
   entry (under `sub_agents_invoked:`).
 - If the persona returned `needs-split`, the steward splits the task and
   re-delegates rather than pushing through.
+
+## Global overlay (cross-repo brain, v0.14+)
+
+If `~/.pi/global-memory/` exists, it's loaded **after** per-repo
+`.pi/project/` on session entry. The overlay holds cross-repo personal/
+team preferences that you don't want to re-state in every repo's
+`conventions.md`.
+
+**Read order on session start:**
+
+1. `.pi/project/index.md` (per-repo, mandatory).
+2. Artifacts matched by the per-repo "Read for X" routing table.
+3. `~/.pi/global-memory/index.md` (global, optional — skip silently
+   if absent).
+4. Global artifacts matched by the global routing table.
+
+**Conflict rule — per-repo always wins.** When a per-repo entry
+contradicts a global entry on the same topic (e.g., per-repo
+`C-007` mandates `black` for formatting while global `GC-003` says
+`ruff format`), the per-repo rule applies. The agent surfaces a
+one-line note like:
+
+```
+Note: per-repo C-007 overrides global GC-003 (formatter: black vs ruff format).
+```
+
+**Write triggers — explicit cross-repo phrasing only.** Bare
+"always do X" without cross-repo framing still fires the per-repo
+trigger. Use these for global:
+
+| Trigger phrase patterns | Destination | Action |
+|---|---|---|
+| "globally always X", "across all my repos", "in every <lang> project of mine", "as a personal rule" | `~/.pi/global-memory/conventions.md` | append `GC-NNN` entry |
+| "I always go with X for new projects", "my default is X" | `~/.pi/global-memory/decisions.md` | append `GD-NNN` entry |
+
+**Anti-false-positives.** "I'll always remember that" / "I always
+forget" are NOT triggers — they're conversational. The trigger
+requires explicit cross-repo framing ("all my repos", "every project",
+"in any new project", "as a personal rule").
+
+**Writes go to global only when triggered by global phrasing.** When
+in doubt, append to per-repo. A per-repo entry can later be promoted
+to global if a pattern emerges across multiple repos (the
+`epicflow-steward` will flag candidates during `/project-review`).
+
+**Initialization.** Run `/project-init-global` once per user account
+to lay down `~/.pi/global-memory/` from templates. The prompt is
+idempotent and refuses to overwrite an existing directory (matches
+the `/project-init` v0.13.1 hardening).
+
+## Capacity & rollover (size + age caps)
+
+The brain is append-only; it grows monotonically. To keep load-cost
+bounded and `last_verified` accurate, each artifact has a soft cap.
+When a cap is exceeded, `/project-review` recommends a **rollover** —
+renaming the old file to an archive and starting a fresh live file.
+Rollover is **never automatic**; the user confirms.
+
+| Artifact | Entry cap | Age cap | Archive name |
+|---|---|---|---|
+| `decisions.md` | 500 entries | any entry > 2 years | `decisions-archive-<YYYY>.md` |
+| `backlog.md`   | 200 entries | any open entry > 180 days | `backlog-archive-<YYYY>.md` |
+| `sessions.md`  | 150 entries | any closed entry > 1 year | `sessions-archive-<YYYY>.md` |
+| `gotchas.md`   | 200 entries | any entry > 2 years | `gotchas-archive-<YYYY>.md` |
+| `questions.md` | 50 open + 200 resolved | any open > 1 year | `questions-archive-<YYYY>.md` |
+| `conventions.md` | no cap (active rules only) | superseded rules pruned at rollover | n/a |
+| `charter.md`   | no cap (rarely changes) | n/a | n/a |
+
+**Rollover recipe** (recommended by `/project-review`, executed by
+user confirmation):
+
+1. Pick the cut-off (entry id or date). Everything *strictly before* it
+   goes to the archive.
+2. `git mv decisions.md decisions-archive-<YYYY>.md` (or copy the
+   relevant entries; either is fine — stable ids survive).
+3. Create a fresh `decisions.md` with the live header + entries after
+   the cut-off.
+4. Add an **Archives** row to `index.md` pointing at the new file.
+5. **Stable ids never recycle.** If `decisions-archive-2024.md` ends at
+   `DEC-487`, the live file starts at `DEC-488`. Cross-references stay
+   valid.
+6. Commit with a clear message (`chore: rollover decisions.md →
+   decisions-archive-2024.md`).
+
+**When loading on session start** (per the SKILL.md "Start" step):
+load the live file first; load archives only when an explicit grep for
+an id (e.g. `DEC-042`) requires it. The progressive-disclosure
+`index.md` table is the discoverability layer.
 
 ## Anti-stub enforcement
 

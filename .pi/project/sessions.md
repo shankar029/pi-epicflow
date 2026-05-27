@@ -193,3 +193,88 @@ feature-expansion, not gaps.
   Recommended (b) now, defer (c).
 - BL-001, BL-002, BL-004 remain open by deliberate choice — feature
   expansion, not gaps; wait for real-user signal from v0.13.x runs.
+
+---
+
+## S-003 — v0.14.0: Phase 2 brain + steward persona + global overlay
+
+**Date:** 2026-05-26
+**Goal:** Ship BL-001 (Phase 2 brain artifacts: gotchas.md, questions.md,
+modules/), BL-002 (epicflow-steward persona), BL-004 (cross-repo global
+overlay at ~/.pi/global-memory/), plus steal-list items 3
+(progressive-disclosure index.md) and 4 (size+age caps with rollover)
+from the BL-003 brief. Six locked design calls per PLAN-v0.14.0.md.
+**Status:** achieved (closed 2026-05-26 07:30)
+**Started from:** main @ v0.13.2
+
+**Working under:** DEC-004 (per-repo brain at `.pi/project/`),
+DEC-005 (Phase 1 = 6 artifacts; this session graduates the deferred
+Phase 2 set), DEC-006 (new — global overlay as additive layer),
+C-001 (anti-stub HARD RULE), C-003 (bash+ps1 parity),
+C-006 (agent YAML frontmatter); BL-001, BL-002, BL-004 closed.
+
+**Summary:**
+Shipped all five planned items from PLAN-v0.14.0.md in dependency order
+and under budget. Progressive-disclosure index.md + capacity caps
+landed as foundational steps; the three Phase 2 templates
+(gotchas/questions/modules) plugged in cleanly; the `epicflow-steward`
+persona was the smallest piece by code surface but the most carefully
+scoped (write-allowlist enforced via persona prompt, not via tool
+filter); the global overlay shipped as a strict additive layer with
+per-repo conflict precedence (DEC-006).
+
+**Decisions promoted to DEC:**
+- DEC-006 — cross-repo brain as additive overlay; per-repo wins on
+  conflict; storage at `~/.pi/global-memory/` (directory mirroring
+  per-repo templates minus the inherently-per-repo files).
+
+**Backlog items closed:**
+- BL-001 — done (Phase 2 templates + SKILL.md triggers + audits)
+- BL-002 — done (`epicflow-steward` persona)
+- BL-004 — done (global overlay per DEC-006)
+
+**Conventions changed:**
+- (none — C-001..C-006 unchanged)
+
+**Sub-agents invoked:**
+- (none — main-agent execution; the new `epicflow-steward` will be
+  exercised in S-004+ during real maintenance sweeps)
+
+**Files touched:**
+- `agents/epicflow-steward.md` (created)
+- `templates/global/index.md` (created)
+- `templates/global/charter.md` (created)
+- `templates/global/conventions.md` (created)
+- `templates/global/decisions.md` (created)
+- `templates/project/gotchas.md` (created)
+- `templates/project/questions.md` (created)
+- `templates/project/modules/README.md` (created)
+- `templates/project/modules/_template.md` (created)
+- `templates/project/index.md` (rewritten — progressive disclosure)
+- `prompts/project-init-global.md` (created)
+- `prompts/project-init.md` (template list extended for v0.14+)
+- `prompts/project-review.md` (A-6/A-7/A-8 added; steward delegation note)
+- `prompts/project-onboard.md` (steward delegation note)
+- `skills/project-memory/SKILL.md` (Start step retargeted; new Global
+  overlay + Capacity & rollover sections; gotchas + questions triggers)
+- `.pi/project/decisions.md` (DEC-006 added)
+- `.pi/project/backlog.md` (BL-001/002/004 closed)
+- `.pi/project/sessions.md` (this entry)
+- `package.json` (0.13.2 → 0.14.0)
+- `CHANGELOG.md` ([0.14.0] entry)
+- `PLAN-v0.14.0.md` (created)
+- `site/src/App.tsx` (version pill + hero pill bumped)
+
+**Open threads (carry into next session):**
+- v0.14.1 candidates: `/project-module-card <name>` authoring prompt
+  (if module-card usage justifies it); `epicflow-retriever` persona
+  for the §7 retrieval question if `index.md`+grep saturates.
+- npm publish for v0.13.0..v0.14.0 still held by user pending
+  real-codebase test.
+- GitHub Release drafts for v0.13.x still pending; v0.14.0 needs its
+  own draft (CHANGELOG entry is the source material).
+- Optional v0.14.1: a third blog post on the global overlay design
+  + per-repo-wins-on-conflict precedence (deferred from PLAN §Step 9
+  because Steps 1–8 came in under budget but blog scope was not
+  prioritized).
+

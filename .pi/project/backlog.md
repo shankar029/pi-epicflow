@@ -37,50 +37,42 @@
 
 **Date:** 2026-05-26
 **Source session:** S-001 (v0.13 build)
-**Status:** open
+**Status:** done (S-003, v0.14.0)
 
-**Summary:**
-v0.13 Phase 1 ships only 6 brain artifacts. The full design called for
-9+: a standalone `gotchas.md` (currently a section inside decisions.md),
-a `questions.md` for unresolved-but-tracked items, and per-module cards
-under `.pi/modules/<name>.md`.
+**Resolution:** All three Phase 2 artifacts shipped as templates +
+SKILL.md trigger updates + `/project-init` wiring + `/project-review`
+audit checks (A-6 extended; A-7 index-row staleness; A-8 capacity
+caps). Module cards live at `.pi/project/modules/<name>.md` (under the
+brain folder, preserving the "one folder = one brain" invariant from
+DEC-004) with a `_template.md` users copy by hand. Gotchas trigger
+migrated from `decisions.md ## Gotchas` to a standalone
+`gotchas.md` (`G-NNN` ids). Questions get a new trigger
+("open question" / "we're still deciding") landing in `questions.md`
+(`Q-NNN` ids); resolution writes a `DEC-NNN` with `resolves: Q-NNN`
+and flips the question's status line.
 
-**Deferred because:**
-DEC-005 — too much surface to dogfood reliably in one release. Need
-real usage signal from Phase 1 before committing to Phase 2 shape.
-
-**Revisit when:**
-- 5+ real users have used the brain for ≥2 weeks, OR
-- A pi session naturally produces a "module card-shaped" output that
-  doesn't fit the existing 6 artifacts, OR
-- The `## Gotchas` section inside decisions.md exceeds ~20 entries
-  (then graduate to standalone gotchas.md).
-
-**Related:** DEC-005
+**Related:** DEC-005 (original deferral), C-001, /project-init,
+/project-review
 
 ## BL-002 — `repo-steward` persona for read-only, brain-only sessions
 
 **Date:** 2026-05-26
 **Source session:** S-001 (v0.13 build)
-**Status:** open
+**Status:** done (S-003, v0.14.0)
 
-**Summary:**
-A session whose only goal is brain maintenance (running /project-review,
-promoting BL items, resolving stale entries) doesn't need full code
-write permissions. A dedicated `repo-steward` persona with read-only +
-`.pi/project/`-only write scope would be safer.
+**Resolution:** Shipped as `epicflow-steward` persona
+(`agents/epicflow-steward.md`). Write scope limited to
+`.pi/project/*.md`, `.pi/project/modules/*.md`,
+`.pi/project/*-archive-*.md`, and `~/.pi/global-memory/*.md`. Refuses
+on any code / test / git / install / config edit with a clear
+"Refused — not-brain-work" template. `/project-review` and
+`/project-onboard` now include a "Delegation option" section pointing
+at it for unattended sweeps across multiple repos. Doesn't replace
+the main-agent stewardship pattern — it's a delegation target for
+brain-only maintenance sessions.
 
-**Deferred because:**
-Phase 1 main-agent stewardship works fine; this is an optimization, not
-a correctness fix.
-
-**Revisit when:**
-- /project-review starts being run weekly and a maintenance-session
-  pattern emerges, OR
-- A user reports the main agent accidentally edited code during a brain
-  maintenance pass.
-
-**Related:** DEC-003, /project-review
+**Related:** DEC-003 (custom personas), /project-review,
+/project-onboard, BL-004 (the steward owns the global overlay too)
 
 ## BL-003 — Web-research integration: `epicflow-researcher` ↔ pi-web-access
 
@@ -107,22 +99,27 @@ confident hallucination.
 
 **Date:** 2026-05-26
 **Source session:** S-001 (v0.13 build)
-**Status:** open
+**Status:** done (S-003, v0.14.0)
 
-**Summary:**
-v0.13 is strictly per-repo brain. Recurring cross-repo patterns
-(personal coding preferences, lessons that apply everywhere) currently
-have to be re-stated in every repo's `.pi/project/conventions.md`.
+**Resolution:** Shipped as an **additive read-on-entry overlay** at
+`~/.pi/global-memory/` (directory, not single file — the title above
+predates DEC-006). Per DEC-006, per-repo `.pi/project/` remains
+canonical; per-repo always wins on conflict. Storage shape mirrors
+per-repo templates minus the inherently-per-repo files: `index.md`,
+`charter.md` (optional), `conventions.md` (`GC-NNN` ids),
+`decisions.md` (`GD-NNN` ids). No global `sessions.md` / `backlog.md`.
+SKILL.md gets a new "Global overlay" section documenting load order
+(per-repo first, then global), conflict surfacing rule, and explicit
+cross-repo write triggers ("globally always X", "across all my
+repos", "in every <lang> project of mine"). New
+`prompts/project-init-global.md` lays the overlay down once per user
+account, idempotent, refuses to overwrite (matches BL-005). The
+`epicflow-steward` persona's write scope includes
+`~/.pi/global-memory/` so multi-repo sweeps can maintain it.
 
-**Deferred because:**
-Per-repo first; cross-repo coupling adds storage location ambiguity
-(home dir? pi config dir?) and namespace collision risk.
-
-**Revisit when:**
-- Same convention gets added to ≥3 different repos' conventions.md, OR
-- A user explicitly asks for "things I always want pi to do".
-
-**Related:** DEC-004
+**Related:** DEC-004 (per-repo location, not superseded), DEC-006
+(the layering rule), BL-003 brief §7 (the open design question this
+resolves), epicflow-steward
 
 ## BL-005 — `/project-init` should detect & migrate existing AGENTS.md
 
