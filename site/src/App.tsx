@@ -76,10 +76,11 @@ const Hero = () => (
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay: 0.2 }}
-      className="text-lg md:text-xl text-text-muted mb-10 max-w-2xl mx-auto leading-relaxed"
+      className="text-lg md:text-xl text-text-muted mb-6 max-w-2xl mx-auto leading-relaxed"
     >
-      A <a href="https://pi.dev" className="text-vibrant-green hover:underline">pi</a> extension
-      with two pillars. <strong className="text-white">Epic workflow:</strong> decompose
+      A plugin for <a href="https://pi.dev" className="text-vibrant-green hover:underline">pi</a>
+      &nbsp;&mdash; the open-source terminal coding agent &mdash; with two pillars.
+      <strong className="text-white"> Epic workflow:</strong> decompose
       a <code className="text-vibrant-green font-mono">design.md</code> into a DAG of small
       features, run each on its own git worktree, squash-merge back into one reviewable PR.
       <strong className="text-white"> Project memory (new in v0.13, expanded in v0.14):</strong> a
@@ -88,6 +89,25 @@ const Hero = () => (
       sessions stop forgetting decisions across runs.
       Plans before it codes. Halts when it should.
     </motion.p>
+
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, delay: 0.25 }}
+      className="mb-10 max-w-2xl mx-auto rounded-2xl border border-vibrant-green/25 bg-vibrant-green/5 px-5 py-4 text-sm text-text-muted text-left"
+    >
+      <div className="flex items-start gap-3">
+        <Terminal className="w-5 h-5 text-vibrant-green shrink-0 mt-0.5" />
+        <div>
+          <strong className="text-white">Requires <a href="https://pi.dev" className="text-vibrant-green hover:underline">pi</a> installed first.</strong>{" "}
+          pi-epicflow is <em>not</em> a standalone tool &mdash; it&apos;s a plugin
+          that adds skills, slash commands, and sub-agents to the pi terminal agent.
+          New to pi? Grab it at <a href="https://pi.dev" className="text-vibrant-green hover:underline">pi.dev</a>{" "}
+          (one-line install, macOS / Linux / WSL / Windows), then come back here
+          and run <code className="text-vibrant-green font-mono">pi install npm:pi-epicflow@^0.14</code>.
+        </div>
+      </div>
+    </motion.div>
 
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}

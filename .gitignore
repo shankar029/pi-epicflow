@@ -17,3 +17,6 @@
 __pycache__/
 *.pyc
 node_modules*
+
+# Local npm auth token (never commit)
+.npmrc

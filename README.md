@@ -20,6 +20,34 @@
 
 ---
 
+## What is this, and what does it need?
+
+**pi-epicflow is a plugin for [pi](https://pi.dev), an open-source
+terminal coding agent.** It is _not_ a standalone CLI or an IDE
+extension &mdash; you run `pi` in your repo, and this package adds two
+skills (`epic-feature-workflow`, `project-memory`), 9 slash commands,
+11 sub-agent personas, and 9 CLI scripts that pi knows how to invoke.
+
+If you've never used pi:
+
+1. **Install pi first** &mdash; see [pi.dev](https://pi.dev) (one-line
+   installer; works on macOS, Linux, WSL, Windows).
+2. **Then install this extension** &mdash; `pi install npm:pi-epicflow@^0.14`
+   (full quickstart below).
+3. **Use it via pi** &mdash; `cd your-repo && pi`, then run a slash
+   command like `/project-init` or `/epic-design`.
+
+If you've used Claude Code, Aider, or Cursor: pi is in the same family
+(a terminal agent that edits your repo). pi-epicflow is the layer on
+top that turns pi from "smart pair-programmer" into "autonomous shipper
+of multi-feature epics with a persistent project brain."
+
+**Without pi installed, nothing in this package does anything.**
+
+---
+
+---
+
 ## The problem this solves
 
 When you ask an AI coding agent to ship a non-trivial change end-to-end —

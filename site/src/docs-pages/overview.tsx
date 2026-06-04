@@ -4,7 +4,7 @@
  */
 
 import { Map, Compass, BookOpen, Github } from "lucide-react";
-import { Prose, H2, H3, P, Strong, Em, Code, Ul, Li, Callout } from "../blog-posts/_typography";
+import { Prose, H2, H3, P, Strong, Em, Code, Ul, Li, Pre, Callout } from "../blog-posts/_typography";
 
 const REPO = "https://github.com/shankar029/pi-epicflow";
 
@@ -27,6 +27,19 @@ export default function OverviewPage() {
       </header>
 
       <Prose>
+        <Callout kind="info" title="Prerequisite — install pi first">
+          pi-epicflow is a <Strong>plugin for pi</Strong>, an open-source
+          terminal coding agent. It is not a standalone CLI &mdash; every
+          slash command and persona in these docs runs <Em>inside</Em> a
+          pi session. If you don&apos;t have pi yet, grab it at{" "}
+          <a className="text-vibrant-green hover:underline" href="https://pi.dev">pi.dev</a>{" "}
+          (one-line install on macOS / Linux / WSL / Windows), then
+          install this extension:
+          <Pre>{`pi install npm:pi-epicflow@^0.14`}</Pre>
+          See <a className="text-vibrant-green hover:underline" href="#/docs/config">Install &amp; config</a>{" "}
+          for the full setup (postinstall behavior, file layout, env vars).
+        </Callout>
+
         <H2>The two pillars in one paragraph</H2>
         <P>
           pi-epicflow ships <Strong>two independent skills</Strong> in one
