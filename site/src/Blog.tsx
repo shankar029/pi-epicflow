@@ -137,7 +137,8 @@ type Route =
   | { kind: "blog-index" }
   | { kind: "blog-post"; slug: string }
   | { kind: "docs-index" }
-  | { kind: "docs-page"; slug: string };
+  | { kind: "docs-page"; slug: string }
+  | { kind: "quickstart" };
 
 const parseHash = (): Route => {
   const h = window.location.hash.replace(/^#/, "");
@@ -147,6 +148,7 @@ const parseHash = (): Route => {
   if (h === "/docs" || h === "/docs/") return { kind: "docs-index" };
   const d = h.match(/^\/docs\/([a-z0-9-]+)\/?$/);
   if (d) return { kind: "docs-page", slug: d[1] };
+  if (h === "/quickstart" || h === "/quickstart/") return { kind: "quickstart" };
   return { kind: "home" };
 };
 

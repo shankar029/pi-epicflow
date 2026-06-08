@@ -298,9 +298,9 @@ export default function FeatureDecompositionPost() {
           <Li>
             <a
               className="text-vibrant-green hover:underline"
-              href={`${REPO}#quickstart--the-three-command-flow`}
+              href="#/quickstart"
             >
-              README quickstart
+              Quickstart
             </a>{" "}
             — three commands to install, three commands to ship your first epic.
           </Li>

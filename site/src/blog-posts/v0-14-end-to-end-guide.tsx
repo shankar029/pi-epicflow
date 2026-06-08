@@ -136,14 +136,14 @@ export default function V014EndToEndPost() {
         </P>
 
         <H3 id="install-pi-epicflow">Install pi-epicflow v0.14</H3>
-        <Pre>{`# Globally (writes to ~/.pi/agent/settings.json):
-pi install git:github.com/shankar029/pi-epicflow
+        <Pre>{`# Recommended (from npm):
+pi install npm:pi-epicflow@^0.14
 
-# Or pin to v0.14.1 (latest as of this post):
-pi install git:github.com/shankar029/pi-epicflow@v0.14.1
+# Or pin to a specific tag:
+pi install npm:pi-epicflow@0.14.1
 
-# Or from npm if you prefer:
-pi install npm:pi-epicflow@^0.14`}</Pre>
+# Or from git (only if you need unreleased commits):
+pi install git:github.com/shankar029/pi-epicflow`}</Pre>
         <P>
           Postinstall registers the skill, the slash commands, and all six
           <Code>epicflow-*</Code> personas (including the new

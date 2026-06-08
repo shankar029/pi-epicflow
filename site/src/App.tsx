@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { BlogIndex, PostShell, useHashRoute } from "./Blog";
 import { DocsIndex, DocShell } from "./Docs";
+import { Quickstart } from "./Quickstart";
 
 const REPO = "https://github.com/shankar029/pi-epicflow";
 
@@ -35,6 +36,7 @@ const Navbar = () => (
         </span>
       </div>
       <nav className="hidden md:flex gap-8 items-center text-sm font-medium">
+        <a href="#/quickstart" className="text-text-muted hover:text-vibrant-green transition-colors">Quickstart</a>
         <a href="#/docs" className="text-text-muted hover:text-vibrant-green transition-colors">Docs</a>
         <a href="#/blog" className="text-text-muted hover:text-vibrant-green transition-colors">Blog</a>
         <a href={`${REPO}/blob/main/CHANGELOG.md`} className="text-text-muted hover:text-vibrant-green transition-colors">Changelog</a>
@@ -115,7 +117,7 @@ const Hero = () => (
       transition={{ duration: 0.6, delay: 0.3 }}
       className="flex flex-col sm:flex-row items-center justify-center gap-4"
     >
-      <a href={`${REPO}#quickstart--the-three-command-flow`} className="w-full sm:w-auto bg-vibrant-green hover:bg-vibrant-green-hover text-surface px-10 py-4 rounded-xl font-bold uppercase tracking-wider transition-colors text-center">
+      <a href="#/quickstart" className="w-full sm:w-auto bg-vibrant-green hover:bg-vibrant-green-hover text-surface px-10 py-4 rounded-xl font-bold uppercase tracking-wider transition-colors text-center">
         Quickstart
       </a>
       <a href={REPO} className="w-full sm:w-auto bg-slate-surface border border-slate-border text-white px-10 py-4 rounded-xl font-bold uppercase tracking-wider hover:border-vibrant-green/50 hover:bg-surface-container transition-all flex items-center justify-center gap-2">
@@ -253,7 +255,7 @@ const TerminalWindow = () => (
         <div className="text-text-muted"># install (once)</div>
         <div className="flex gap-3">
           <span className="text-slate-border select-none">$</span>
-          <span className="text-white"><span className="text-vibrant-green">pi</span> install git:github.com/shankar029/pi-epicflow</span>
+          <span className="text-white"><span className="text-vibrant-green">pi</span> install npm:pi-epicflow@^0.14</span>
         </div>
         <div className="text-text-muted mt-3"># bootstrap the epic</div>
         <div className="flex gap-3">
@@ -635,6 +637,7 @@ export default function App() {
         {route.kind === "blog-post" && <PostShell slug={route.slug} />}
         {route.kind === "docs-index" && <DocsIndex />}
         {route.kind === "docs-page" && <DocShell slug={route.slug} />}
+        {route.kind === "quickstart" && <Quickstart />}
       </main>
       <Footer />
     </div>
