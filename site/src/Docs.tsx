@@ -22,6 +22,7 @@ import {
   Settings,
   Sparkles,
   Map,
+  GitBranch,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -30,6 +31,7 @@ import CommandsPage from "./docs-pages/commands";
 import ScriptsPage from "./docs-pages/scripts";
 import AgentsPage from "./docs-pages/agents";
 import SkillsPage from "./docs-pages/skills";
+import WorktreesPage from "./docs-pages/worktrees";
 import BrainPage from "./docs-pages/brain";
 import TriggersPage from "./docs-pages/triggers";
 import HaltsPage from "./docs-pages/halts";
@@ -93,6 +95,15 @@ export const docs: DocMeta[] = [
     icon: Layers,
     group: "Internals",
     Component: SkillsPage,
+  },
+  {
+    slug: "worktrees",
+    title: "Worktree topology",
+    subtitle:
+      "Where each branch actually lives on disk: epic vs feature, the two top-level patterns (default vs dedicated epic worktree), which scripts create which, and how cleanup works.",
+    icon: GitBranch,
+    group: "Internals",
+    Component: WorktreesPage,
   },
   {
     slug: "brain",

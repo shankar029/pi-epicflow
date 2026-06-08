@@ -19,7 +19,7 @@ const scripts: Script[] = [
   {
     name: "pi-epic-init",
     args: "<slug> [--from <design-file>] [--title \"<title>\"] [--base <branch>] [--no-planner]",
-    what: "Bootstrap an epic: scaffolds `.pi/epics/<NNNN>-<slug>/` from template, creates `epic/<slug>` branch off the default branch, sets STATE.md, optionally seeds design.md from a `--from` file. Picks the next free NNNN automatically.",
+    what: "Bootstrap an epic: scaffolds `.pi/epics/<NNNN>-<slug>/` from template, creates `epic/<slug>` <strong>branch</strong> (no worktree &mdash; uses your current checkout) off the default branch, sets STATE.md, optionally seeds design.md from a `--from` file. Picks the next free NNNN automatically. If you pre-create a dedicated epic worktree, it detects and reuses &mdash; see <a class='text-vibrant-green hover:underline' href='#/docs/worktrees'>worktree topology</a>.",
     fails: "Not in a git repo · slug already exists · default branch unresolvable",
     exits: "0 OK · 1 invalid args · 2 git/repo error · 3 epic already exists",
   },
@@ -54,7 +54,7 @@ const scripts: Script[] = [
   {
     name: "pi-feature-start",
     args: "<feature-id>",
-    what: "Verifies feature deps are merged · creates `feat/<epic-slug>/<feature-id>-<slug>` branch off the epic branch · creates a git worktree at `../<repo>-<feature-id>/` · scaffolds `feature.md` + `meta.yaml` · updates STATE.md.",
+    what: "Verifies feature deps are merged · creates `feat/<epic-slug>/<feature-id>-<slug>` <strong>branch and worktree</strong> at `../<repo>-<feature-id>/` (so the worker subagent edits an isolated checkout, never the orchestrator's) · scaffolds `feature.md` + `meta.yaml` · updates STATE.md. See <a class='text-vibrant-green hover:underline' href='#/docs/worktrees'>worktree topology</a> for the full layout during a multi-feature run.",
     fails: "Deps not merged · branch already exists · worktree path conflicts · dirty epic branch",
     exits: "0 OK · 7 deps not merged · 8 worktree conflict",
   },
