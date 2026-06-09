@@ -8,53 +8,50 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **In-site Quickstart page** at
+  [`#/quickstart`](https://shankar029.github.io/pi-epicflow/#/quickstart).
+  4-step walkthrough (install pi → install pi-epicflow → verify → pick
+  first-use path), 3 branching path tutorials (project-memory only,
+  epic-only, both pillars), troubleshooting section. Header nav now has
+  Quickstart link before Docs and Blog. Hero CTA button rewired from
+  GitHub README anchor to `#/quickstart`.
+
+- **L-054 (lesson)**: documented the npm-global-prefix EACCES cliff in
+  Quickstart troubleshooting + a dedicated warn callout in step 2.
+  Discovered when doing a fresh smoke of `pi install npm:pi-epicflow`
+  &mdash; on any Linux/WSL/macOS where global npm prefix is `/usr/local`
+  (root-owned, which is most default node installs), the install fails
+  with EACCES on the rename step. Four documented fixes ordered by
+  preference: re-point npm prefix to `~/.npm-global` (recommended); use
+  nvm/fnm/volta (best long-term); sudo (NOT recommended &mdash; creates
+  root-owned files in `~/.pi`); fall back to git source.
+
+- **New "Worktree topology" docs page** at `#/docs/worktrees` covering
+  the two top-level patterns (default vs dedicated epic worktree),
+  per-feature worktrees, when to pick which, why-this-design rationale,
+  and cleanup recipes for orphaned worktrees.
+
 - **"Reference docs" section on the website** at
   [`#/docs`](https://shankar029.github.io/pi-epicflow/#/docs).
-  9 reference pages covering every nuts-and-bolt surface of
-  pi-epicflow so users can learn the system without leaving the site
-  (previously the "Docs" link went to the GitHub README):
-  - **Overview & how to navigate** &mdash; entry-point routing table
-    pointing at the right reference page for each task.
-  - **Slash commands** &mdash; all 9 commands (project-init/-global,
-    project-onboard, project-review, session-end, epic-design,
-    epic-review-design, epic-decompose, epic-run-auto) with args,
-    pillar, what-it-produces, example transcript.
-  - **CLI scripts** &mdash; all 9 `pi-epic-*` / `pi-feature-*` scripts
-    with arg signatures, failure modes, exit codes, and a worked
-    terminal-only epic flow.
-  - **Personas (sub-agents)** &mdash; all 11 personas grouped by family
-    (6 project-memory: scout/researcher/worker/reviewer/oracle/steward;
-    5 epic-workflow: planner/worker/reviewer/epic-reviewer/design-critic)
-    with role, context mode, tools, write scope, when-to-use, when-not-to.
-  - **Skills** &mdash; project-memory (autoloaded) vs epic-feature-workflow
-    (on-demand), their integration points, autoload conditions.
-  - **Brain artifacts** &mdash; all 9 per-repo files in `.pi/project/`
-    with ID prefixes (DEC, BL, C, G, Q, S), append-only rules, the two
-    narrow non-append exceptions, capacity caps, rollover recipe; plus
-    the global overlay (GC, GD) at `~/.pi/global-memory/`.
-  - **Trigger phrases** &mdash; the complete vocabulary that grows the
-    brain without slash commands, with co-occurrence rules, anti-false-
-    positive guards, and worked examples for each trigger type.
-  - **Halt codes (H1–H7)** &mdash; every halt with trigger, meaning,
-    recovery recipe, example. Replaces the incorrect "H1–H11" speculation
-    in the prior complete-guide blog post (which is now fixed).
-  - **Install & configuration** &mdash; install paths, postinstall
-    behavior, layout after install, `epic-config.yaml` fields,
-    `decomposition.yaml` per-feature fields, env vars, uninstall, doctor.
-- **Header "Docs" link rewired** from GitHub README to in-site `#/docs`.
-  Source-on-GitHub link preserved on each doc page footer.
-- **Hash router extended** for `#/docs` (index) and `#/docs/<slug>` (page).
-  Same zero-dep tiny router as `#/blog`.
+  9 reference pages: Overview, Slash commands, CLI scripts, Personas,
+  Skills, Brain artifacts, Trigger phrases, Halt codes (H1–H7),
+  Install & config. Each page has a "Source on GitHub" deep-link.
 
 ### Fixed
 
-- **Complete-guide blog post halt table corrected.** The earlier version
-  listed an invented H1–H11 schema with wrong meanings (e.g. "H1 =
-  unresolved §5 open question", "H7 = anti-stub failure"). Replaced with
-  the real H1–H7 from `skills/epic-feature-workflow/SKILL.md` (H1 tests
-  failing, H2 blocking question, H3 token budget, H4 wall-clock budget,
-  H5 destructive op, H6 merge conflict, H7 DAG corruption). Halt section
-  in the blog now links to the new docs reference for the full table.
+- **All install commands across the site now lead with npm**
+  (`pi install npm:pi-epicflow@^0.14`) instead of the git source.
+  Git source is now positioned as the fallback for unreleased commits.
+  Affects: landing TerminalWindow snippet, blog `v0-14-end-to-end-guide`
+  install block, docs `config` page.
+
+- **Lead with "this is a pi plugin"** in README, site Hero, and docs
+  overview. Prior copy assumed readers knew what pi was; now there's an
+  explicit prereq callout naming sibling tools (Claude Code, Aider,
+  Cursor) so newcomers can anchor what pi is.
+
+- **Complete-guide blog post halt table corrected** from invented
+  H1–H11 to real H1–H7. Linked to new `#/docs/halts` reference.
 
 ## [0.14.1] — 2026-05-26
 

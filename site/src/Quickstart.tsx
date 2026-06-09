@@ -147,6 +147,48 @@ pi install git:github.com/shankar029/pi-epicflow@v0.14.1`}</Pre>
         </a>{" "}
         for the full layout.
       </Callout>
+
+      <Callout kind="warn" title="Linux / WSL / macOS: npm permissions gotcha">
+        On most Linux/WSL/macOS systems, the global npm prefix is{" "}
+        <Code>/usr/local</Code> (root-owned), and{" "}
+        <Code>pi install npm:pi-epicflow</Code> shells out to{" "}
+        <Code>npm install -g</Code>. You&apos;ll see an{" "}
+        <Code>EACCES</Code> error like:
+        <Pre>{`npm ERR! code EACCES
+npm ERR! syscall rename
+npm ERR! path /usr/local/lib/node_modules/pi-epicflow
+npm ERR! Error: EACCES: permission denied, rename '/usr/local/lib/...'`}</Pre>
+        <Strong>Fix &mdash; pick one (recommended order):</Strong>
+        <Pre>{`# Option A (recommended): re-point npm prefix to a user-owned dir.
+#   One-time setup; everything you 'pi install npm:' from now on
+#   lives under your home directory.
+mkdir -p ~/.npm-global
+npm config set prefix '~/.npm-global'
+echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc   # or ~/.zshrc
+source ~/.bashrc
+pi install npm:pi-epicflow@^0.14    # now works without sudo
+
+# Option B: use a node version manager (nvm / fnm / volta). These
+#   install node + npm under your home dir by default, eliminating
+#   the problem entirely. Best for long-term node usage.
+#   nvm:    https://github.com/nvm-sh/nvm
+#   fnm:    https://github.com/Schniz/fnm
+#   volta:  https://volta.sh
+
+# Option C (NOT recommended): use sudo.
+#   sudo pi install npm:pi-epicflow@^0.14
+#   Avoid because pi-epicflow's postinstall writes to ~/.pi/ &
+#   ~/.local/bin -- doing that as root creates files your user can't
+#   later modify. Will bite you on the next upgrade.
+
+# Option D (fallback): use the git source.
+#   pi install git:github.com/shankar029/pi-epicflow
+#   Bypasses npm entirely. You lose 'pi update' refresh semantics --
+#   to upgrade you have to re-run the install command.`}</Pre>
+        Windows users on PowerShell typically don&apos;t hit this since
+        npm&apos;s default prefix is already under <Code>%AppData%</Code>.
+      </Callout>
+
     </Step>
 
     {/* Step 3 */}
@@ -379,6 +421,16 @@ pi
         Troubleshooting
       </h2>
       <Ul>
+        <Li>
+          <Strong>
+            <Code>EACCES</Code> on{" "}
+            <Code>pi install npm:pi-epicflow</Code>
+          </Strong>{" "}
+          &mdash; your global npm prefix is root-owned. Re-point npm to a
+          user-owned dir (see <em>Linux / WSL / macOS gotcha</em> callout
+          in step 2 above) or fall back to the git install:{" "}
+          <Code>pi install git:github.com/shankar029/pi-epicflow</Code>.
+        </Li>
         <Li>
           <Strong>
             <Code>pi: command not found</Code>
