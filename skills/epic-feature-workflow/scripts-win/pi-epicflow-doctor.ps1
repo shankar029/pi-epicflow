@@ -184,6 +184,71 @@ $bash = Get-Command bash -ErrorAction SilentlyContinue
 if ($bash) {
     Write-Info "bash detected at: $($bash.Source) (informational; not required)"
 }
+Write-Host ''
+
+# 7. npm-global prefix writability (L-054 — EACCES cliff parity with bash)
+# Windows users on the default npm prefix (%AppData%\npm) generally
+# don't hit this, but corporate machines with locked-down profiles or
+# users who set prefix to C:\Program Files\nodejs can. Detect and warn.
+Write-Host '-- npm prefix --'
+$npm = Get-Command npm -ErrorAction SilentlyContinue
+if ($npm) {
+    $npmPrefix = (& npm config get prefix 2>$null)
+    if ($LASTEXITCODE -eq 0 -and $npmPrefix) {
+        $npmPrefix = $npmPrefix.Trim()
+        $globalNm = Join-Path $npmPrefix 'node_modules'
+        if (Test-Path -LiteralPath $globalNm) {
+            $testFile = Join-Path $globalNm ".pi-epicflow-writetest-$([guid]::NewGuid().ToString('N').Substring(0,8))"
+            $writable = $false
+            try {
+                [IO.File]::WriteAllText($testFile, '')
+                Remove-Item -LiteralPath $testFile -Force -ErrorAction SilentlyContinue
+                $writable = $true
+            } catch { $writable = $false }
+            if ($writable) {
+                Write-Pass "npm prefix writable: $npmPrefix"
+            } else {
+                Write-Warn "npm prefix is NOT writable by $env:USERNAME: $npmPrefix"
+                Write-Info "-> 'pi install npm:...' and 'pi update' will fail with EPERM/EACCES."
+                Write-Info 'Fix (one-time): point npm at a user-owned prefix:'
+                Write-Info '  npm config set prefix "$env:LOCALAPPDATA\npm-global"'
+                Write-Info '  setx PATH "$env:LOCALAPPDATA\npm-global;$env:PATH"'
+                Write-Info 'See https://shankar029.github.io/pi-epicflow/#/quickstart for alternatives.'
+            }
+        } else {
+            Write-Info "npm prefix not detected or no node_modules yet at $npmPrefix"
+        }
+    } else {
+        Write-Info 'npm prefix not detected.'
+    }
+} else {
+    Write-Info 'npm not on PATH — skipping prefix check.'
+}
+
+# 8. Pending agent updates (L-007 — .new files staged by postinstall)
+Write-Host ''
+Write-Host '-- pending agent updates --'
+$agentsDir = if ($env:PI_EPICFLOW_AGENTS_DIR) {
+    $env:PI_EPICFLOW_AGENTS_DIR
+} else {
+    Join-Path $HOME '.pi\agent\agents'
+}
+if (Test-Path -LiteralPath $agentsDir) {
+    $newFiles = @(Get-ChildItem -LiteralPath $agentsDir -Filter '*.new' -File -ErrorAction SilentlyContinue)
+    if ($newFiles.Count -eq 0) {
+        Write-Pass 'no pending .new files'
+    } else {
+        Write-Warn "$($newFiles.Count) pending agent update(s) staged by postinstall:"
+        foreach ($f in $newFiles) {
+            $base = $f.FullName -replace '\.new$', ''
+            Write-Info $f.Name
+            Write-Info "  Compare-Object (gc '$base') (gc '$($f.FullName)')"
+            Write-Info "  # then: mv '$($f.FullName)' '$base'   (accept) or rm '$($f.FullName)'   (keep yours)"
+        }
+    }
+} else {
+    Write-Info "agents dir $agentsDir does not exist yet"
+}
 
 Write-Host ''
 Write-Host 'Done.'

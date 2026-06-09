@@ -136,6 +136,62 @@ for t in git python3; do
     fi
 done
 
+# 6. npm-global prefix writability (L-054 — the EACCES cliff)
+# Most Linux/WSL/macOS systems ship with npm prefix at /usr/local, which
+# is root-owned, which makes `pi install npm:pi-epicflow` fail on first
+# run with EACCES. Detect proactively and print the fix recipe before
+# the user hits it on the next upgrade.
+echo
+echo "── npm prefix ──"
+if command -v npm >/dev/null 2>&1; then
+    npm_prefix=$(npm config get prefix 2>/dev/null || echo "")
+    if [[ -n "$npm_prefix" && -d "$npm_prefix/lib/node_modules" ]]; then
+        if [[ -w "$npm_prefix/lib/node_modules" ]]; then
+            pass "npm prefix writable: $npm_prefix"
+        else
+            warn "npm prefix is NOT writable by $(id -un): $npm_prefix"
+            info "→ 'pi install npm:...' and 'pi update' will fail with EACCES."
+            info "Fix (one-time): point npm at a user-owned prefix:"
+            info "  mkdir -p ~/.npm-global"
+            info "  npm config set prefix '~/.npm-global'"
+            info "  echo 'export PATH=~/.npm-global/bin:\$PATH' >> ~/.bashrc"
+            info "  source ~/.bashrc"
+            info "See https://shankar029.github.io/pi-epicflow/#/quickstart for alternatives."
+        fi
+    else
+        info "npm prefix not detected or no node_modules yet at $npm_prefix"
+    fi
+else
+    info "npm not on PATH — skipping prefix check."
+fi
+
+# 7. Pending agent updates (L-007 — .new files from non-destructive postinstall)
+# When postinstall finds a user-edited agent that differs from the
+# packaged version, it writes a .new sibling instead of clobbering. The
+# warning prints during install but is easy to miss in CI/scrollback;
+# surface it in doctor so the user sees pending updates on demand.
+echo
+echo "── pending agent updates ──"
+agents_dir="${PI_EPICFLOW_AGENTS_DIR:-$HOME/.pi/agent/agents}"
+if [[ -d "$agents_dir" ]]; then
+    new_files=()
+    while IFS= read -r -d '' f; do new_files+=("$f"); done \
+        < <(find "$agents_dir" -maxdepth 1 -name '*.new' -print0 2>/dev/null)
+    if (( ${#new_files[@]} == 0 )); then
+        pass "no pending .new files"
+    else
+        warn "${#new_files[@]} pending agent update(s) staged by postinstall:"
+        for f in "${new_files[@]}"; do
+            base="${f%.new}"
+            info "$(basename "$f")"
+            info "  diff '$base' '$f'"
+            info "  # then: mv '$f' '$base'   (accept) or rm '$f'   (keep yours)"
+        done
+    fi
+else
+    info "agents dir $agents_dir does not exist yet"
+fi
+
 # 6. Recent epic activity (v0.9 — reads pi-epic-status --json)
 if epic_dir=$(active_epic_dir 2>/dev/null); then
     json_out=$(pi-epic-status --json 2>/dev/null) || json_out=""

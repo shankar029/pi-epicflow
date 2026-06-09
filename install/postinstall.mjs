@@ -178,6 +178,27 @@ function installWinShimSafely(psScriptAbs, binDir) {
   }
 }
 
+// ── Step 0: housekeeping ──────────────────────────────────────────────────
+// v0.14.2 / L-056 — sweep stale skill tarballs from pre-v0.4 installs.
+// Older pi packaged epic-feature-workflow as a tar.gz skill that landed
+// under ~/.pi/agent/skills/epic-feature-workflow-v*.tar.gz. Today the
+// skill ships unpacked (~/.pi/agent/skills/epic-feature-workflow/), but
+// the old tarball never gets cleaned up by pi update, leaving confusing
+// junk that shows up in `ls`. Sweep on every postinstall.
+function sweepStaleTarballs() {
+  const skillsDir = path.join(os.homedir(), ".pi", "agent", "skills");
+  let entries = [];
+  try { entries = fs.readdirSync(skillsDir); } catch { return; }
+  const stale = entries.filter((n) =>
+    /^epic-feature-workflow.*\.tar\.gz$/i.test(n));
+  for (const n of stale) {
+    const p = path.join(skillsDir, n);
+    try { fs.unlinkSync(p); out(`swept stale skill tarball: ${p}`); }
+    catch (e) { warn(`could not remove ${p}: ${e.message}`); }
+  }
+}
+sweepStaleTarballs();
+
 // ── Step 1: agents ─────────────────────────────────────────────────────────
 out(`installing agents to ${AGENTS_DST}`);
 if (ensureDir(AGENTS_DST)) {
@@ -260,6 +281,21 @@ function detectScope() {
       cwd: repoRoot,
     };
   }
+  // v0.14.2 / L-055 — fall back to plain npm-global layouts:
+  //   <prefix>/lib/node_modules/pi-epicflow  (POSIX: /usr/local, ~/.npm-global, /opt/homebrew, nvm/fnm)
+  //   <prefix>/node_modules/pi-epicflow      (Windows: %AppData%\npm)
+  // Detected by walking up from PKG_ROOT looking for the node_modules
+  // parent. If found, treat as global scope and use the global pi
+  // settings file at ~/.pi/agent/settings.json (which is where the
+  // dep installs need to register).
+  if (/[/\\]node_modules[/\\]pi-epicflow[/\\]?$/.test(PKG_ROOT)) {
+    return {
+      scope: "global",
+      settings: path.join(globalRoot, "settings.json"),
+      cwd: process.cwd(),
+      via: "npm-global",
+    };
+  }
   return { scope: "unknown", settings: null, cwd: process.cwd() };
 }
 
@@ -327,7 +363,8 @@ if (process.env.PI_EPICFLOW_NO_AUTOINSTALL_DEPS === "1") {
       warn("  set PI_BIN=/path/to/pi and re-run `pi update git:github.com/shankar029/pi-epicflow`,");
       warn("  or install manually:  pi install npm:pi-subagents npm:pi-intercom");
     } else {
-      out(`ensuring pi-subagents + pi-intercom (${scope.scope} scope${scope.cwd ? `, cwd=${scope.cwd}` : ""})`);
+      const scopeLabel = scope.via ? `${scope.scope} via ${scope.via}` : scope.scope;
+      out(`ensuring pi-subagents + pi-intercom (${scopeLabel} scope${scope.cwd ? `, cwd=${scope.cwd}` : ""})`);
       for (const dep of REQUIRED_DEPS) ensureDep(piBin, scope, dep);
     }
   }

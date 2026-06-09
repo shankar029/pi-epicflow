@@ -6,44 +6,70 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### Added
+## [0.14.2] — 2026-06-09
+
+### Added (site — between v0.14.1 and v0.14.2)
 
 - **In-site Quickstart page** at
   [`#/quickstart`](https://shankar029.github.io/pi-epicflow/#/quickstart).
   4-step walkthrough (install pi → install pi-epicflow → verify → pick
   first-use path), 3 branching path tutorials (project-memory only,
-  epic-only, both pillars), troubleshooting section. Header nav now has
+  epic-only, both pillars), troubleshooting. Header nav gets
   Quickstart link before Docs and Blog. Hero CTA button rewired from
   GitHub README anchor to `#/quickstart`.
 
-- **L-054 (lesson)**: documented the npm-global-prefix EACCES cliff in
-  Quickstart troubleshooting + a dedicated warn callout in step 2.
-  Discovered when doing a fresh smoke of `pi install npm:pi-epicflow`
-  &mdash; on any Linux/WSL/macOS where global npm prefix is `/usr/local`
-  (root-owned, which is most default node installs), the install fails
-  with EACCES on the rename step. Four documented fixes ordered by
-  preference: re-point npm prefix to `~/.npm-global` (recommended); use
-  nvm/fnm/volta (best long-term); sudo (NOT recommended &mdash; creates
-  root-owned files in `~/.pi`); fall back to git source.
-
-- **New "Worktree topology" docs page** at `#/docs/worktrees` covering
-  the two top-level patterns (default vs dedicated epic worktree),
-  per-feature worktrees, when to pick which, why-this-design rationale,
-  and cleanup recipes for orphaned worktrees.
+- **"Worktree topology" docs page** at `#/docs/worktrees` covering
+  default vs dedicated-epic-worktree patterns, per-feature worktrees,
+  when-to-pick-which table, rationale, and cleanup recipes.
 
 - **"Reference docs" section on the website** at
-  [`#/docs`](https://shankar029.github.io/pi-epicflow/#/docs).
-  9 reference pages: Overview, Slash commands, CLI scripts, Personas,
-  Skills, Brain artifacts, Trigger phrases, Halt codes (H1–H7),
+  [`#/docs`](https://shankar029.github.io/pi-epicflow/#/docs). 9
+  reference pages: Overview, Commands, Scripts, Personas, Skills,
+  Brain artifacts, Trigger phrases, Halt codes (H1–H7),
   Install & config. Each page has a "Source on GitHub" deep-link.
 
-### Fixed
+### Fixed (npm — ship in the v0.14.2 tarball)
 
-- **All install commands across the site now lead with npm**
+- **postinstall scope detection (L-055)** — `pi install npm:pi-epicflow`
+  installed under a plain npm-global prefix (`/usr/local/lib/node_modules/`,
+  `~/.npm-global/lib/node_modules/`, nvm/fnm/Homebrew/volta layouts,
+  `%AppData%\npm\node_modules\`) now correctly resolves as `global` scope
+  via the new "npm-global" fallback regex matching
+  `*/(lib/)?node_modules/pi-epicflow$`. Previously the install-scope
+  detector only knew about pi's own `~/.pi/agent/` and `<repo>/.pi/{git,npm}/`
+  layouts, so any npm-global install printed `WARN: could not detect
+  install scope` and skipped the auto-install of `pi-subagents` /
+  `pi-intercom`. Users then hit a mid-`/epic-run-auto` "subagent tool
+  not found" and had to bounce their pi session.
+
+- **stale skill-tarball sweep (L-056)** — postinstall now removes any
+  `~/.pi/agent/skills/epic-feature-workflow*.tar.gz` left over from
+  pre-v0.4 installs (when pi packaged the skill as a tarball instead
+  of an unpacked directory). Pi's own `pi update` never touches these,
+  so the junk accumulates silently.
+
+- **`pi-epicflow-doctor`: proactive npm-prefix EACCES detection (L-054)**
+  — new `── npm prefix ──` section runs `npm config get prefix`,
+  checks writability of `<prefix>/lib/node_modules`, and prints the
+  fix recipe (re-point npm to `~/.npm-global`) if not writable.
+  Surfaces the cliff BEFORE the user hits it on their next
+  `pi update`. PowerShell parity in `scripts-win/pi-epicflow-doctor.ps1`
+  (uses `%LOCALAPPDATA%\npm-global` for Windows users).
+
+- **`pi-epicflow-doctor`: pending agent-update visibility (L-057)**
+  — new `── pending agent updates ──` section lists every `*.new`
+  file under `~/.pi/agent/agents/` (staged by postinstall's
+  non-destructive overwrite) with a one-line `diff` + accept/reject
+  recipe. Previously these were only mentioned in scrollback during
+  install; now surfaced on demand.
+
+### Fixed (site polish since v0.14.1)
+
+- **All install commands across the site lead with npm**
   (`pi install npm:pi-epicflow@^0.14`) instead of the git source.
-  Git source is now positioned as the fallback for unreleased commits.
-  Affects: landing TerminalWindow snippet, blog `v0-14-end-to-end-guide`
-  install block, docs `config` page.
+  Git source repositioned as the fallback for unreleased commits.
+  Affects: landing TerminalWindow snippet, blog
+  `v0-14-end-to-end-guide` install block, docs `config` page.
 
 - **Lead with "this is a pi plugin"** in README, site Hero, and docs
   overview. Prior copy assumed readers knew what pi was; now there's an
@@ -52,6 +78,15 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 - **Complete-guide blog post halt table corrected** from invented
   H1–H11 to real H1–H7. Linked to new `#/docs/halts` reference.
+
+### Notes
+
+- The four npm-package fixes above were discovered during a smoke test
+  of `pi install npm:pi-epicflow@^0.14` in a fresh prefix and verified
+  by re-running the smoke + doctor against seeded test conditions
+  (stale tarball + .new file). All four are pure surface improvements
+  — no behavioral change for users who weren't already in the broken
+  state.
 
 ## [0.14.1] — 2026-05-26
 
